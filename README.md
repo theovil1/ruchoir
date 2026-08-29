@@ -43,7 +43,7 @@ migrates an existing Nextcloud or Mattermost instance in under two minutes.
 Prerequisites: Docker and Docker Compose.
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/theovil1/workchat.git
 cd workchat
 docker compose up
 ```
