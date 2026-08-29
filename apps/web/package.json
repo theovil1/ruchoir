@@ -11,7 +11,13 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@dicebear/core": "^10.7.0",
+    "@dicebear/styles": "^10.6.0",
+    "emoji-regex": "^10.6.0",
+    "highlight.js": "^11.12.0",
+    "lucide-react": "^1.37.0",
     "next": "16.3.3",
+    "node-emoji": "^2.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

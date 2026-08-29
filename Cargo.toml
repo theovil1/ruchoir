@@ -20,6 +20,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Loads a local `.env` for `cargo run` (dev convenience). Community, MIT: compliant with the
+# no-US-dependency rule. Never overrides variables already set in the real environment.
+dotenvy = "0.15"
 # OpenAPI generation from code (dynamic, always in sync). `utoipa` is community,
 # EU-authored: compliant with the no-US-dependency rule.
 utoipa = { version = "5", features = ["axum_extras"] }
