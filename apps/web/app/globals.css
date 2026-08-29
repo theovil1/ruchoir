@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens (Tailwind v4 is CSS-first: theme values live here, not in a JS config).
+ * This is the baseline encoding the two hard brand rules: Terracotta is the single
+ * saturated accent, and IBM Plex Sans/Mono are the type families. The full design system
+ * (olive-tinted neutrals, semantic scales, elevation, motion) is wired in later.
+ */
+@theme {
+  --font-sans: "IBM Plex Sans", "Helvetica Neue", Helvetica, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* The only saturated color in the product. Use sparingly, as an accent. */
+  --color-terracotta-50: #fdf3f0;
+  --color-terracotta-100: #fbe0d9;
+  --color-terracotta-200: #f5beb1;
+  --color-terracotta-300: #ee9484;
+  --color-terracotta-400: #e76f5b;
+  --color-terracotta-500: #e0533d;
+  --color-terracotta-600: #c43f2b;
+  --color-terracotta-700: #9e3222;
+  --color-terracotta-800: #75261a;
+  --color-terracotta-900: #48170f;
+}
+
+/*
+ * Self-hosted IBM Plex fonts (OFL). Sovereignty rule: never load fonts from Google Fonts
+ * or any external CDN. Drop the woff2 files into `public/fonts/` (see the README there).
+ * Until they are present the stack falls back to system fonts; the build still succeeds.
+ */
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-sans-var.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-var.woff2") format("woff2");
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-white text-neutral-800 font-sans antialiased;
+  font-size: 14px;
+}

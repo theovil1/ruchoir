@@ -1,0 +1,24 @@
+# Keep the build context small and never ship local-only or secret files into images.
+
+# Build output
+target/
+**/node_modules/
+apps/web/.next/
+apps/web/out/
+dist/
+
+# VCS and CI
+.git/
+.github/
+
+# Local-only, private, AI-facing or asset files (also gitignored)
+.claude/
+CLAUDE.md
+CAHIER-DES-CHARGES.md
+fixtures/
+workchat-design-system/
+
+# Secrets and env
+.env
+.env.*
+!.env.example

@@ -1,0 +1,8 @@
+# Node / Next.js
+/node_modules/
+/.next/
+/out/
+/.turbo/
+
+# Next.js generated type stub is regenerated on build; keep it out of git.
+# (Committed here would fight the generator; ignore it instead.)
