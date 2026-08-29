@@ -5,7 +5,8 @@ import next from "eslint-config-next";
 
 const config = [
   ...next,
-  { ignores: [".next/**", "out/**", "next-env.d.ts"] },
+  // Build output, generated types and vendored third-party assets are not linted.
+  { ignores: [".next/**", "out/**", "next-env.d.ts", "public/vendor/**"] },
 ];
 
 export default config;
