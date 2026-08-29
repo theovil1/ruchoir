@@ -1,0 +1,36 @@
+# Cargo workspace root for the Workchat backend.
+# The Rust API is the single production service (it also serves the static web bundle).
+[workspace]
+resolver = "2"
+members = ["apps/api"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.96"
+license = "AGPL-3.0-only"
+repository = "https://github.com/theovil1/workchat"
+
+# Shared dependency versions. Pin exact minor versions here; keep AGENTS.md in sync.
+[workspace.dependencies]
+tokio = { version = "1.53", features = ["rt-multi-thread", "net", "macros", "signal"] }
+axum = "0.8"
+tower = "0.5"
+tower-http = { version = "0.7", features = ["fs", "trace", "set-header", "cors"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# OpenAPI generation from code (dynamic, always in sync). `utoipa` is community,
+# EU-authored: compliant with the no-US-dependency rule.
+utoipa = { version = "5", features = ["axum_extras"] }
+# Optional dev TLS. Uses the community `ring` crypto provider (not AWS `aws-lc-rs`),
+# per the no-US-dependency rule. Enabled through the `tls` feature of apps/api.
+axum-server = { version = "0.8", default-features = false, features = ["tls-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+
+[profile.release]
+# Lean, fast production binary.
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

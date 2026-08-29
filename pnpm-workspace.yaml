@@ -1,0 +1,7 @@
+# pnpm workspace: the frontend (and, later, shared TS packages under packages/).
+# The Rust API (apps/api) is a Cargo workspace member, not a pnpm one.
+# packages/* are added here when they become real pnpm packages (design system later).
+packages:
+  - "apps/web"
+allowBuilds:
+  unrs-resolver: true
