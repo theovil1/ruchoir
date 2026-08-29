@@ -1,0 +1,123 @@
+"use client";
+
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+
+type Coords = { top: number; left: number };
+
+export type PopoverProps<T extends HTMLElement = HTMLElement> = {
+  /** The element the popover is anchored to. */
+  anchorRef: RefObject<T | null>;
+  open: boolean;
+  onClose: () => void;
+  /** Preferred side; the popover flips/shifts to stay in the viewport. */
+  placement?: "top" | "bottom";
+  /** Horizontal edge of the anchor to align to. */
+  align?: "start" | "end";
+  children: ReactNode;
+};
+
+const MARGIN = 8;
+const GAP = 6;
+
+/**
+ * A floating layer, portaled to the body and positioned with viewport-aware coordinates so it
+ * never overflows: it flips between top/bottom depending on room, and clamps horizontally.
+ * Closes on outside click or Escape.
+ */
+export function Popover<T extends HTMLElement = HTMLElement>({
+  anchorRef,
+  open,
+  onClose,
+  placement = "top",
+  align = "start",
+  children,
+}: PopoverProps<T>) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<Coords | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    const compute = () => {
+      const anchor = anchorRef.current?.getBoundingClientRect();
+      const content = contentRef.current?.getBoundingClientRect();
+      if (!anchor) return;
+      const cw = content?.width ?? 320;
+      const ch = content?.height ?? 280;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      const roomAbove = anchor.top;
+      const roomBelow = vh - anchor.bottom;
+      const wantAbove = placement === "top";
+      const fitsAbove = roomAbove >= ch + GAP + MARGIN;
+      const fitsBelow = roomBelow >= ch + GAP + MARGIN;
+      const above = wantAbove ? fitsAbove || !fitsBelow : !(fitsBelow || !fitsAbove);
+
+      let top = above ? anchor.top - ch - GAP : anchor.bottom + GAP;
+      top = Math.max(MARGIN, Math.min(top, vh - ch - MARGIN));
+
+      let left = align === "end" ? anchor.right - cw : anchor.left;
+      left = Math.max(MARGIN, Math.min(left, vw - cw - MARGIN));
+
+      setPos({ top, left });
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    window.addEventListener("scroll", compute, true);
+    return () => {
+      window.removeEventListener("resize", compute);
+      window.removeEventListener("scroll", compute, true);
+    };
+  }, [open, anchorRef, placement, align]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (contentRef.current?.contains(t) || anchorRef.current?.contains(t)) return;
+      onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose, anchorRef]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  const origin = `${placement === "top" ? "bottom" : "top"} ${align === "end" ? "right" : "left"}`;
+
+  return createPortal(
+    <div
+      ref={contentRef}
+      className={pos ? "wc-pop" : undefined}
+      style={{
+        position: "fixed",
+        top: pos?.top ?? 0,
+        left: pos?.left ?? 0,
+        zIndex: 80,
+        visibility: pos ? "visible" : "hidden",
+        // @ts-expect-error CSS custom property
+        "--wc-pop-origin": origin,
+      }}
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}

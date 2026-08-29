@@ -1,0 +1,262 @@
+/*
+ * Workchat design tokens, ported from the design-system handoff.
+ *
+ * These are the raw CSS custom properties the design-system component styles resolve
+ * against (see components.css). The Tailwind `@theme` block in globals.css mirrors the
+ * brand subset so Tailwind utilities exist too; this file is the full source of truth
+ * for the component layer. Terracotta is the only saturated colour in the product.
+ */
+
+:root {
+  /* Neutrals: olive-tinted grey (h~=105, very low chroma). The skeleton of the UI. */
+  --grey-0: #fcfcfb;
+  --grey-25: #f8f8f5;
+  --grey-50: #f1f1ec;
+  --grey-100: #e7e7e1;
+  --grey-200: #d8d8d0;
+  --grey-300: #bebeb4;
+  --grey-400: #9c9c92;
+  --grey-500: #7a7a71;
+  --grey-600: #5c5c55;
+  --grey-700: #43433e;
+  --grey-800: #2c2c29;
+  --grey-900: #1a1a18;
+
+  /* Terracotta: the brand colour. The only saturated colour in the whole product. */
+  --terracotta-50: #fdf3f0;
+  --terracotta-100: #fbe0d9;
+  --terracotta-200: #f5beb1;
+  --terracotta-300: #ee9484;
+  --terracotta-400: #e76f5b;
+  --terracotta-500: #e0533d;
+  --terracotta-600: #c43f2b;
+  --terracotta-700: #9e3222;
+  --terracotta-800: #75261a;
+  --terracotta-900: #48170f;
+
+  /* Semantic scales: desaturated, never competing with terracotta. */
+  --green-50: #eef6f1;
+  --green-100: #d3e8dc;
+  --green-500: #1f7a4d;
+  --green-600: #186340;
+  --green-700: #124b31;
+
+  --amber-50: #fbf4e6;
+  --amber-100: #f3e3bf;
+  --amber-500: #a9750c;
+  --amber-600: #8a5f09;
+  --amber-700: #6b4a07;
+
+  --crimson-50: #fceff1;
+  --crimson-100: #f6d6db;
+  --crimson-500: #b7243a;
+  --crimson-600: #971c2f;
+  --crimson-700: #761624;
+
+  --blue-50: #eef2f9;
+  --blue-100: #d5dff1;
+  --blue-500: #2c5fa8;
+  --blue-600: #234c88;
+  --blue-700: #1b3a68;
+
+  /* Alpha veils: laid over unknown backgrounds (images, video, hovers). */
+  --alpha-ink-4: rgb(26 26 24 / 0.04);
+  --alpha-ink-8: rgb(26 26 24 / 0.08);
+  --alpha-ink-16: rgb(26 26 24 / 0.16);
+  --alpha-ink-60: rgb(26 26 24 / 0.6);
+  --alpha-paper-70: rgb(252 252 251 / 0.7);
+  --alpha-paper-90: rgb(252 252 251 / 0.9);
+
+  /*
+   * Type scale. L5a reframing (see docs/specs/L5a-reframing-log.md): bumped one notch to a
+   * "comfort" density (PM found the DS 1440-calibrated scale too small on wider screens).
+   * DS originals were 11/12/13/14/16/18/22. Restore those to return to the dense DS scale.
+   */
+  --text-2xs: 12px;
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 38px;
+  --text-5xl: 50px;
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-loose: 1.65;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-display: -0.02em;
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --tracking-caps: 0.06em;
+
+  /* Spacing: 4px grid, 2px half-steps for optical adjustments. */
+  --space-0: 0;
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* Fixed layout templates for the web app. Bumped with the L5a comfort density (see above);
+   * DS originals: rail 56, sidebar 248, panel 320, topbar 48, composer 44, hit-target 32. */
+  --rail-width: 60px;
+  --sidebar-width: 264px;
+  --panel-width: 340px;
+  /* Thread panel is wider than the files/members panel: it holds a conversation. */
+  --thread-width: 420px;
+  /* Drives every top bar (wordmark, channel header, panel heads) so they align. */
+  --topbar-height: 48px;
+  --composer-min-height: 48px;
+  --content-max-width: 720px;
+  --hit-target: 36px;
+
+  /*
+   * L5a reframing (see docs/specs/L5a-reframing-log.md): the channel feed uses a wider
+   * reading measure than the DS document measure (--content-max-width, 720px). A chat feed
+   * is not a document; 720px left too much idle horizontal space. Kept centered.
+   */
+  --channel-measure: 960px;
+
+  /* Radii: short. The brand is angular, not rounded. */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-full: 999px;
+
+  --border-width: 1px;
+  --border-width-strong: 2px;
+
+  /* Elevation: read the hairline first, the shadow second. Two shadows, not ten. */
+  --shadow-none: none;
+  --shadow-popover: 0 1px 2px rgb(26 26 24 / 0.06), 0 8px 20px -6px rgb(26 26 24 / 0.14);
+  --shadow-dialog: 0 2px 4px rgb(26 26 24 / 0.06), 0 24px 48px -12px rgb(26 26 24 / 0.22);
+  --shadow-inset-top: inset 0 1px 0 rgb(252 252 251 / 0.12);
+
+  --ring-width: 2px;
+  --ring-offset: 1px;
+  --focus-ring: 0 0 0 var(--ring-offset) var(--grey-0),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--terracotta-500);
+
+  /* Motion: short, dry, no bounce. Nothing draws attention to itself. */
+  --duration-instant: 80ms;
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 260ms;
+
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  --ease-entrance: cubic-bezier(0.16, 0.84, 0.44, 1);
+
+  /* Surfaces */
+  --surface-canvas: var(--grey-0);
+  --surface-sunken: var(--grey-50);
+  --surface-card: var(--grey-0);
+  --surface-raised: var(--grey-0);
+  --surface-chrome: var(--grey-25);
+  --surface-inverse: var(--grey-900);
+  --surface-hover: var(--alpha-ink-4);
+  --surface-active: var(--alpha-ink-8);
+  --surface-selected: var(--terracotta-50);
+  --surface-disabled: var(--grey-50);
+  --scrim: var(--alpha-ink-60);
+
+  /* Text */
+  --text-strong: var(--grey-900);
+  --text-body: var(--grey-800);
+  --text-muted: var(--grey-600);
+  --text-subtle: var(--grey-500);
+  --text-disabled: var(--grey-400);
+  --text-inverse: var(--grey-0);
+  --text-accent: var(--terracotta-700);
+  --text-link: var(--terracotta-700);
+  --text-link-hover: var(--terracotta-800);
+
+  /* Hairlines */
+  --border-subtle: var(--grey-100);
+  --border-default: var(--grey-200);
+  --border-strong: var(--grey-300);
+  --border-inverse: rgb(252 252 251 / 0.18);
+  --border-accent: var(--terracotta-500);
+
+  /* Primary action */
+  --action-primary-bg: var(--terracotta-500);
+  --action-primary-bg-hover: var(--terracotta-600);
+  --action-primary-bg-active: var(--terracotta-700);
+  --action-primary-fg: var(--grey-0);
+
+  /* Secondary action (outlined) */
+  --action-secondary-bg: var(--grey-0);
+  --action-secondary-bg-hover: var(--grey-50);
+  --action-secondary-bg-active: var(--grey-100);
+  --action-secondary-fg: var(--grey-800);
+  --action-secondary-border: var(--grey-200);
+
+  /* Ghost action */
+  --action-ghost-bg-hover: var(--alpha-ink-4);
+  --action-ghost-bg-active: var(--alpha-ink-8);
+  --action-ghost-fg: var(--grey-700);
+
+  /* Destructive action */
+  --action-danger-bg: var(--crimson-500);
+  --action-danger-bg-hover: var(--crimson-600);
+  --action-danger-fg: var(--grey-0);
+
+  /* Feedback states */
+  --status-success-fg: var(--green-700);
+  --status-success-bg: var(--green-50);
+  --status-success-border: var(--green-100);
+  --status-warning-fg: var(--amber-700);
+  --status-warning-bg: var(--amber-50);
+  --status-warning-border: var(--amber-100);
+  --status-danger-fg: var(--crimson-700);
+  --status-danger-bg: var(--crimson-50);
+  --status-danger-border: var(--crimson-100);
+  --status-info-fg: var(--blue-700);
+  --status-info-bg: var(--blue-50);
+  --status-info-border: var(--blue-100);
+
+  /* Presence: avatar dots */
+  --presence-online: var(--green-500);
+  --presence-away: var(--amber-500);
+  --presence-busy: var(--crimson-500);
+  --presence-offline: var(--grey-300);
+
+  /* Import provenance (Nextcloud, Slack, Mattermost): grey, never coloured. */
+  --import-source-fg: var(--grey-600);
+  --import-source-bg: var(--grey-50);
+}
+
+/* Base reset, ported from the handoff's base tokens. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+::selection {
+  background: var(--terracotta-100);
+  color: var(--terracotta-900);
+}
+::placeholder {
+  color: var(--text-subtle);
+}

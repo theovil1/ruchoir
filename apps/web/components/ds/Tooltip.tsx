@@ -1,0 +1,125 @@
+"use client";
+
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+export type TooltipSide = "top" | "bottom" | "left" | "right";
+
+export type TooltipProps = {
+  label: ReactNode;
+  shortcut?: string;
+  side?: TooltipSide;
+  children: ReactNode;
+  className?: string;
+};
+
+type Coords = { top: number; left: number };
+
+const MARGIN = 8;
+const GAP = 6;
+
+function place(side: TooltipSide, a: DOMRect, w: number, h: number, vw: number, vh: number): Coords {
+  const cx = a.left + a.width / 2;
+  const cy = a.top + a.height / 2;
+  let top = 0;
+  let left = 0;
+  let s = side;
+  // Flip to the opposite side when there is no room.
+  if (s === "top" && a.top - h - GAP < MARGIN) s = "bottom";
+  else if (s === "bottom" && a.bottom + h + GAP > vh - MARGIN) s = "top";
+  else if (s === "left" && a.left - w - GAP < MARGIN) s = "right";
+  else if (s === "right" && a.right + w + GAP > vw - MARGIN) s = "left";
+
+  if (s === "top") {
+    top = a.top - h - GAP;
+    left = cx - w / 2;
+  } else if (s === "bottom") {
+    top = a.bottom + GAP;
+    left = cx - w / 2;
+  } else if (s === "left") {
+    top = cy - h / 2;
+    left = a.left - w - GAP;
+  } else {
+    top = cy - h / 2;
+    left = a.right + GAP;
+  }
+  top = Math.max(MARGIN, Math.min(top, vh - h - MARGIN));
+  left = Math.max(MARGIN, Math.min(left, vw - w - MARGIN));
+  return { top, left };
+}
+
+const bubble: CSSProperties = {
+  position: "fixed",
+  zIndex: 90,
+  pointerEvents: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  background: "var(--surface-inverse)",
+  color: "var(--text-inverse)",
+  fontSize: "var(--text-xs)",
+  lineHeight: 1.3,
+  padding: "5px var(--space-2)",
+  borderRadius: "var(--radius-sm)",
+  whiteSpace: "nowrap",
+  boxShadow: "var(--shadow-popover)",
+};
+
+/** Dark hover tooltip, portaled and viewport-aware (flips/clamps so it never overflows). */
+export function Tooltip({ label, shortcut, side = "top", children, className = "" }: TooltipProps) {
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<Coords | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    const compute = () => {
+      const a = anchorRef.current?.getBoundingClientRect();
+      const b = bubbleRef.current?.getBoundingClientRect();
+      if (!a) return;
+      setPos(place(side, a, b?.width ?? 80, b?.height ?? 24, window.innerWidth, window.innerHeight));
+    };
+    compute();
+    window.addEventListener("scroll", compute, true);
+    window.addEventListener("resize", compute);
+    return () => {
+      window.removeEventListener("scroll", compute, true);
+      window.removeEventListener("resize", compute);
+    };
+  }, [open, side]);
+
+  return (
+    <span
+      ref={anchorRef}
+      className={className}
+      style={{ display: "inline-flex" }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setOpen(false)}
+    >
+      {children}
+      {open && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              ref={bubbleRef}
+              role="tooltip"
+              className="wc-pop"
+              style={{ ...bubble, top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? "visible" : "hidden" }}
+            >
+              {label}
+              {shortcut ? (
+                <span style={{ marginLeft: "var(--space-2)", color: "var(--grey-400)", fontFamily: "var(--font-mono)" }}>
+                  {shortcut}
+                </span>
+              ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
+    </span>
+  );
+}
