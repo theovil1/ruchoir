@@ -1,0 +1,20 @@
+# Local, private, or AI-facing files that must never reach the public repo.
+# The only AI-facing file allowed on the repo is AGENTS.md.
+/CLAUDE.md
+/CAHIER-DES-CHARGES.md
+/.claude/
+
+# Local development assets: import fixtures, work exports, seed stacks, design handoff.
+/fixtures/
+/workchat-design-system/
+
+# Secrets and environment.
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output (filled in as the stack lands).
+/node_modules/
+/target/
+/.next/
+/dist/
