@@ -30,7 +30,7 @@ migrates an existing Nextcloud or Mattermost instance in under two minutes.
 | API | Rust (axum, tokio) |
 | Real-time | WebSocket with SSE fallback |
 | Web | Next.js, React, TypeScript, Tailwind CSS (static export, served by the API) |
-| Data | PostgreSQL, Redis |
+| Data | PostgreSQL, Valkey |
 | Object storage | Garage (S3-compatible) |
 | Auth | Native in the API (argon2id, server sessions, TOTP, passkeys) |
 | Runtime | Docker Compose |

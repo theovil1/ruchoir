@@ -44,12 +44,37 @@ Web interface only for now. The core is open source under **AGPLv3**.
 - **Frontend:** Next.js + React + TypeScript + Tailwind CSS, built as a **static export** (no SSR,
   no Server Actions, no Next API routes). **No Node in production:** the static bundle is served by
   the Rust API. Next.js is a build tool only.
-- **Database:** PostgreSQL (source of truth) + Redis (presence, real-time pub/sub, cache, sessions).
+- **Database:** PostgreSQL (source of truth) + Valkey (presence, real-time pub/sub, cache, sessions).
+  Valkey (Linux Foundation, BSD-3) is the key-value store; it speaks the Redis protocol (RESP), so
+  the usual Rust clients work unchanged. Chosen over Redis for neutral governance (2026-08-29).
 - **Object storage:** Garage (S3-compatible, Rust, AGPLv3) via an S3 abstraction. Client: `rust-s3`.
-- **Auth:** native in the Rust API (argon2id password hashing, opaque server sessions in Redis,
+- **Auth:** native in the Rust API (argon2id password hashing, opaque server sessions in Valkey,
   TOTP + WebAuthn/passkeys, encrypted recovery keys). Optional OIDC connectors for Google and
   Microsoft, disabled by default (opt-in, see Golden rule #2). No Node-side auth.
 - **Containerization:** Docker + `docker compose` (all-in-one deployment).
+
+## Pinned versions
+
+Exact toolchains and pins as of 2026-08-29. Bump deliberately, and always to the
+**latest stable** verified against the live registry (never from memory). A local
+dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every push.
+
+| Area | Pin | Where |
+|---|---|---|
+| Rust toolchain | 1.96.0 (rustfmt, clippy) | `rust-toolchain.toml` |
+| axum / axum-server | 0.8 / 0.8 (rustls + `ring`) | `Cargo.toml` |
+| tokio / tower / tower-http | 1.53 / 0.5 / 0.7 | `Cargo.toml` |
+| tracing / tracing-subscriber | 0.1 / 0.3 | `Cargo.toml` |
+| serde / serde_json | 1 / 1 | `Cargo.toml` |
+| utoipa (OpenAPI) | 5 | `Cargo.toml` |
+| Node (build only) | 24 (LTS) | `.nvmrc` |
+| pnpm | 11.24.0 | root `package.json` (`packageManager`) |
+| Next.js / React | 16.3.3 / 19.2 | `apps/web/package.json` |
+| TypeScript / ESLint | 6 / 9 (flat config) | `apps/web/package.json` |
+| Tailwind CSS | 4 (CSS-first) | `apps/web/package.json` |
+| PostgreSQL | 18-alpine | `docker-compose.yml` |
+| Valkey | 9-alpine | `docker-compose.yml` |
+| Garage | v2.3.0 | `docker-compose.yml` |
 
 ## Repository layout (monorepo)
 
@@ -60,33 +85,36 @@ packages/importer/   Nextcloud/Mattermost import scripts + lib - has its own AGE
 packages/design-system/  React components + design tokens - has its own AGENTS.md
 migrations/          Versioned SQL migrations
 docs/                Technical documentation (EN)
-docker-compose.yml   Full stack (api, web, PostgreSQL, Redis, Garage)
+docker-compose.yml   Full stack (api, web, PostgreSQL, Valkey, Garage)
 ```
 
 ## Setup commands
 
-> Fill in exact commands as the project takes shape; keep them accurate.
+See `docs/development.md` for the full workflow. Quick reference:
 
-- Start the full stack: `docker compose up`
-- Backend (dev): `cargo run` in `apps/api/`
-- Frontend (dev): `pnpm dev` in `apps/web/`
-- DB migrations: run the versioned migrations in `migrations/`
+- Configure env: `cp .env.example .env` (never commit `.env`).
+- Build the web export: `pnpm install && pnpm --filter @workchat/web build`.
+- Run the API (serves the export at http://localhost:8080): `cargo run -p workchat-api`.
+- Full stack: `docker compose up --build`.
+- Optional dev TLS: `scripts/dev-tls.sh`, then `cargo run -p workchat-api --features tls`.
 
 ## Build, test & lint
 
-- **Rust:** `cargo fmt`, `cargo clippy`, `cargo test` (run before every PR).
-- **Web:** package manager `pnpm`; `pnpm lint`, `pnpm test`, `pnpm build`.
+- **Rust:** `cargo fmt --all --check`, `cargo clippy --all-targets --all-features -- -D warnings`,
+  `cargo test --all-features` (run before every PR; CI enforces them).
+- **Web:** package manager `pnpm`; `pnpm --filter @workchat/web lint` and `... build`.
+- **Dependencies:** `scripts/check-deps.sh` for an outdated + security-audit sweep.
 - **Design adherence:** the design system ships an oxlint config
   (`packages/design-system/_adherence.oxlintrc.json`) - run it to enforce design-token usage.
 - Delegate code style to the linter/formatter, not to prose review.
 
 ## Architecture notes
 
-- The Rust API is stateless (shared state in Postgres/Redis) so it can run behind a load balancer.
+- The Rust API is stateless (shared state in Postgres/Valkey) so it can run behind a load balancer.
   It also serves the frontend's static bundle; there is a single production service.
 - The Rust API never trusts the client: every request is authenticated and authorized server-side.
 - **Auth:** fully owned by the Rust API. Passwords are argon2id; sessions are opaque server-side
-  records in Redis delivered as `httpOnly`+`Secure`+`SameSite` cookies. The frontend holds no auth
+  records in Valkey delivered as `httpOnly`+`Secure`+`SameSite` cookies. The frontend holds no auth
   secret. Define argon2id params, session lifetime and the WebAuthn flow before broad work.
 - **Storage:** all file operations go through the S3 abstraction; the backend (Garage by default)
   is interchangeable and never hard-coded.
@@ -116,7 +144,7 @@ Follow it strictly:
 
 Encryption model: strong encryption **at rest and in transit** (not end-to-end at the MVP; the
 server can read content to power search, previews and import). No sensitive data in clear anywhere,
-including logs. Full detail lives in `CAHIER-DES-CHARGES.md` §8bis.
+including logs.
 
 - **In transit:** TLS everywhere (reject plaintext HTTP), `wss://` only, HSTS; aim for TLS/mTLS
   between internal services.
