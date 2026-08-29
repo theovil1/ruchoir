@@ -1,0 +1,89 @@
+# Workchat all-in-one stack for local development and single-node deployment.
+#
+# One production service (`api`) serves both the REST/real-time API and the static web
+# bundle. It is backed by PostgreSQL (source of truth), Valkey (sessions, pub/sub,
+# presence, cache) and Garage (S3-compatible object storage).
+#
+# Copy `.env.example` to `.env` and fill in values before `docker compose up`.
+name: workchat
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-workchat}
+      POSTGRES_USER: ${POSTGRES_USER:-workchat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      # Postgres 18+ images store data in a version-specific subdirectory, so the mount
+      # point is /var/lib/postgresql (not /var/lib/postgresql/data as in older images).
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-workchat} -d ${POSTGRES_DB:-workchat}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  valkey:
+    image: valkey/valkey:9-alpine
+    command: ["valkey-server", "--save", "60", "1", "--appendonly", "yes"]
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  garage:
+    image: dxflrs/garage:v2.3.0
+    environment:
+      # Secrets are injected here, never stored in the repo (see infra/garage/garage.toml).
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET in .env}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-}
+    volumes:
+      - ./infra/garage/garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      WORKCHAT_API_HOST: 0.0.0.0
+      WORKCHAT_API_PORT: 8080
+      WORKCHAT_WEB_DIST: /srv/workchat/web
+      RUST_LOG: ${RUST_LOG:-info}
+      DATABASE_URL: postgres://${POSTGRES_USER:-workchat}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-workchat}
+      VALKEY_URL: redis://valkey:6379
+      S3_ENDPOINT: http://garage:3900
+      S3_REGION: ${S3_REGION:-garage}
+      S3_BUCKET: ${S3_BUCKET:-workchat}
+    ports:
+      # Host port is configurable (default 8080) to avoid clashes with other local projects.
+      # Only the published host port changes; the container still listens on 8080.
+      - "${WORKCHAT_HOST_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      garage:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  valkey-data:
+  garage-meta:
+  garage-data:

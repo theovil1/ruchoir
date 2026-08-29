@@ -1,0 +1,32 @@
+# Garage configuration for single-node local development.
+#
+# Secrets are intentionally NOT stored here (see AGENTS.md). Garage reads
+# `rpc_secret` and the admin token from the environment instead:
+#   GARAGE_RPC_SECRET   (generate with: openssl rand -hex 32)
+#   GARAGE_ADMIN_TOKEN  (generate with: openssl rand -hex 32)
+# docker-compose.yml injects them from your local .env.
+#
+# This is a dev topology (replication_factor = 1). Production uses a multi-node layout
+# and TLS between nodes; that is covered in the deployment-hardening work.
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+
+[s3_api]
+s3_region = "garage"
+api_bind_addr = "[::]:3900"
+root_domain = ".s3.garage.localhost"
+
+[s3_web]
+bind_addr = "[::]:3902"
+root_domain = ".web.garage.localhost"
+index = "index.html"
+
+[admin]
+api_bind_addr = "[::]:3903"
