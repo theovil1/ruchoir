@@ -37,7 +37,11 @@ with the community `ring` provider (never AWS `aws-lc-rs`), per the no-US-depend
 
 ## Commands
 
-- Run: `cargo run -p workchat-api`
+- Run: `cargo run -p workchat-api` (loads a local `.env` via dotenvy; real env vars win). Set
+  `WORKCHAT_API_PORT=0` for a random free port when 8080 is taken; the bound port is logged.
 - Test: `cargo test --all-features`
 - Serves `WORKCHAT_WEB_DIST` (defaults to `./apps/web/out`), so build the web app first to
   see the full app locally.
+- Optionally serves a self-hosted emoji pack under `/emoji` when `WORKCHAT_EMOJI_DIR` is set
+  (layout: `static/*.svg`, `animated/*.png`). Kept out of the web bundle because it can be large;
+  missing files 404 and the client falls back to native emoji. `ServeDir` guards path traversal.
