@@ -14,6 +14,10 @@ pub struct Config {
     pub addr: SocketAddr,
     /// Directory holding the static web bundle (Next.js export output) to serve.
     pub web_dist: PathBuf,
+    /// Optional directory holding the self-hosted emoji pack (Fluent assets), served under
+    /// `/emoji`. When unset or absent, the client falls back to native OS emoji. The pack is a
+    /// deployment choice kept out of the web bundle because it can be large.
+    pub emoji_dir: Option<PathBuf>,
     /// Optional TLS material. When both are set (and the `tls` feature is built in),
     /// the server serves HTTPS; otherwise it serves plain HTTP (local dev only).
     pub tls_cert: Option<PathBuf>,
@@ -31,6 +35,7 @@ impl Config {
             .map_err(|_| ConfigError::Invalid("WORKCHAT_API_PORT"))?;
 
         let web_dist = PathBuf::from(env_or("WORKCHAT_WEB_DIST", "./apps/web/out"));
+        let emoji_dir = env_opt("WORKCHAT_EMOJI_DIR").map(PathBuf::from);
 
         let tls_cert = env_opt("WORKCHAT_TLS_CERT").map(PathBuf::from);
         let tls_key = env_opt("WORKCHAT_TLS_KEY").map(PathBuf::from);
@@ -38,6 +43,7 @@ impl Config {
         Ok(Self {
             addr: SocketAddr::new(host, port),
             web_dist,
+            emoji_dir,
             tls_cert,
             tls_key,
         })
