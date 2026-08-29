@@ -1,0 +1,87 @@
+"use client";
+
+import { type CSSProperties, useRef, useState } from "react";
+import { Icon, IconButton, Popover } from "@/components/ds";
+
+const menu: CSSProperties = {
+  minWidth: 220,
+  padding: 4,
+  background: "var(--surface-canvas)",
+  border: "1px solid var(--border-subtle)",
+  borderRadius: "var(--radius-md)",
+  boxShadow: "var(--shadow-popover)",
+};
+
+const itemStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  width: "100%",
+  padding: "6px 8px",
+  border: 0,
+  borderRadius: "var(--radius-sm)",
+  background: "transparent",
+  color: "var(--text-body)",
+  fontFamily: "var(--font-sans)",
+  fontSize: 13,
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+type Item = { icon: string; label: string; onClick: () => void; danger?: boolean };
+
+export type ChannelMenuProps = {
+  onSettings: () => void;
+  onNotifications: () => void;
+  onAddPeople: () => void;
+  onLeave: () => void;
+};
+
+/** The channel header three-dots menu. */
+export function ChannelMenu({ onSettings, onNotifications, onAddPeople, onLeave }: ChannelMenuProps) {
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+
+  const run = (fn: () => void) => {
+    fn();
+    setOpen(false);
+  };
+
+  const items: Item[] = [
+    { icon: "settings", label: "Paramètres du canal", onClick: onSettings },
+    { icon: "inbox", label: "Notifications", onClick: onNotifications },
+    { icon: "user-plus", label: "Ajouter des personnes", onClick: onAddPeople },
+    { icon: "arrow-left", label: "Quitter le canal", onClick: onLeave, danger: true },
+  ];
+
+  return (
+    <>
+      <IconButton
+        ref={anchorRef}
+        className="wc-ibtn--bare"
+        icon="more-horizontal"
+        label="Plus d'actions"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      />
+      <Popover anchorRef={anchorRef} open={open} onClose={() => setOpen(false)} placement="bottom" align="end">
+        <div style={menu} role="menu">
+          {items.map((it) => (
+            <button
+              key={it.label}
+              type="button"
+              role="menuitem"
+              onClick={() => run(it.onClick)}
+              style={{ ...itemStyle, color: it.danger ? "var(--status-danger-fg)" : "var(--text-body)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <Icon name={it.icon} size={14} />
+              {it.label}
+            </button>
+          ))}
+        </div>
+      </Popover>
+    </>
+  );
+}
