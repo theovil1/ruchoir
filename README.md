@@ -63,6 +63,9 @@ docs/                    Technical documentation
 
 - Backend: `cargo fmt`, `cargo clippy`, `cargo test` in `apps/api/`.
 - Web: `pnpm lint`, `pnpm test`, `pnpm build` in `apps/web/`.
+- Responsive audit: `pnpm audit:responsive` in `apps/web/` (against a running dev server) sweeps the
+  UI across a wide viewport matrix and reports layout breakage. See
+  [`apps/web/tools/responsive-audit/README.md`](apps/web/tools/responsive-audit/README.md).
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/); branches use
   conventional naming (`feat/…`, `fix/…`, `chore/…`).
 

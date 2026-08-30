@@ -9,8 +9,10 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
   routes, no server-side image optimization. All server logic lives in the Rust API.
   Anything that needs a server goes through `fetch` to the API.
 - **No Node in production.** Next.js is a build tool; the output in `out/` is what ships.
-- **Self-hosted fonts.** IBM Plex Sans/Mono are served from `public/fonts/` (see the README
-  there). Never load fonts from Google Fonts or any external CDN.
+- **Self-hosted fonts.** IBM Plex Sans/Mono are served from `public/fonts/` as committed woff2
+  (latin subset, static per weight: Sans 400/500/600/700, Mono 400/500/600; OFL, see the README and
+  `OFL.txt` there). The `@font-face` rules are in `app/globals.css`, one per weight. Never load fonts
+  from Google Fonts or any external CDN. The browser-tab icon is `app/icon.svg` (the terracotta dot).
 - **CSP is strict** (`script-src 'self'`): any script or viewer must be same-origin. The
   vendored API reference viewer lives in `public/vendor/` for this reason.
 
@@ -37,6 +39,50 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
 - Dev server: `pnpm --filter @workchat/web dev`
 - Build (static export to `out/`): `pnpm --filter @workchat/web build`
 - Lint: `pnpm --filter @workchat/web lint`
+- Responsive audit: `pnpm --filter @workchat/web audit:responsive` (run against a live dev server)
+
+## Dev deep-link
+
+The app is a state machine (auth stage + view + optional modal), not routes. `lib/dev/deeplink.ts`
+reads query params (`?stage=`, `view=`, `channel=`, `panel=`, `modal=`, `push=1`) on mount to land
+directly on any screen. In the compact shell `push=1` opens the content full-screen instead of the
+bottom-tab list, so the audit can reach the mobile conversation/content views. It is **development only**: `readDeepLink()` returns `null` under `NODE_ENV=production`,
+so the static export ignores it. Used by the responsive audit to reach every state without click
+scripting.
+
+## Responsive shell
+
+Below ~960px (`useCompact()`), `AppRoot` switches from the desktop three-column shell to a compact
+Slack-style layout: a `MobileTopBar` (workspace mark opens the rail drawer; back arrow when a
+conversation/view is pushed), a single full-width body that shows either the current list or the
+pushed content, and `BottomTabs` (Canaux / Messages / Activité / Recherche). The workspace rail is a
+left `Drawer` (DS); the channel right-panel (`RightDock`) becomes a full-width overlay via
+`ChannelScreen compact`. `Sidebar` takes `compact` (full width, no wordmark/header/search) and `only`
+(render just one section for a bottom-tab). At and above ~960px the desktop columns are unchanged.
+Breakpoint chosen from the audit (content breaks up to ~900px). Responsive views take a `compact`
+prop: `FilesScreen` (card grid instead of the 7-column table; toolbar/header wrap), `WorkspaceSettings`
+(sub-nav wraps above the panel; rows wrap), `ChannelScreen` (header actions in a horizontal scroller,
+title/topic truncate). The channel right panel defaults to closed (`panel: null`) and `openChannel` resets it, so you land on
+the conversation, not a full-screen dock, and a panel opened in one channel does not carry into the next. Below 600px `.wc-dlg` becomes a full-width bottom sheet whose
+body scrolls (first width `@media` in the app, in `components.css`); the top-bar actions are 44px on
+mobile. Action fills use `--action-primary-bg: terracotta-600` (not -500) so white text clears WCAG AA;
+terracotta-500 stays the brand accent (borders, wordmark dot, links, focus ring). `--text-subtle` is
+`#6c6c64` (not grey-500 #7a7a71, which was only 4.33:1) so small subtle labels clear AA on light
+surfaces. The responsive audit measures overlap on VISIBLE (clip-intersected) rects, so controls
+scrolled under a bar are not false positives. Remaining touch-target
+(<44px on dense secondary icons) and tiny-text (11px labels) findings are a deliberate density trade-off,
+not bugs.
+
+## Responsive audit (`tools/responsive-audit/`)
+
+Automated responsive stress test: sweeps every UI state across a wide viewport matrix (320 -> 3840,
+both orientations, zoom levels, breakpoint neighbours), runs an in-page probe, screenshots the
+suspect combinations, and writes `report/report.{json,html}`. Exits non-zero on a critical issue or
+JS error (CI-gateable). Beyond mechanical layout it also runs UX/a11y checks (finding
+`category: "ux"`): low-contrast (WCAG AA), tiny text (<12px), and dialogs taller than the viewport. See its `README.md`. Depends on **Playwright** as a dev-only dependency:
+Microsoft (US) governance, flagged under repo rule #2, kept out of the production runtime/export
+(locally-executed QA tooling only, consistent with the R7 reading). Install:
+`pnpm --dir apps/web add -D playwright && pnpm --dir apps/web exec playwright install chromium`.
 
 ## Design system
 

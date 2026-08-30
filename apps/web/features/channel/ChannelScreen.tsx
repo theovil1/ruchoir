@@ -23,7 +23,17 @@ import { ThreadPanel } from "./ThreadPanel";
 import { TypingIndicator } from "./TypingIndicator";
 
 /** Right-hand dock: animates in/out, stays mounted during exit, and cross-fades on content switch. */
-function RightDock({ open, contentKey, children }: { open: boolean; contentKey: string; children: ReactNode }) {
+function RightDock({
+  open,
+  contentKey,
+  compact = false,
+  children,
+}: {
+  open: boolean;
+  contentKey: string;
+  compact?: boolean;
+  children: ReactNode;
+}) {
   const { mounted, closing } = useMountAnimation(open, 200);
   const last = useRef<ReactNode>(null);
   const lastKey = useRef("");
@@ -32,9 +42,28 @@ function RightDock({ open, contentKey, children }: { open: boolean; contentKey: 
     lastKey.current = contentKey;
   }
   if (!mounted) return null;
+  // Compact: the panel (members, files, thread, profile) can no longer be a fixed column beside the
+  // feed, so it covers the whole view as a full-screen sheet. Setting `--panel-width: 100%` makes the
+  // panels (which size themselves from that variable) fill the width instead of staying at 340px.
+  // Its own header close button dismisses it.
+  const container: CSSProperties = compact
+    ? {
+        position: "absolute",
+        inset: 0,
+        zIndex: 40,
+        width: "100%",
+        display: "flex",
+        background: "var(--surface-canvas)",
+        ["--panel-width" as string]: "100%",
+      }
+    : { display: "flex", flex: "none" };
   return (
-    <div style={{ display: "flex", flex: "none" }} className={closing ? "wc-dock--out" : "wc-dock--in"}>
-      <div key={open ? contentKey : lastKey.current} className="wc-dock-content" style={{ display: "flex" }}>
+    <div style={container} className={closing ? "wc-dock--out" : "wc-dock--in"}>
+      <div
+        key={open ? contentKey : lastKey.current}
+        className="wc-dock-content"
+        style={{ display: "flex", flex: compact ? 1 : undefined, minWidth: 0, background: compact ? "var(--surface-canvas)" : undefined }}
+      >
         {open ? children : last.current}
       </div>
     </div>
@@ -64,12 +93,25 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 6,
+    minWidth: 0,
+    flexShrink: 0,
     fontSize: 17,
     fontWeight: 600,
     letterSpacing: "var(--tracking-tight)",
     color: "var(--text-strong)",
+    whiteSpace: "nowrap",
   },
-  meta: { display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)" },
+  meta: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    minWidth: 0,
+    overflow: "hidden",
+    whiteSpace: "nowrap",
+    textOverflow: "ellipsis",
+    fontSize: 13,
+    color: "var(--text-muted)",
+  },
   feed: { flex: 1, overflow: "auto", padding: "20px 0 8px" },
   inner: { maxWidth: "var(--channel-measure)", margin: "0 auto", padding: "0 24px" },
   day: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0" },
@@ -135,6 +177,8 @@ export type ChannelScreenProps = {
   onLeaveChannel: () => void;
   /** When set, the feed scrolls to and flashes this message after it renders. */
   focusMessageId?: number | null;
+  /** Compact (mobile) mode: the right panel becomes a full-width overlay instead of a column. */
+  compact?: boolean;
   actions: MessageActionHandlers;
 };
 
@@ -156,6 +200,7 @@ export function ChannelScreen({
   onUpdateChannel,
   onLeaveChannel,
   focusMessageId,
+  compact = false,
   actions,
 }: ChannelScreenProps) {
   const isDm = !!dm;
@@ -241,8 +286,8 @@ export function ChannelScreen({
   const typing = getTypingUsers(channel.id);
 
   return (
-    <div style={{ flex: 1, display: "flex", minWidth: 0 }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+    <div style={{ flex: 1, display: "flex", minWidth: 0, minHeight: 0, position: "relative" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
         <div style={styles.top}>
           {isDm ? (
             <>
@@ -271,6 +316,7 @@ export function ChannelScreen({
             </>
           )}
           <div style={{ flex: 1 }} />
+          <div style={{ display: "flex", alignItems: "center", minWidth: 0, overflowX: "auto", flexShrink: 1, scrollbarWidth: "none" }}>
           <Tooltip label="Rechercher dans la conversation" side="bottom">
             <IconButton
               className="wc-ibtn--bare"
@@ -317,9 +363,10 @@ export function ChannelScreen({
               onLeave={() => setMenuDialog("leave")}
             />
           ) : null}
+          </div>
         </div>
         <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-        <div style={{ ...styles.feed, paddingBottom: typing.length > 0 ? 44 : 8 }} ref={feedRef}>
+        <div style={{ ...styles.feed, paddingBottom: typing.length > 0 ? 60 : 8 }} ref={feedRef}>
           <div style={styles.inner}>
             <div style={{ padding: "4px 0 14px" }}>
               {isDm ? (
@@ -412,7 +459,7 @@ export function ChannelScreen({
         </div>
         <Composer channelName={isDm ? dm.name : channel.name} onSend={onSend} onNotify={onNotify} />
       </div>
-      <RightDock open={rightNode != null} contentKey={contentKey}>
+      <RightDock open={rightNode != null} contentKey={contentKey} compact={compact}>
         {rightNode}
       </RightDock>
 

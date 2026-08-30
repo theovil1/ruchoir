@@ -6,7 +6,7 @@ import type { SpaceFile } from "@/lib/data";
 import type { Toast } from "../app/types";
 
 const styles: Record<string, CSSProperties> = {
-  root: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0 },
+  root: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 },
   top: {
     height: "var(--topbar-height)",
     flex: "none",
@@ -58,7 +58,7 @@ const styles: Record<string, CSSProperties> = {
     overflow: "hidden",
   },
   checkCell: { display: "flex", alignItems: "center", justifyContent: "center" },
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(180px, 100%), 1fr))", gap: 12 },
 };
 
 /** Parse a French-formatted size ("248 Ko", "3,4 Mo") into bytes; unknown shapes yield 0. */
@@ -109,14 +109,18 @@ export type FilesScreenProps = {
   onNewFolder: (name: string) => void;
   onUpload: (file: SpaceFile) => void;
   onNotify: (toast: Toast) => void;
+  /** Compact (mobile) mode: force the card grid (the wide table cannot fit) and let the toolbar wrap. */
+  compact?: boolean;
 };
 
 /** The space files view. Faithful to the design-system `screen-files` mockup, with working
  * filtering, selection, list/grid toggle, folder creation and file upload. */
-export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, onUpload, onNotify }: FilesScreenProps) {
+export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, onUpload, onNotify, compact = false }: FilesScreenProps) {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState("Tous");
   const [layout, setLayout] = useState<"list" | "grid">("list");
+  // The 7-column table cannot fit a phone; force the responsive card grid on compact.
+  const effectiveLayout = compact ? "grid" : layout;
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [folderOpen, setFolderOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
@@ -180,7 +184,13 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
 
   return (
     <div style={styles.root}>
-      <div style={styles.top}>
+      <div
+        style={
+          compact
+            ? { ...styles.top, height: "auto", minHeight: "var(--topbar-height)", flexWrap: "wrap", rowGap: 8, padding: "8px 12px" }
+            : styles.top
+        }
+      >
         <div style={styles.crumb}>
           <Icon name="hard-drive" size={15} style={{ opacity: 0.55 }} />
           {currentFolder ? (
@@ -205,7 +215,7 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
             </>
           ) : null}
         </div>
-        <div style={{ flex: 1 }} />
+        <div style={{ flex: compact ? "1 0 100%" : 1 }} />
         <Button size="sm" iconLeft="folder-plus" onClick={() => setFolderOpen(true)}>
           Nouveau dossier
         </Button>
@@ -242,8 +252,8 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
             <span style={{ fontSize: 12, color: "var(--text-muted)" }}>· {rows.length} élément{rows.length > 1 ? "s" : ""}</span>
           </div>
         ) : null}
-        <div style={styles.bar}>
-          <div style={{ width: 280 }}>
+        <div style={{ ...styles.bar, flexWrap: compact ? "wrap" : "nowrap" }}>
+          <div style={{ width: compact ? "100%" : 280 }}>
             <Input size="sm" icon="search" placeholder="Filtrer les fichiers" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <Tabs
@@ -261,23 +271,27 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
             {rows.length} élément{rows.length > 1 ? "s" : ""}
             {totalBytes > 0 ? ` · ${bytesToSize(totalBytes)}` : ""}
           </span>
-          <IconButton
-            icon="layout-grid"
-            label="Vue en grille"
-            size="sm"
-            aria-pressed={layout === "grid"}
-            onClick={() => setLayout("grid")}
-          />
-          <IconButton
-            icon="list"
-            label="Vue en liste"
-            size="sm"
-            aria-pressed={layout === "list"}
-            onClick={() => setLayout("list")}
-          />
+          {!compact ? (
+            <>
+              <IconButton
+                icon="layout-grid"
+                label="Vue en grille"
+                size="sm"
+                aria-pressed={layout === "grid"}
+                onClick={() => setLayout("grid")}
+              />
+              <IconButton
+                icon="list"
+                label="Vue en liste"
+                size="sm"
+                aria-pressed={layout === "list"}
+                onClick={() => setLayout("list")}
+              />
+            </>
+          ) : null}
         </div>
 
-        {layout === "list" ? (
+        {effectiveLayout === "list" ? (
           <div style={styles.tableWrap}>
             <table style={styles.table}>
               <colgroup>

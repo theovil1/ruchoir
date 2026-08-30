@@ -4,5 +4,8 @@
 /out/
 /.turbo/
 
+# Generated responsive-audit output (screenshots + report).
+/tools/responsive-audit/report/
+
 # Next.js generated type stub is regenerated on build; keep it out of git.
 # (Committed here would fight the generator; ignore it instead.)

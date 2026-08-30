@@ -1162,6 +1162,9 @@
 }
 .wc-dlg {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - var(--space-6) * 2);
   background: var(--surface-canvas);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
@@ -1211,14 +1214,40 @@
   color: var(--text-strong);
 }
 .wc-dlg__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   padding: var(--space-2) var(--space-5) var(--space-5);
   font-size: var(--text-sm);
   color: var(--text-body);
+}
+.wc-dlg__head,
+.wc-dlg__foot {
+  flex: none;
+}
+
+/* Below 600px a dialog becomes a full-width bottom sheet: it never exceeds the viewport, and its
+   actions stay reachable (the body scrolls). First width breakpoint in the app, dictated by content. */
+@media (max-width: 599px) {
+  .wc-dlg__scrim {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .wc-dlg,
+  .wc-dlg--sm,
+  .wc-dlg--md,
+  .wc-dlg--lg {
+    max-width: none;
+    max-height: 92dvh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-bottom: 0;
+  }
 }
 .wc-dlg__foot {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-5);
   border-top: var(--border-width) solid var(--border-subtle);

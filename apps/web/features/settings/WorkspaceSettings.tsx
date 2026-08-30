@@ -31,7 +31,7 @@ const st: Record<string, CSSProperties> = {
     letterSpacing: "var(--tracking-tight)",
     color: "var(--text-strong)",
   },
-  body: { flex: 1, overflow: "auto", display: "flex", minWidth: 0 },
+  body: { flex: 1, overflow: "auto", display: "flex", minWidth: 0, minHeight: 0 },
   nav: { width: 200, flex: "none", padding: "16px 8px", borderRight: "1px solid var(--border-subtle)" },
   main: { flex: 1, minWidth: 0, padding: "24px 28px", maxWidth: 760 },
   h: { fontSize: 18, marginBottom: 4 },
@@ -48,7 +48,9 @@ const st: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 20,
+    flexWrap: "wrap",
+    gap: 12,
+    rowGap: 8,
     padding: "12px 0",
     borderBottom: "1px solid var(--border-subtle)",
   },
@@ -56,23 +58,25 @@ const st: Record<string, CSSProperties> = {
   rowD: { fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 420 },
 };
 
-function navItem(on: boolean): CSSProperties {
+function navItem(on: boolean, compact = false): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    width: "100%",
+    width: compact ? "auto" : "100%",
+    flex: "none",
     height: 30,
-    padding: "0 8px",
+    padding: "0 10px",
     border: 0,
     borderRadius: "var(--radius-sm)",
-    background: on ? "var(--surface-selected)" : "transparent",
+    background: on ? "var(--surface-selected)" : compact ? "var(--surface-sunken)" : "transparent",
     color: on ? "var(--terracotta-800)" : "var(--text-body)",
     fontFamily: "var(--font-sans)",
     fontSize: 13,
     fontWeight: on ? 500 : 400,
     cursor: "pointer",
     textAlign: "left",
+    whiteSpace: "nowrap",
   };
 }
 
@@ -100,10 +104,12 @@ export type WorkspaceSettingsProps = {
   members: { name: string; presence: Presence }[];
   onInvite: () => void;
   onNotify: (toast: Toast) => void;
+  /** Compact (mobile): stack the sub-nav above the panel and let setting rows wrap. */
+  compact?: boolean;
 };
 
 /** The workspace settings view. Faithful to the design-system `screen-settings` mockup. */
-export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify }: WorkspaceSettingsProps) {
+export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify, compact = false }: WorkspaceSettingsProps) {
   const [tab, setTab] = useState<NavKey>("general");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [icon, setIcon] = useState<string | undefined>(undefined);
@@ -118,21 +124,34 @@ export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify }
   };
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
       <div style={st.top}>
         <Icon name="settings" size={15} style={{ opacity: 0.55 }} />
         Réglages de l'espace
       </div>
-      <div style={st.body}>
-        <div style={st.nav}>
+      <div style={compact ? { ...st.body, flexDirection: "column" } : st.body}>
+        <div
+          style={
+            compact
+              ? {
+                  flex: "none",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  padding: "8px 12px",
+                  borderBottom: "1px solid var(--border-subtle)",
+                }
+              : st.nav
+          }
+        >
           {NAV.map(([v, l, i]) => (
-            <button key={v} style={navItem(v === tab)} onClick={() => setTab(v)}>
+            <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
               <Icon name={i} size={14} style={{ opacity: 0.7 }} />
               {l}
             </button>
           ))}
         </div>
-        <div style={st.main}>
+        <div style={compact ? { ...st.main, padding: "16px 16px 24px" } : st.main}>
           {tab === "general" ? (
             <>
               <h2 style={st.h}>Général</h2>

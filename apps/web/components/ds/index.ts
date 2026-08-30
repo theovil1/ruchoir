@@ -14,6 +14,8 @@ export { Checkbox } from "./Checkbox";
 export type { CheckboxProps } from "./Checkbox";
 export { Dialog } from "./Dialog";
 export type { DialogProps, DialogSize } from "./Dialog";
+export { Drawer } from "./Drawer";
+export type { DrawerProps } from "./Drawer";
 export { Field } from "./Field";
 export type { FieldProps } from "./Field";
 export { Icon } from "./Icon";

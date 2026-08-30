@@ -58,6 +58,42 @@ jobs:
       - name: Build (static export)
         run: pnpm --filter @workchat/web build
 
+  responsive:
+    name: Responsive audit (web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium for Playwright
+        run: pnpm --filter @workchat/web exec playwright install --with-deps chromium
+      - name: Start dev server
+        # The audit reaches each screen via the dev deep-link, which only exists in development,
+        # so it must run against `next dev` (not the production static export).
+        run: pnpm --filter @workchat/web dev &
+      - name: Wait for the dev server
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:3000/; then echo "up"; exit 0; fi
+            sleep 2
+          done
+          echo "dev server did not start" >&2; exit 1
+      - name: Run responsive audit (fails on critical overflow or JS error)
+        run: pnpm --filter @workchat/web audit:responsive -- --quick --fail-on critical
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: responsive-audit-report
+          path: apps/web/tools/responsive-audit/report/
+          if-no-files-found: ignore
+
   audit:
     name: Security audit (informational)
     runs-on: ubuntu-latest

@@ -185,7 +185,9 @@
   --text-strong: var(--grey-900);
   --text-body: var(--grey-800);
   --text-muted: var(--grey-600);
-  --text-subtle: var(--grey-500);
+  /* Darker than grey-500 (#7a7a71, only 4.33:1) so small subtle labels clear WCAG AA on light
+     surfaces; still clearly lighter than --text-muted, so the hierarchy holds. */
+  --text-subtle: #6c6c64;
   --text-disabled: var(--grey-400);
   --text-inverse: var(--grey-0);
   --text-accent: var(--terracotta-700);
@@ -200,9 +202,10 @@
   --border-accent: var(--terracotta-500);
 
   /* Primary action */
-  --action-primary-bg: var(--terracotta-500);
-  --action-primary-bg-hover: var(--terracotta-600);
-  --action-primary-bg-active: var(--terracotta-700);
+  /* terracotta-600 (not -500) so white text clears WCAG AA (~4.8:1); -500 stays the brand accent. */
+  --action-primary-bg: var(--terracotta-600);
+  --action-primary-bg-hover: var(--terracotta-700);
+  --action-primary-bg-active: var(--terracotta-800);
   --action-primary-fg: var(--grey-0);
 
   /* Secondary action (outlined) */

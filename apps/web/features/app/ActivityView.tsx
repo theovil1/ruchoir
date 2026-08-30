@@ -29,7 +29,7 @@ const META: Record<ActivityKind, { icon: string; title: string; emptyTitle: stri
 };
 
 const styles: Record<string, CSSProperties> = {
-  root: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0 },
+  root: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 },
   top: {
     height: "var(--topbar-height)",
     flex: "none",

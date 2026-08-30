@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import {
   getChannelMembers,
   getChannelMessages,
@@ -14,7 +14,7 @@ import {
   setUserPresence,
 } from "@/lib/data";
 import type { Channel, DirectMessage, Message, SpaceFile, Workspace } from "@/lib/data";
-import { Button, Dialog, Textarea } from "@/components/ds";
+import { Button, Dialog, Drawer, Textarea } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
 import { ChannelSettingsDialog } from "@/features/channel/ChannelDialogs";
@@ -33,6 +33,10 @@ import { SettingsProvider } from "./settings";
 import { Sidebar } from "./Sidebar";
 import type { AppView, ChannelPanel, Toast } from "./types";
 import { WorkspaceRail } from "./WorkspaceRail";
+import { readDeepLink } from "@/lib/dev/deeplink";
+import { useCompact } from "./useCompact";
+import { MobileTopBar } from "./MobileTopBar";
+import { BottomTabs } from "./BottomTabs";
 
 /** Wraps the app in the settings provider (emoji rendering, etc.). */
 export function AppRoot() {
@@ -102,7 +106,7 @@ function AppShell() {
   const [ws, setWs] = useState("atelier");
   const [view, setView] = useState<AppView>("channel");
   const [channelId, setChannelId] = useState("compta");
-  const [panel, setPanel] = useState<ChannelPanel>("files");
+  const [panel, setPanel] = useState<ChannelPanel>(null);
   const [thread, setThread] = useState<number | null>(null);
   const [profile, setProfile] = useState<string | null>(null);
   const [profileEdit, setProfileEdit] = useState(false);
@@ -113,7 +117,30 @@ function AppShell() {
   const [channelSettingsId, setChannelSettingsId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: number; body: string } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+
+  // Compact (mobile/narrow) shell state. `mobileTab` picks the bottom-tab list; `mobileContent`
+  // is true when a conversation or view is pushed full-screen over that list; `railOpen` toggles
+  // the workspace rail drawer.
+  const compact = useCompact();
+  const [mobileTab, setMobileTab] = useState<"channels" | "messages" | "activity">("channels");
+  const [mobileContent, setMobileContent] = useState(false);
+  const [railOpen, setRailOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Dev-only: land directly on a UI state from query params (see lib/dev/deeplink.ts).
+  // A no-op in the production static export; used by tools/responsive-audit to reach every screen.
+  useEffect(() => {
+    const link = readDeepLink();
+    if (!link) return;
+    if (link.stage) setAuthStage(link.stage);
+    if (link.view) setView(link.view);
+    if (link.channel) setChannelId(link.channel);
+    if (link.panel) setPanel(link.panel);
+    if (link.modal) setModal(link.modal);
+    if (link.push) setMobileContent(true); // compact: land on the pushed content, not the list
+    // Run once on mount; deep-link is an entry point, not a live binding.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const dm = dms.find((d) => d.id === channelId) ?? null;
   const chan: Channel =
@@ -135,6 +162,7 @@ function AppShell() {
   const openChannel = (id: string) => {
     setView("channel");
     setChannelId(id);
+    setPanel(null); // the right panel is app-level state; close it so a new channel opens clean
     setThread(null);
     setProfile(null);
     setProfileEdit(false);
@@ -297,7 +325,7 @@ function AppShell() {
 
   if (authStage !== "app") {
     return (
-      <div style={{ height: "100vh", display: "flex", overflow: "auto", background: "var(--surface-canvas)" }}>
+      <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "auto", background: "var(--surface-canvas)" }}>
         {authStage === "login" ? (
           <LoginScreen
             onSubmit={() => {
@@ -332,36 +360,57 @@ function AppShell() {
     );
   }
 
-  return (
-    <div style={{ height: "100vh", display: "flex", overflow: "hidden", background: "var(--surface-canvas)" }}>
-      <WorkspaceRail
-        workspaces={workspaces}
-        active={ws}
-        currentUser={currentUser}
-        onSelect={setWs}
-        onNew={() => setModal("newWorkspace")}
-        onHelp={() => setModal("help")}
-        onLogout={() => setAuthStage("login")}
-        presence={myPresence}
-        onSetPresence={(p) => {
-          setUserPresence(currentUser, p);
-          setMyPresence(p);
-        }}
-        onOpenSettings={() => setModal("prefs")}
-        onOpenOwnProfile={() => {
-          setView("channel");
-          setThread(null);
-          setProfileEdit(false);
-          setProfile(currentUser);
-        }}
-        onEditOwnProfile={() => {
-          setView("channel");
-          setThread(null);
-          setProfileEdit(true);
-          setProfile(currentUser);
-        }}
-      />
-      <Sidebar
+  const wsName = (getWorkspace(ws) ?? workspaces.find((w) => w.id === ws))?.name ?? "espace";
+  const contentTitles: Record<string, string> = {
+    files: "Fichiers de l'espace",
+    settings: "Réglages de l'espace",
+    threads: "Fils de discussion",
+    mentions: "Mentions",
+    saved: "Enregistrés",
+  };
+  const contentTitle = view === "channel" ? (dm ? dm.name : `# ${chan.name}`) : (contentTitles[view] ?? wsName);
+  const mobileTabs = [
+    { id: "channels", label: "Canaux", icon: "hash" },
+    { id: "messages", label: "Messages", icon: "message-square" },
+    { id: "activity", label: "Activité", icon: "bell", badge: mentions.length || undefined },
+    { id: "search", label: "Recherche", icon: "search" },
+  ];
+
+  const rail = (
+    <WorkspaceRail
+      workspaces={workspaces}
+      active={ws}
+      currentUser={currentUser}
+      onSelect={(id) => {
+        setWs(id);
+        setRailOpen(false);
+      }}
+      onNew={() => setModal("newWorkspace")}
+      onHelp={() => setModal("help")}
+      onLogout={() => setAuthStage("login")}
+      presence={myPresence}
+      onSetPresence={(p) => {
+        setUserPresence(currentUser, p);
+        setMyPresence(p);
+      }}
+      onOpenSettings={() => setModal("prefs")}
+      onOpenOwnProfile={() => {
+        setView("channel");
+        setThread(null);
+        setProfileEdit(false);
+        setProfile(currentUser);
+      }}
+      onEditOwnProfile={() => {
+        setView("channel");
+        setThread(null);
+        setProfileEdit(true);
+        setProfile(currentUser);
+      }}
+    />
+  );
+
+  const desktopSidebar = (
+    <Sidebar
         workspace={getWorkspace(ws) ?? workspaces.find((w) => w.id === ws)}
         channels={channels}
         directMessages={dms}
@@ -380,7 +429,10 @@ function AppShell() {
         onChannelSettings={setChannelSettingsId}
         onLogout={() => setAuthStage("login")}
       />
+  );
 
+  const content = (
+    <>
       {view === "channel" ? (
         <ChannelScreen
           channel={chan}
@@ -392,6 +444,7 @@ function AppShell() {
           profileEditing={profileEdit}
           unreadMarker={unreadMarker}
           focusMessageId={focusMessageId}
+          compact={compact}
           onSend={send}
           onPanel={openPanel}
           onCloseThread={() => setThread(null)}
@@ -407,6 +460,7 @@ function AppShell() {
           files={files}
           workspaceName={(getWorkspace(ws) ?? workspaces.find((w) => w.id === ws))?.name ?? "espace"}
           currentUser={currentUser}
+          compact={compact}
           onNewFolder={createFolder}
           onUpload={uploadFile}
           onNotify={showToast}
@@ -416,6 +470,7 @@ function AppShell() {
         <WorkspaceSettings
           workspaceName={(getWorkspace(ws) ?? workspaces.find((w) => w.id === ws))?.name ?? "espace"}
           members={people.filter((p) => !p.bot).map((p) => ({ name: p.name, presence: p.presence }))}
+          compact={compact}
           onInvite={() => setModal("invite")}
           onNotify={showToast}
         />
@@ -423,7 +478,11 @@ function AppShell() {
       {view === "threads" ? <ActivityView kind="threads" items={threads} onOpen={openMessage} /> : null}
       {view === "mentions" ? <ActivityView kind="mentions" items={mentions} onOpen={openMessage} /> : null}
       {view === "saved" ? <ActivityView kind="saved" items={saved} onOpen={openMessage} /> : null}
+    </>
+  );
 
+  const overlays = (
+    <>
       {modal === "prefs" ? <SettingsDialog onClose={() => setModal(null)} /> : null}
       {modal === "import" ? (
         <ImportDialog
@@ -510,6 +569,81 @@ function AppShell() {
           </div>
         </div>
       ) : null}
+    </>
+  );
+
+  if (compact) {
+    return (
+      <>
+        <div style={{ height: "100dvh", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--surface-canvas)" }}>
+          <MobileTopBar
+            title={mobileContent ? contentTitle : wsName}
+            workspaceName={wsName}
+            onBack={mobileContent ? () => setMobileContent(false) : undefined}
+            onOpenRail={() => setRailOpen(true)}
+            onSearch={() => setModal("search")}
+            onCompose={() => setModal("newMessage")}
+          />
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {mobileContent ? (
+              content
+            ) : (
+              <Sidebar
+                workspace={getWorkspace(ws) ?? workspaces.find((w) => w.id === ws)}
+                channels={channels}
+                directMessages={dms}
+                view={view}
+                channel={channelId}
+                mentionCount={mentions.length}
+                compact
+                only={mobileTab}
+                onView={(v) => {
+                  setView(v);
+                  setMobileContent(true);
+                }}
+                onChannel={(id) => {
+                  openChannel(id);
+                  setMobileContent(true);
+                }}
+                onNotify={showToast}
+                onImport={() => setModal("import")}
+                onInvite={() => setModal("invite")}
+                onNewChannel={() => setModal("newChannel")}
+                onNewMessage={() => setModal("newMessage")}
+                onGlobalSearch={() => setModal("search")}
+                onLeaveChannel={leaveChannel}
+                onChannelSettings={setChannelSettingsId}
+                onLogout={() => setAuthStage("login")}
+              />
+            )}
+          </div>
+          <BottomTabs
+            tabs={mobileTabs}
+            active={mobileTab}
+            onSelect={(id) => {
+              if (id === "search") {
+                setModal("search");
+                return;
+              }
+              setMobileTab(id as "channels" | "messages" | "activity");
+              setMobileContent(false);
+            }}
+          />
+        </div>
+        <Drawer open={railOpen} onClose={() => setRailOpen(false)} side="left" width={72} label="Espaces de travail">
+          {rail}
+        </Drawer>
+        {overlays}
+      </>
+    );
+  }
+
+  return (
+    <div style={{ height: "100vh", display: "flex", overflow: "hidden", background: "var(--surface-canvas)" }}>
+      {rail}
+      {desktopSidebar}
+      {content}
+      {overlays}
     </div>
   );
 }

@@ -228,6 +228,10 @@ export type SidebarProps = {
   onLeaveChannel: (id: string) => void;
   onChannelSettings: (id: string) => void;
   onLogout: () => void;
+  /** Compact (mobile) mode: full width, no wordmark/header/search (the mobile top bar owns those). */
+  compact?: boolean;
+  /** Render only one section, for the compact bottom-tab panels. Omit for the full desktop column. */
+  only?: "channels" | "messages" | "activity";
 };
 
 /** Channel/DM navigation column for the active workspace. */
@@ -249,7 +253,13 @@ export function Sidebar({
   onLeaveChannel,
   onChannelSettings,
   onLogout,
+  compact = false,
+  only,
 }: SidebarProps) {
+  const showActivity = !only || only === "activity";
+  const showChannels = !only || only === "channels";
+  const showMessages = !only || only === "messages";
+  const showFooter = !only || only === "channels";
   const channelMenu = (id: string, name: string): SideMenuItem[] => [
     { icon: "check-check", label: "Marquer comme lu", onClick: () => onNotify({ tone: "info", title: "Marqué comme lu", description: `#${name}` }) },
     { icon: "bell", label: "Notifications", onClick: () => onNotify({ tone: "info", title: "Notifications", description: `#${name}` }) },
@@ -265,108 +275,126 @@ export function Sidebar({
   const wsRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div style={styles.side}>
-      <Wordmark />
-      <div style={styles.head}>
-        <button ref={wsRef} style={styles.wsName} onClick={() => setWsMenu((o) => !o)} aria-expanded={wsMenu}>
-          {workspace?.name}
-          <Icon name="chevron-down" size={14} />
-        </button>
-        <MenuPopover
-          anchorRef={wsRef}
-          open={wsMenu}
-          onClose={() => setWsMenu(false)}
-          items={[
-            { type: "label", label: workspace?.name ?? "Espace" },
-            { icon: "user-plus", label: "Inviter des personnes", onClick: onInvite },
-            { icon: "settings", label: "Réglages de l'espace", onClick: () => onView("settings") },
-            { icon: "hard-drive", label: "Fichiers de l'espace", onClick: () => onView("files") },
-            { type: "separator" },
-            { icon: "log-out", label: "Se déconnecter", danger: true, onClick: onLogout },
-          ]}
-        />
-        <IconButton icon="square-pen" label="Nouveau message" size="sm" onClick={onNewMessage} />
-      </div>
-      <div style={{ padding: "8px 8px 0" }}>
-        <Input
-          size="sm"
-          icon="search"
-          placeholder="Rechercher un canal, une personne…"
-          readOnly
-          onClick={onGlobalSearch}
-        />
-      </div>
+    <div style={{ ...styles.side, width: compact ? "100%" : styles.side.width, flex: compact ? 1 : styles.side.flex }}>
+      {!compact ? (
+        <>
+          <Wordmark />
+          <div style={styles.head}>
+            <button ref={wsRef} style={styles.wsName} onClick={() => setWsMenu((o) => !o)} aria-expanded={wsMenu}>
+              {workspace?.name}
+              <Icon name="chevron-down" size={14} />
+            </button>
+            <MenuPopover
+              anchorRef={wsRef}
+              open={wsMenu}
+              onClose={() => setWsMenu(false)}
+              items={[
+                { type: "label", label: workspace?.name ?? "Espace" },
+                { icon: "user-plus", label: "Inviter des personnes", onClick: onInvite },
+                { icon: "settings", label: "Réglages de l'espace", onClick: () => onView("settings") },
+                { icon: "hard-drive", label: "Fichiers de l'espace", onClick: () => onView("files") },
+                { type: "separator" },
+                { icon: "log-out", label: "Se déconnecter", danger: true, onClick: onLogout },
+              ]}
+            />
+            <IconButton icon="square-pen" label="Nouveau message" size="sm" onClick={onNewMessage} />
+          </div>
+          <div style={{ padding: "8px 8px 0" }}>
+            <Input
+              size="sm"
+              icon="search"
+              placeholder="Rechercher un canal, une personne…"
+              readOnly
+              onClick={onGlobalSearch}
+            />
+          </div>
+        </>
+      ) : null}
       <div style={styles.scroll}>
-        <SideItem icon="inbox" label="Fils de discussion" active={view === "threads"} onClick={() => onView("threads")} />
-        <SideItem icon="at-sign" label="Mentions" active={view === "mentions"} unread={mentionCount} onClick={() => onView("mentions")} />
-        <SideItem icon="hard-drive" label="Fichiers de l'espace" active={view === "files"} onClick={() => onView("files")} />
-        <SideItem icon="bookmark" label="Enregistrés" active={view === "saved"} onClick={() => onView("saved")} />
+        {showActivity ? (
+          <>
+            <SideItem icon="inbox" label="Fils de discussion" active={view === "threads"} onClick={() => onView("threads")} />
+            <SideItem icon="at-sign" label="Mentions" active={view === "mentions"} unread={mentionCount} onClick={() => onView("mentions")} />
+            <SideItem icon="hard-drive" label="Fichiers de l'espace" active={view === "files"} onClick={() => onView("files")} />
+            <SideItem icon="bookmark" label="Enregistrés" active={view === "saved"} onClick={() => onView("saved")} />
+          </>
+        ) : null}
 
-        <div style={styles.sect}>Canaux favoris</div>
-        {channels
-          .filter((c) => c.fav)
-          .map((c) => (
-            <SideItem
-              key={c.id}
-              label={c.name}
-              unread={c.unread}
-              active={view === "channel" && channel === c.id}
-              onClick={() => onChannel(c.id)}
-              menuItems={channelMenu(c.id, c.name)}
-            >
-              <Icon name={c.type === "private" ? "lock" : "hash"} size={13} style={{ opacity: 0.6 }} />
-            </SideItem>
-          ))}
+        {showChannels ? (
+          <>
+            <div style={styles.sect}>Canaux favoris</div>
+            {channels
+              .filter((c) => c.fav)
+              .map((c) => (
+                <SideItem
+                  key={c.id}
+                  label={c.name}
+                  unread={c.unread}
+                  active={view === "channel" && channel === c.id}
+                  onClick={() => onChannel(c.id)}
+                  menuItems={channelMenu(c.id, c.name)}
+                >
+                  <Icon name={c.type === "private" ? "lock" : "hash"} size={13} style={{ opacity: 0.6 }} />
+                </SideItem>
+              ))}
 
-        <div style={styles.sect}>
-          Canaux
-          <button
-            onClick={onNewChannel}
-            aria-label="Nouveau canal"
-            style={{ border: 0, background: "none", padding: 0, cursor: "pointer", color: "var(--text-subtle)", display: "flex" }}
-          >
-            <Icon name="plus" size={13} />
-          </button>
-        </div>
-        {channels
-          .filter((c) => !c.fav)
-          .map((c) => (
-            <SideItem
-              key={c.id}
-              label={c.name}
-              unread={c.unread}
-              muted={c.type === "archived"}
-              active={view === "channel" && channel === c.id}
-              onClick={() => onChannel(c.id)}
-              menuItems={channelMenu(c.id, c.name)}
-            >
-              <Icon
-                name={c.type === "archived" ? "archive" : c.type === "private" ? "lock" : "hash"}
-                size={13}
-                style={{ opacity: 0.6 }}
-              />
-            </SideItem>
-          ))}
+            <div style={styles.sect}>
+              Canaux
+              <button
+                onClick={onNewChannel}
+                aria-label="Nouveau canal"
+                style={{ border: 0, background: "none", padding: 0, cursor: "pointer", color: "var(--text-subtle)", display: "flex" }}
+              >
+                <Icon name="plus" size={13} />
+              </button>
+            </div>
+            {channels
+              .filter((c) => !c.fav)
+              .map((c) => (
+                <SideItem
+                  key={c.id}
+                  label={c.name}
+                  unread={c.unread}
+                  muted={c.type === "archived"}
+                  active={view === "channel" && channel === c.id}
+                  onClick={() => onChannel(c.id)}
+                  menuItems={channelMenu(c.id, c.name)}
+                >
+                  <Icon
+                    name={c.type === "archived" ? "archive" : c.type === "private" ? "lock" : "hash"}
+                    size={13}
+                    style={{ opacity: 0.6 }}
+                  />
+                </SideItem>
+              ))}
+          </>
+        ) : null}
 
-        <div style={styles.sect}>Messages directs</div>
-        {directMessages.map((d) => (
-          <SideItem
-            key={d.id}
-            label={d.name}
-            unread={d.unread}
-            active={view === "channel" && channel === d.id}
-            tag={d.bot ? <Tag>Bot</Tag> : undefined}
-            onClick={() => onChannel(d.id)}
-            menuItems={dmMenu(d.name)}
-          >
-            <Avatar name={d.name} size={20} presence={d.presence} kind={d.bot ? "bot" : "person"} shape={d.bot ? "round" : "square"} />
-          </SideItem>
-        ))}
+        {showMessages ? (
+          <>
+            <div style={styles.sect}>Messages directs</div>
+            {directMessages.map((d) => (
+              <SideItem
+                key={d.id}
+                label={d.name}
+                unread={d.unread}
+                active={view === "channel" && channel === d.id}
+                tag={d.bot ? <Tag>Bot</Tag> : undefined}
+                onClick={() => onChannel(d.id)}
+                menuItems={dmMenu(d.name)}
+              >
+                <Avatar name={d.name} size={20} presence={d.presence} kind={d.bot ? "bot" : "person"} shape={d.bot ? "round" : "square"} />
+              </SideItem>
+            ))}
+          </>
+        ) : null}
 
-        <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
-          <SideItem icon="import" label="Importer une conversation…" onClick={onImport} />
-          <SideItem icon="settings" label="Réglages de l'espace" active={view === "settings"} onClick={() => onView("settings")} />
-        </div>
+        {showFooter ? (
+          <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
+            <SideItem icon="import" label="Importer une conversation…" onClick={onImport} />
+            <SideItem icon="settings" label="Réglages de l'espace" active={view === "settings"} onClick={() => onView("settings")} />
+          </div>
+        ) : null}
       </div>
     </div>
   );
