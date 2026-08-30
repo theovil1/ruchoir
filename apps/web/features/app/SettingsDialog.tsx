@@ -108,7 +108,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 Emojis animés <Emoji emoji="🎉" size={18} />
               </span>
             }
-            desc="Anime les emojis Fluent (quand le pack est installé)."
+            desc="Anime les emojis Fluent des réactions (quand le pack est installé). Ailleurs, ils restent statiques."
           >
             <Toggle on={s.emojiAnimated} onChange={(v) => s.set("emojiAnimated", v)} label="Emojis animés" />
           </Row>

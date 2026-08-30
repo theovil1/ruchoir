@@ -4,7 +4,7 @@ import { type CSSProperties, useRef, useState } from "react";
 import { Avatar, Card, Icon, IconButton, Popover, Tag } from "@/components/ds";
 import { getCurrentUser, getMentionNames, getPresence } from "@/lib/data";
 import type { Message } from "@/lib/data";
-import { Emoji } from "../app/Emoji";
+import { ReactionPill } from "./ReactionPill";
 import { UserProfileCard } from "../app/UserProfileCard";
 import { renderRichText } from "./richText";
 import { InlineImage } from "./InlineImage";
@@ -217,16 +217,14 @@ export function MessageRow({ m, actions }: MessageRowProps) {
             {m.reactions && m.reactions.length > 0 ? (
               <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                 {m.reactions.map((r) => (
-                  <button
+                  <ReactionPill
                     key={r.emoji}
+                    emoji={r.emoji}
+                    count={r.count}
+                    mine={r.mine}
                     style={reactionPill(r.mine)}
                     onClick={() => actions.onReact(r.emoji)}
-                    aria-pressed={r.mine}
-                    aria-label={`Réaction ${r.emoji}, ${r.count}`}
-                  >
-                    <Emoji emoji={r.emoji} size={16} />
-                    {r.count}
-                  </button>
+                  />
                 ))}
                 <ReactionMenu variant="pill" onPick={actions.onReact} />
               </div>

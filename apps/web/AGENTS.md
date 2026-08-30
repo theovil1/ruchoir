@@ -64,14 +64,28 @@ prototype internals when they do not fit. Enforce token usage with the design-sy
   `body`, `position: fixed`, viewport-aware (flips/clamps so it never overflows). Do not hand-roll
   absolute-positioned popovers. Enter/exit animations go through `features/app/useMountAnimation.ts`
   plus the `wc-pop` / `wc-dock--in|out` classes in `components.css` (all honour reduced motion).
-- **Emoji** render through the `features/app/Emoji.tsx` component: a same-origin Fluent asset
-  (`/emoji/{static|animated}/{codepoint}.{svg|png}`, codepoint from `lib/emojiCode.ts`) when the
-  self-hosted pack is present, falling back to the OS-native glyph otherwise. Never a remote emoji
-  CDN. `:shortcodes:` resolve via `node-emoji`, in-text emoji are detected with `emoji-regex`. The
-  pack is built by `scripts/build-emoji-pack.sh` (one-shot: sparse-clones the Fluent repos without
-  the ~5GB, then runs `scripts/prepare-emoji.mjs`) into `public/emoji/` (dev, gitignored) or a dir
-  behind the API's `WORKCHAT_EMOJI_DIR` (prod). Fallback chain per emoji: animated -> static Fluent
-  -> native. Emoji picker data/keywords live in `lib/emoji.ts`.
+- **Emoji** render through the `features/app/Emoji.tsx` component as same-origin Fluent assets when
+  the self-hosted pack is present, falling back to the OS-native glyph otherwise. Never a remote
+  emoji CDN. The component consults the pack manifest (`features/app/emojiManifest.ts`, fetched once
+  from `/emoji/manifest.json`) so it only ever requests an asset that exists: static glyphs come from
+  a single shared sprite via `<use href="/emoji/sprite.svg#e{codepoint}">` (one cached request for
+  the whole picker, prefetched on manifest load), and animated APNGs (`/emoji/animated/{codepoint}.png`)
+  are requested only for the curated codepoints that have one. Codepoint key from `lib/emojiCode.ts`.
+  This avoids the old one-image-per-tile pattern and the doomed animated requests that flooded the
+  network and flickered when the picker opened. Animation is **opt-in per call site** via the
+  `Emoji` `animated` prop (default off) and reserved for reaction surfaces: the reaction pills and the
+  reaction picker + quick-reaction row (`ReactionMenu` passes `animated` to `EmojiPicker`). Each
+  reaction pill is a `ReactionPill` (`features/channel/ReactionPill.tsx`) that plays the animation for
+  3s the first time it scrolls into view (message seen), then settles to the static sprite; while the
+  whole pill is hovered the animation plays continuously and freezes again on mouse leave. Toggling
+  `Emoji`'s `animated` flag remounts the APNG node, so a flip restarts it from frame 0. The picker
+  animates while it is open. Message bodies and the composer's emoji picker stay on the static sprite.
+  It is still gated by the `emojiAnimated` user setting. `:shortcodes:` resolve via `node-emoji`, in-text emoji are detected with `emoji-regex`.
+  The pack is built by `scripts/build-emoji-pack.sh` (one-shot: sparse-clones the Fluent repos without
+  the ~5GB, then runs `scripts/prepare-emoji.mjs`, which emits `sprite.svg` + curated `animated/*.png`
+  + `manifest.json`) into `public/emoji/` (dev, gitignored) or a dir behind the API's
+  `WORKCHAT_EMOJI_DIR` (prod). Fallback chain per emoji: animated (reactions, opt-in) -> static
+  (sprite) -> native. Emoji picker data/keywords live in `lib/emoji.ts`.
 - **User settings** live in `features/app/settings.tsx` (`SettingsProvider` + `useSettings`,
   persisted to localStorage): currently emoji animation and the simulated pack-present flag.
 - **Avatars** are generated locally with DiceBear (`lib/avatar.ts`, `@dicebear/core` v10 +

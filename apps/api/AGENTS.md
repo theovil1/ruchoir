@@ -43,5 +43,7 @@ with the community `ring` provider (never AWS `aws-lc-rs`), per the no-US-depend
 - Serves `WORKCHAT_WEB_DIST` (defaults to `./apps/web/out`), so build the web app first to
   see the full app locally.
 - Optionally serves a self-hosted emoji pack under `/emoji` when `WORKCHAT_EMOJI_DIR` is set
-  (layout: `static/*.svg`, `animated/*.png`). Kept out of the web bundle because it can be large;
-  missing files 404 and the client falls back to native emoji. `ServeDir` guards path traversal.
+  (layout: `sprite.svg`, `animated/*.png`, `manifest.json`). Kept out of the web bundle because it
+  can be large; missing files 404 and the client falls back to native emoji. `ServeDir` guards path
+  traversal, and a `Cache-Control: public, max-age=604800` layer caps the pack at a couple of
+  requests per client per week (not `immutable`, so a rebuilt pack still propagates).

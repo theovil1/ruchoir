@@ -61,7 +61,7 @@ export function ReactionMenu({ onPick, variant = "action", onOpenChange }: React
       )}
 
       <Popover anchorRef={anchorRef} open={open} onClose={() => set(false)} placement="top" align="start">
-        <EmojiPicker onPick={pick} />
+        <EmojiPicker onPick={pick} animated />
       </Popover>
     </>
   );

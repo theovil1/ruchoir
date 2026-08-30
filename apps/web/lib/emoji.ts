@@ -14,7 +14,7 @@ export type EmojiCategory = {
 };
 
 /** Quick-access reactions shown as a shortcut row (Discord-style). */
-export const QUICK_REACTIONS = ["👍", "❤️", "😄", "🎉", "✅"];
+export const QUICK_REACTIONS = ["👍", "❤️", "😂", "🎉", "👌"];
 
 export const EMOJI_CATEGORIES: EmojiCategory[] = [
   {

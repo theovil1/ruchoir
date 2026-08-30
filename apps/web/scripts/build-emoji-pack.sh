@@ -28,6 +28,7 @@ ANIMATED=(
   "Grinning squinting face" "Face blowing a kiss" "Smiling face with hearts"
   "Face with rolling eyes" "Crying face" "Grimacing face" "Melting face" "Skull" "Ghost"
   "Robot" "Hot beverage" "Birthday cake" "Glowing star" "High voltage" "Rainbow"
+  "Ok hand"
 )
 
 echo "[emoji] sparse-cloning static Fluent (Flat SVGs only)..."
@@ -60,4 +61,4 @@ echo "[emoji] building pack -> $OUT"
 node "$SCRIPT_DIR/prepare-emoji.mjs" \
   --static "$TMP/static" --animated "$TMP/animated" --out "$OUT"
 
-echo "[emoji] done. Static = broad (native fallback for the rest), animated = curated."
+echo "[emoji] done. Static = one sprite.svg (broad, native fallback for the rest), animated = curated APNGs, plus manifest.json."

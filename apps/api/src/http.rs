@@ -6,6 +6,7 @@ use axum::http::{header, HeaderName, HeaderValue};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::Serialize;
+use tower::ServiceBuilder;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
@@ -91,8 +92,23 @@ pub fn router(web_dist: &Path, emoji_dir: Option<&Path>) -> Router {
     // Optional self-hosted emoji pack. `ServeDir` handles path traversal safely and returns 404
     // for missing files, which the client treats as "no asset" and renders the native glyph. The
     // pack lives outside the web bundle so a deployment can omit it.
+    //
+    // Emoji assets are large and change only when the pack is rebuilt, so they are cached for a week.
+    // The client fetches the manifest and the single sprite once, then reuses them; this caps the
+    // pack at a couple of requests per client per week instead of one per glyph on every load. The
+    // window is intentionally not `immutable`: `sprite.svg`/`manifest.json` keep a stable name across
+    // rebuilds, so a bounded max-age lets a rebuilt pack propagate (or a hard refresh forces it).
     if let Some(dir) = emoji_dir {
-        router = router.nest_service("/emoji", ServeDir::new(dir));
+        let emoji_service = ServeDir::new(dir);
+        router = router.nest_service(
+            "/emoji",
+            ServiceBuilder::new()
+                .layer(SetResponseHeaderLayer::overriding(
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=604800"),
+                ))
+                .service(emoji_service),
+        );
     }
 
     router

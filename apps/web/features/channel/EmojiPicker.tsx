@@ -62,7 +62,14 @@ function hoverOut(e: React.MouseEvent<HTMLButtonElement>) {
   e.currentTarget.style.background = "transparent";
 }
 
-export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
+export function EmojiPicker({
+  onPick,
+  animated = false,
+}: {
+  onPick: (emoji: string) => void;
+  /** Animate the pickable glyphs (quick row + grid). Set when the picker chooses a reaction. */
+  animated?: boolean;
+}) {
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState(EMOJI_CATEGORIES[0].id);
 
@@ -83,7 +90,7 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
             onClick={() => onPick(e)}
             aria-label={`Réagir ${e}`}
           >
-            <Emoji emoji={e} size={22} />
+            <Emoji emoji={e} size={22} animated={animated} />
           </button>
         ))}
       </div>
@@ -139,7 +146,7 @@ export function EmojiPicker({ onPick }: { onPick: (emoji: string) => void }) {
               onClick={() => onPick(em.e)}
               aria-label={em.k.split(" ")[0]}
             >
-              <Emoji emoji={em.e} size={20} />
+              <Emoji emoji={em.e} size={20} animated={animated} />
             </button>
           ))
         )}
