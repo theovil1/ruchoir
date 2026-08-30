@@ -3,11 +3,16 @@
 import {
   type ReactNode,
   type RefObject,
+  useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+
+// Position must be measured before paint to avoid a flash: on the server, fall back to useEffect.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 type Coords = { top: number; left: number };
 
@@ -42,43 +47,53 @@ export function Popover<T extends HTMLElement = HTMLElement>({
   const contentRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<Coords | null>(null);
 
+  const compute = useCallback(() => {
+    const anchor = anchorRef.current?.getBoundingClientRect();
+    const content = contentRef.current?.getBoundingClientRect();
+    if (!anchor) return;
+    const cw = content?.width ?? 320;
+    const ch = content?.height ?? 280;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const roomAbove = anchor.top;
+    const roomBelow = vh - anchor.bottom;
+    const wantAbove = placement === "top";
+    const fitsAbove = roomAbove >= ch + GAP + MARGIN;
+    const fitsBelow = roomBelow >= ch + GAP + MARGIN;
+    const above = wantAbove ? fitsAbove || !fitsBelow : !(fitsBelow || !fitsAbove);
+
+    let top = above ? anchor.top - ch - GAP : anchor.bottom + GAP;
+    top = Math.max(MARGIN, Math.min(top, vh - ch - MARGIN));
+
+    let left = align === "end" ? anchor.right - cw : anchor.left;
+    left = Math.max(MARGIN, Math.min(left, vw - cw - MARGIN));
+
+    // Keep the same reference when unchanged: the layout effect runs every render, and a fresh object
+    // each time would re-render endlessly.
+    setPos((prev) => (prev && prev.top === top && prev.left === left ? prev : { top, left }));
+  }, [anchorRef, placement, align]);
+
+  // Measure before paint on every render while open, so a list that grows or shrinks stays anchored
+  // to the input with no stale-position flash frame.
+  useIsoLayoutEffect(() => {
+    if (open) compute();
+    else setPos(null);
+  });
+
+  // Keep it anchored on viewport changes and on async content resizes (e.g. an image loading).
   useEffect(() => {
-    if (!open) {
-      setPos(null);
-      return;
-    }
-    const compute = () => {
-      const anchor = anchorRef.current?.getBoundingClientRect();
-      const content = contentRef.current?.getBoundingClientRect();
-      if (!anchor) return;
-      const cw = content?.width ?? 320;
-      const ch = content?.height ?? 280;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-
-      const roomAbove = anchor.top;
-      const roomBelow = vh - anchor.bottom;
-      const wantAbove = placement === "top";
-      const fitsAbove = roomAbove >= ch + GAP + MARGIN;
-      const fitsBelow = roomBelow >= ch + GAP + MARGIN;
-      const above = wantAbove ? fitsAbove || !fitsBelow : !(fitsBelow || !fitsAbove);
-
-      let top = above ? anchor.top - ch - GAP : anchor.bottom + GAP;
-      top = Math.max(MARGIN, Math.min(top, vh - ch - MARGIN));
-
-      let left = align === "end" ? anchor.right - cw : anchor.left;
-      left = Math.max(MARGIN, Math.min(left, vw - cw - MARGIN));
-
-      setPos({ top, left });
-    };
-    compute();
+    if (!open) return;
     window.addEventListener("resize", compute);
     window.addEventListener("scroll", compute, true);
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => compute()) : null;
+    if (ro && contentRef.current) ro.observe(contentRef.current);
     return () => {
       window.removeEventListener("resize", compute);
       window.removeEventListener("scroll", compute, true);
+      ro?.disconnect();
     };
-  }, [open, anchorRef, placement, align]);
+  }, [open, compute]);
 
   useEffect(() => {
     if (!open) return;

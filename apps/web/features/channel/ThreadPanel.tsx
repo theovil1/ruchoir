@@ -1,9 +1,11 @@
 "use client";
 
-import { type CSSProperties, type KeyboardEvent, useCallback, useState } from "react";
-import { Avatar, Icon, IconButton, Textarea } from "@/components/ds";
+import { type CSSProperties, useCallback, useRef, useState } from "react";
+import { Avatar, IconButton, Popover } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
 import type { Message } from "@/lib/data";
+import { EmojiPicker } from "./EmojiPicker";
+import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
 
 const MIN_WIDTH = 320;
 const MAX_WIDTH = 720;
@@ -95,8 +97,10 @@ export type ThreadPanelProps = {
 export function ThreadPanel({ parent, onClose }: ThreadPanelProps) {
   const me = getCurrentUser().name;
   const [replies, setReplies] = useState<Reply[]>(SEED_REPLIES);
-  const [val, setVal] = useState("");
   const [width, setWidth] = useState(420);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const editorRef = useRef<MessageEditorHandle>(null);
+  const emojiRef = useRef<HTMLButtonElement>(null);
 
   const startResize = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -118,25 +122,16 @@ export function ThreadPanel({ parent, onClose }: ThreadPanelProps) {
     document.addEventListener("mouseup", onUp);
   }, [width]);
 
-  const send = () => {
-    if (!val.trim()) return;
+  const addReply = (text: string) => {
     setReplies((prev) => [
       ...prev,
       {
         id: Date.now(),
         author: me,
         time: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
-        body: val.trim(),
+        body: text,
       },
     ]);
-    setVal("");
-  };
-
-  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
   };
 
   return (
@@ -159,16 +154,25 @@ export function ThreadPanel({ parent, onClose }: ThreadPanelProps) {
       </div>
       <div style={styles.composer}>
         <div style={styles.composerBox}>
-          <Textarea
-            seamless
-            rows={2}
-            value={val}
-            placeholder="Répondre dans le fil"
-            onChange={(e) => setVal(e.target.value)}
-            onKeyDown={onKeyDown}
-          />
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-            <IconButton icon="send" label="Envoyer" variant="accent" size="sm" onClick={send} />
+          <MessageEditor ref={editorRef} placeholder="Répondre dans le fil" onSend={addReply} />
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 2, marginTop: 4 }}>
+            <IconButton
+              ref={emojiRef}
+              icon="smile"
+              label="Émoji"
+              size="sm"
+              aria-expanded={emojiOpen}
+              onClick={() => setEmojiOpen((o) => !o)}
+            />
+            <Popover anchorRef={emojiRef} open={emojiOpen} onClose={() => setEmojiOpen(false)} placement="top" align="start">
+              <EmojiPicker
+                onPick={(emoji) => {
+                  editorRef.current?.insertEmoji(emoji);
+                  setEmojiOpen(false);
+                }}
+              />
+            </Popover>
+            <IconButton icon="send" label="Envoyer" variant="accent" size="sm" onClick={() => editorRef.current?.submit()} />
           </div>
         </div>
       </div>

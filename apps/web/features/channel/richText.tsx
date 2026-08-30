@@ -1,11 +1,45 @@
 import emojiRegex from "emoji-regex";
 import type { ReactNode } from "react";
+import { Tooltip } from "@/components/ds";
 import { Emoji } from "../app/Emoji";
-import { replaceShortcodes } from "@/lib/shortcodes";
+import { replaceShortcodes, shortcodeOf } from "@/lib/shortcodes";
 import { CodeBlock } from "./CodeBlock";
 
 /** Anchored emoji matcher (to test at a given position). */
 const EMOJI_RE = new RegExp(`^(?:${emojiRegex().source})`);
+
+const EMOJI_SIZE = 19;
+
+/**
+ * When a message is nothing but emoji (and whitespace), render them larger (Slack/Discord "jumbo").
+ * Returns the emoji count for such a message, or 0 when any other character is present.
+ */
+function jumboEmojiCount(text: string): number {
+  let i = 0;
+  let count = 0;
+  while (i < text.length) {
+    const em = EMOJI_RE.exec(text.slice(i));
+    if (em) {
+      count += 1;
+      i += em[0].length;
+      continue;
+    }
+    if (/\s/.test(text[i])) {
+      i += 1;
+      continue;
+    }
+    return 0;
+  }
+  return count;
+}
+
+/** Emoji size for a message: bigger when the whole message is emoji-only, tapering with count. */
+function emojiSizeFor(count: number): number {
+  if (count === 0) return EMOJI_SIZE;
+  if (count === 1) return 44;
+  if (count <= 3) return 36;
+  return 28;
+}
 
 /**
  * Rich-text renderer for message bodies. Handles the subset the composer produces: **bold**,
@@ -22,7 +56,7 @@ function matchMention(text: string, from: number, names: string[]): string | nul
   return best;
 }
 
-function renderInline(text: string, names: string[], keyBase: string): ReactNode[] {
+function renderInline(text: string, names: string[], keyBase: string, emojiSize = EMOJI_SIZE): ReactNode[] {
   const nodes: ReactNode[] = [];
   let buf = "";
   let i = 0;
@@ -37,15 +71,29 @@ function renderInline(text: string, names: string[], keyBase: string): ReactNode
     const em = EMOJI_RE.exec(text.slice(i));
     if (em) {
       flush();
-      nodes.push(<Emoji key={`${keyBase}-e${k++}`} emoji={em[0]} size={19} />);
-      i += em[0].length;
+      const key = `${keyBase}-e${k++}`;
+      const glyph = em[0];
+      const shortcode = shortcodeOf(glyph);
+      const node = <Emoji emoji={glyph} size={emojiSize} />;
+      nodes.push(
+        shortcode ? (
+          <Tooltip key={key} label={shortcode}>
+            {node}
+          </Tooltip>
+        ) : (
+          <span key={key} style={{ display: "inline-flex" }}>
+            {node}
+          </span>
+        ),
+      );
+      i += glyph.length;
       continue;
     }
     if (text.startsWith("**", i)) {
       const end = text.indexOf("**", i + 2);
       if (end > i + 1) {
         flush();
-        nodes.push(<strong key={`${keyBase}-b${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-b${k}`)}</strong>);
+        nodes.push(<strong key={`${keyBase}-b${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-b${k}`, emojiSize)}</strong>);
         i = end + 2;
         continue;
       }
@@ -103,7 +151,7 @@ function renderInline(text: string, names: string[], keyBase: string): ReactNode
 }
 
 /** Render a plain-text block (no fenced code): lists, line breaks, and inline formatting. */
-function renderTextBlock(text: string, names: string[], keyBase: string): ReactNode[] {
+function renderTextBlock(text: string, names: string[], keyBase: string, emojiSize = EMOJI_SIZE): ReactNode[] {
   const lines = text.split("\n");
   const blocks: ReactNode[] = [];
   let list: ReactNode[] | null = null;
@@ -123,12 +171,12 @@ function renderTextBlock(text: string, names: string[], keyBase: string): ReactN
   lines.forEach((line, idx) => {
     if (line.startsWith("- ")) {
       list ??= [];
-      list.push(<li key={`${keyBase}-li${idx}`}>{renderInline(line.slice(2), names, `${keyBase}li${idx}`)}</li>);
+      list.push(<li key={`${keyBase}-li${idx}`}>{renderInline(line.slice(2), names, `${keyBase}li${idx}`, emojiSize)}</li>);
     } else {
       closeList();
       blocks.push(
         <span key={`${keyBase}-ln${idx}`}>
-          {renderInline(line, names, `${keyBase}ln${idx}`)}
+          {renderInline(line, names, `${keyBase}ln${idx}`, emojiSize)}
           {idx < lines.length - 1 ? "\n" : null}
         </span>,
       );
@@ -141,6 +189,8 @@ function renderTextBlock(text: string, names: string[], keyBase: string): ReactN
 export function renderRichText(text: string, names: string[], editable = false): ReactNode {
   // Split on ``` fences: odd segments are fenced code blocks.
   const segments = text.split("```");
+  // Emoji-only messages (no fenced code) render larger; the size tapers with the emoji count.
+  const emojiSize = segments.length > 1 ? EMOJI_SIZE : emojiSizeFor(jumboEmojiCount(replaceShortcodes(text)));
   const out: ReactNode[] = [];
   segments.forEach((seg, i) => {
     if (i % 2 === 1) {
@@ -157,7 +207,7 @@ export function renderRichText(text: string, names: string[], editable = false):
       code = code.replace(/\n$/, "");
       out.push(<CodeBlock key={`pre${i}`} code={code} declaredLang={lang} editable={editable} />);
     } else if (seg) {
-      out.push(...renderTextBlock(replaceShortcodes(seg), names, `s${i}`));
+      out.push(...renderTextBlock(replaceShortcodes(seg), names, `s${i}`, emojiSize));
     }
   });
   return out;

@@ -412,6 +412,27 @@
 .wc-ta--invalid {
   border-color: var(--crimson-500);
 }
+
+/* Rich message input (contenteditable): renders inline emote chips the plain textarea cannot show. */
+.wc-rich-input {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--text-strong);
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.wc-rich-input[data-empty="true"]::before {
+  content: attr(data-placeholder);
+  color: var(--text-subtle);
+  pointer-events: none;
+}
 .wc-ta:disabled {
   background: var(--surface-disabled);
   color: var(--text-disabled);

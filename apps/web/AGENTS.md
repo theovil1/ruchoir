@@ -97,4 +97,30 @@ prototype internals when they do not fit. Enforce token usage with the design-sy
   highlight.js output for fenced code blocks (`highlight.js`, BSD-3, local, language auto-detect) and
   is safe because highlight.js escapes the code. The composer emits this same lightweight markdown.
   Render message bodies in a `<div>`, never a `<p>` (fenced code / lists produce `<pre>`/`<ul>`,
-  which are illegal inside `<p>` and cause a hydration error).
+  which are illegal inside `<p>` and cause a hydration error). A message that is **emoji-only** (only
+  emoji + whitespace, no fenced code) renders them larger, tapering with the count (1 -> 44px, 2-3 ->
+  36px, 4+ -> 28px; `jumboEmojiCount`/`emojiSizeFor`). Every message emoji shows its `:shortcode:` on
+  hover in a styled DS `Tooltip` (not the native `title`), the label from `shortcodeOf` (node-emoji
+  `which`).
+- **Message input** is a shared rich editor, `features/channel/MessageEditor.tsx`, used by both the
+  channel `Composer` and the `ThreadPanel` reply box (the `ProfilePanel` bio stays a plain `Textarea`,
+  it is not a message field). It is an **uncontrolled contenteditable** (`.wc-rich-input`), not a
+  textarea, so it can render inline Fluent emote **chips**: picking or typing an emoji inserts a
+  `contentEditable=false` span carrying `data-emoji` (built by `features/channel/composerEditor.ts`,
+  static sprite). `onSend` receives the **serialised plain text** (emotes back to their Unicode glyph,
+  `<br>`/blocks to `\n`), so the message pipeline and `richText` rendering are unchanged. The
+  surrounding toolbar (bold/italic/code/list, emoji picker, send) drives the editor through a ref
+  handle (`MessageEditorHandle`: `submit`/`insertEmoji`/`insertText`/`wrapSelection`/`prefixLines`/
+  `codeFormat`). Paste is coerced to plain text; caret/offsets are mapped by serialising the range
+  from the editor start to the selection focus (`editorState`).
+- **Composer autocomplete** (inside `MessageEditor`): one keyboard-navigable suggestion popup serves
+  both triggers, `@mention` (members) and `:shortcode:` (emoji, via `searchShortcodes` in
+  `lib/shortcodes.ts`, backed by node-emoji `search`, prefix matches ranked first). A single `trigger`
+  state (`kind`/`query`/`start`) plus an `active` index drives it; the editor is an ARIA `combobox`
+  (`aria-activedescendant` on the options, ids namespaced per instance via `useId`). Keys: Up/Down
+  move, Enter/Tab accept, Esc dismisses; hover syncs `active`, and option `onMouseDown` is prevented so
+  the editor keeps focus. Picking a mention inserts `@name `, a shortcode inserts an emote chip. The
+  shortcode trigger fires from the first character after the colon and only at a token start
+  (`(?:^|\s):`), so times like `10:30` do not trigger it. The `Popover` (`components/ds/Popover.tsx`)
+  measures before paint on every open render (and via a `ResizeObserver` for async resizes), so a
+  shrinking/growing list stays anchored to the input with no stale-gap or flash.
