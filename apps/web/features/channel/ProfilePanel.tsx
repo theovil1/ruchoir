@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type ReactNode, useState } from "react";
+import { type CSSProperties, type ReactNode, useRef, useState } from "react";
 import { Avatar, Button, Icon, IconButton, Input, Textarea } from "@/components/ds";
 import { getCurrentUser, getProfile } from "@/lib/data";
 import { presenceLabel } from "../app/presence";
@@ -74,6 +74,15 @@ export function ProfilePanel({ name, startEditing, onClose, onMessage, onNotify 
   const [role, setRole] = useState(p.role);
   const [pronouns, setPronouns] = useState(p.pronouns ?? "");
   const [bio, setBio] = useState(p.bio ?? "");
+  const [photo, setPhoto] = useState<string | undefined>(undefined);
+  const photoRef = useRef<HTMLInputElement>(null);
+
+  const onPhotoPicked = (fileList: FileList | null) => {
+    const file = fileList?.[0];
+    if (!file) return;
+    setPhoto(URL.createObjectURL(file));
+    if (photoRef.current) photoRef.current.value = "";
+  };
 
   const save = () => {
     setEditing(false);
@@ -88,7 +97,7 @@ export function ProfilePanel({ name, startEditing, onClose, onMessage, onNotify 
       </div>
       <div style={styles.scroll}>
         <div style={styles.hero}>
-          <Avatar name={p.name} size={88} presence={p.presence} kind={p.bot ? "bot" : "person"} />
+          <Avatar name={p.name} src={photo} size={88} kind={p.bot ? "bot" : "person"} />
           <div style={{ fontSize: 20, fontWeight: 600, color: "var(--text-strong)", marginTop: 4 }}>{p.name}</div>
           <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
             {role}
@@ -116,6 +125,20 @@ export function ProfilePanel({ name, startEditing, onClose, onMessage, onNotify 
         {isOwn && editing ? (
           <div style={styles.section}>
             <div style={styles.label}>Modifier</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+              <Avatar name={p.name} src={photo} size={56} kind={p.bot ? "bot" : "person"} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
+                <Button variant="secondary" size="sm" iconLeft="image" onClick={() => photoRef.current?.click()}>
+                  Changer la photo
+                </Button>
+                {photo ? (
+                  <Button variant="link" size="sm" onClick={() => setPhoto(undefined)}>
+                    Retirer la photo
+                  </Button>
+                ) : null}
+              </div>
+              <input ref={photoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => onPhotoPicked(e.target.files)} />
+            </div>
             <label style={styles.formLabel}>Rôle</label>
             <Input value={role} onChange={(e) => setRole(e.target.value)} />
             <label style={styles.formLabel}>Pronoms</label>

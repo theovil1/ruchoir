@@ -111,8 +111,26 @@ prototype internals when they do not fit. Enforce token usage with the design-sy
   `<br>`/blocks to `\n`), so the message pipeline and `richText` rendering are unchanged. The
   surrounding toolbar (bold/italic/code/list, emoji picker, send) drives the editor through a ref
   handle (`MessageEditorHandle`: `submit`/`insertEmoji`/`insertText`/`wrapSelection`/`prefixLines`/
-  `codeFormat`). Paste is coerced to plain text; caret/offsets are mapped by serialising the range
-  from the editor start to the selection focus (`editorState`).
+  `codeFormat`/`isEmpty`/`clear`). `isEmpty`/`clear` let the `Composer` send an attachment-only
+  message (empty body) and reset after. Paste is coerced to plain text; caret/offsets are mapped by
+  serialising the range from the editor start to the selection focus (`editorState`).
+- **Screens & shell state.** `features/app/AppRoot.tsx` is the client spine: it lifts the seed
+  collections (workspaces, channels, DMs, files, and a full per-conversation message map) into
+  `useState` so the UI can mutate them, gates the app behind an `authStage` state machine
+  (`login -> signup -> onboarding -> app`; boots at `app`, logout returns to `login`), and routes
+  every global dialog through a single `modal` union. The auth/onboarding screens live in
+  `features/auth/` (`AuthShell` centered layout, `LoginScreen`, `SignupScreen`, and the multi-step
+  `OnboardingFlow` that creates the first workspace). Screens live in
+  `features/{auth,files,import,settings}/` and `features/channel/`; the Threads/Mentions/Saved views
+  are `features/app/ActivityView.tsx` fed by the cross-conversation collectors in
+  `features/app/activity.ts`. Small global dialogs (new channel/message/workspace, invite, help) are
+  grouped in `features/app/dialogs.tsx`; channel-menu dialogs in `features/channel/ChannelDialogs.tsx`;
+  workspace-wide search in `features/app/GlobalSearchDialog.tsx`. A conversation is a direct message
+  when its id matches a DM (ChannelScreen takes an optional `dm` prop and adapts its header/intro).
+- **DS primitives now include** `Checkbox`, `Radio`, `Switch`, `Select`, `Field` and `Dialog`, ported
+  from the handoff into typed React with their CSS appended to `app/components.css` (the handoff
+  injected it at runtime; we do not). `Dialog` is the shared modal base (scrim + head + body + footer,
+  closes on scrim/Escape); reuse it rather than hand-rolling a scrim.
 - **Composer autocomplete** (inside `MessageEditor`): one keyboard-navigable suggestion popup serves
   both triggers, `@mention` (members) and `:shortcode:` (emoji, via `searchShortcodes` in
   `lib/shortcodes.ts`, backed by node-emoji `search`, prefix matches ranked first). A single `trigger`

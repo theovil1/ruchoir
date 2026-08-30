@@ -113,8 +113,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <Toggle on={s.emojiAnimated} onChange={(v) => s.set("emojiAnimated", v)} label="Emojis animés" />
           </Row>
           <Row
-            title="Pack emoji installé (démo)"
-            desc="Simule la présence du pack Fluent auto-hébergé. Désactivé, les emojis reviennent au rendu natif du système."
+            title="Pack emoji installé"
+            desc="Active le pack Fluent auto-hébergé. Désactivé, les emojis reviennent au rendu natif du système."
           >
             <Toggle on={s.emojiPack} onChange={(v) => s.set("emojiPack", v)} label="Pack emoji installé" />
           </Row>

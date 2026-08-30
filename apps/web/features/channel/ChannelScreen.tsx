@@ -1,13 +1,19 @@
 "use client";
 
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
-import { Icon, IconButton, Tooltip } from "@/components/ds";
-import { getDirectMessages, getSpaceFiles, getTypingUsers } from "@/lib/data";
-import type { Channel, Message } from "@/lib/data";
+import { Avatar, Icon, IconButton, Tooltip } from "@/components/ds";
+import { getChannelMembers, getDirectMessages, getPresence, getProfile, getSpaceFiles, getTypingUsers } from "@/lib/data";
+import type { Channel, DirectMessage, Message, MessageAttachment } from "@/lib/data";
 import { useMountAnimation } from "../app/useMountAnimation";
 import { ProfilePanel } from "./ProfilePanel";
 import type { ChannelPanel, Toast } from "../app/types";
 import { ChannelMenu } from "./ChannelMenu";
+import {
+  AddPeopleDialog,
+  ChannelNotificationsDialog,
+  ChannelSettingsDialog,
+  LeaveChannelDialog,
+} from "./ChannelDialogs";
 import { SearchPanel } from "./SearchPanel";
 import { type ChannelMember, SidePanel } from "./SidePanel";
 import { Composer } from "./Composer";
@@ -34,6 +40,13 @@ function RightDock({ open, contentKey, children }: { open: boolean; contentKey: 
     </div>
   );
 }
+
+const PRESENCE_LABEL: Record<string, string> = {
+  online: "En ligne",
+  away: "Absent",
+  busy: "Occupé",
+  offline: "Hors ligne",
+};
 
 const styles: Record<string, CSSProperties> = {
   top: {
@@ -101,25 +114,34 @@ export type MessageActionHandlers = {
   message: (name: string) => void;
 };
 
+type MenuDialog = "settings" | "notifications" | "addpeople" | "leave" | null;
+
 export type ChannelScreenProps = {
   channel: Channel;
+  /** Set when the open conversation is a direct message rather than a channel. */
+  dm?: DirectMessage | null;
   messages: Message[];
   panel: ChannelPanel;
   threadId: number | null;
   profileName: string | null;
   profileEditing: boolean;
   unreadMarker: number | null;
-  onSend: (text: string) => void;
+  onSend: (text: string, attachment?: MessageAttachment) => void;
   onPanel: (panel: ChannelPanel) => void;
   onCloseThread: () => void;
   onCloseProfile: () => void;
   onNotify: (toast: Toast) => void;
+  onUpdateChannel: (patch: Partial<Channel>) => void;
+  onLeaveChannel: () => void;
+  /** When set, the feed scrolls to and flashes this message after it renders. */
+  focusMessageId?: number | null;
   actions: MessageActionHandlers;
 };
 
-/** The channel view: header, message feed, composer, and optional right panel. */
+/** The channel (or direct message) view: header, message feed, composer, and optional right panel. */
 export function ChannelScreen({
   channel,
+  dm,
   messages,
   panel,
   threadId,
@@ -131,16 +153,21 @@ export function ChannelScreen({
   onCloseThread,
   onCloseProfile,
   onNotify,
+  onUpdateChannel,
+  onLeaveChannel,
+  focusMessageId,
   actions,
 }: ChannelScreenProps) {
+  const isDm = !!dm;
   const members: ChannelMember[] = [...getDirectMessages(), ...EXTRA_MEMBERS];
   const threadParent = threadId != null ? messages.find((m) => m.id === threadId) : undefined;
   const pinned = messages.filter((m) => m.pinned && !m.deleted);
   const togglePanel = (p: Exclude<ChannelPanel, null>) => onPanel(panel === p ? null : p);
+  const [menuDialog, setMenuDialog] = useState<MenuDialog>(null);
 
   const feedRef = useRef<HTMLDivElement>(null);
   const msgCount = messages.length;
-  // Land at the latest message when entering a channel, and follow new messages.
+  // Land at the latest message when entering a conversation, and follow new messages.
   useEffect(() => {
     const el = feedRef.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -161,6 +188,14 @@ export function ChannelScreen({
     void el.offsetWidth;
     el.classList.add("wc-flash");
   };
+
+  // Jump to a message requested from global search or an activity view, once it has rendered.
+  useEffect(() => {
+    if (!focusMessageId) return;
+    const raf = requestAnimationFrame(() => jumpToMessage(focusMessageId));
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusMessageId, channel.id]);
 
   const files = getSpaceFiles();
   const contentKey = profileName
@@ -201,26 +236,46 @@ export function ChannelScreen({
       onNotify={onNotify}
     />
   ) : null;
+
+  const dmProfile = isDm ? getProfile(dm.name) : null;
+  const typing = getTypingUsers(channel.id);
+
   return (
     <div style={{ flex: 1, display: "flex", minWidth: 0 }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <div style={styles.top}>
-          <div style={styles.title}>
-            <Icon name={channel.type === "private" ? "lock" : "hash"} size={15} style={{ opacity: 0.55 }} />
-            {channel.name}
-          </div>
-          <div style={styles.meta}>
-            <Icon name="users" size={13} />
-            12
-            <span style={{ color: "var(--border-strong)" }}>·</span>
-            Suivi des écritures et rapprochements
-          </div>
+          {isDm ? (
+            <>
+              <div style={styles.title}>
+                <Avatar name={dm.name} size={22} presence={getPresence(dm.name)} kind={dm.bot ? "bot" : "person"} />
+                {dm.name}
+              </div>
+              <div style={styles.meta}>{dmProfile?.role ?? PRESENCE_LABEL[getPresence(dm.name)]}</div>
+            </>
+          ) : (
+            <>
+              <div style={styles.title}>
+                <Icon name={channel.type === "private" ? "lock" : "hash"} size={15} style={{ opacity: 0.55 }} />
+                {channel.name}
+              </div>
+              <div style={styles.meta}>
+                <Icon name="users" size={13} />
+                {members.length}
+                {channel.topic ? (
+                  <>
+                    <span style={{ color: "var(--border-strong)" }}>·</span>
+                    {channel.topic}
+                  </>
+                ) : null}
+              </div>
+            </>
+          )}
           <div style={{ flex: 1 }} />
-          <Tooltip label="Rechercher dans le canal" side="bottom">
+          <Tooltip label="Rechercher dans la conversation" side="bottom">
             <IconButton
               className="wc-ibtn--bare"
               icon="search"
-              label="Rechercher dans le canal"
+              label="Rechercher dans la conversation"
               aria-pressed={panel === "search"}
               onClick={() => togglePanel("search")}
             />
@@ -234,47 +289,74 @@ export function ChannelScreen({
               onClick={() => togglePanel("pinned")}
             />
           </Tooltip>
-          <Tooltip label="Fichiers du canal" side="bottom">
+          <Tooltip label="Fichiers" side="bottom">
             <IconButton
               className="wc-ibtn--bare"
               icon="folder"
-              label="Fichiers du canal"
+              label="Fichiers"
               aria-pressed={panel === "files"}
               onClick={() => togglePanel("files")}
             />
           </Tooltip>
-          <Tooltip label="Membres" side="bottom">
-            <IconButton
-              className="wc-ibtn--bare"
-              icon="users"
-              label="Membres"
-              aria-pressed={panel === "members"}
-              onClick={() => togglePanel("members")}
+          {!isDm ? (
+            <Tooltip label="Membres" side="bottom">
+              <IconButton
+                className="wc-ibtn--bare"
+                icon="users"
+                label="Membres"
+                aria-pressed={panel === "members"}
+                onClick={() => togglePanel("members")}
+              />
+            </Tooltip>
+          ) : null}
+          {!isDm ? (
+            <ChannelMenu
+              onSettings={() => setMenuDialog("settings")}
+              onNotifications={() => setMenuDialog("notifications")}
+              onAddPeople={() => setMenuDialog("addpeople")}
+              onLeave={() => setMenuDialog("leave")}
             />
-          </Tooltip>
-          <ChannelMenu
-            onSettings={() => onNotify({ tone: "info", title: "Paramètres du canal", description: "À venir dans un prochain lot." })}
-            onNotifications={() => onNotify({ tone: "info", title: "Notifications du canal", description: "À venir dans un prochain lot." })}
-            onAddPeople={() => onNotify({ tone: "info", title: "Ajouter des personnes", description: "À venir dans un prochain lot." })}
-            onLeave={() => onNotify({ tone: "warning", title: `Quitter #${channel.name}`, description: "À venir dans un prochain lot." })}
-          />
+          ) : null}
         </div>
-        <div style={styles.feed} ref={feedRef}>
+        <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        <div style={{ ...styles.feed, paddingBottom: typing.length > 0 ? 44 : 8 }} ref={feedRef}>
           <div style={styles.inner}>
             <div style={{ padding: "4px 0 14px" }}>
-              <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
-                #{channel.name}
+              {isDm ? (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <Avatar name={dm.name} size={44} presence={getPresence(dm.name)} kind={dm.bot ? "bot" : "person"} />
+                    <div>
+                      <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
+                        {dm.name}
+                      </div>
+                      {dmProfile?.role ? <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{dmProfile.role}</div> : null}
+                    </div>
+                  </div>
+                  <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 10, maxWidth: 560 }}>
+                    Ceci est le début de votre conversation privée avec {dm.name.split(" ")[0]}. Les messages ne sont visibles que
+                    par vous deux.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
+                    #{channel.name}
+                  </div>
+                  <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 6, maxWidth: 560 }}>
+                    {channel.type === "private" ? "Canal privé." : "Canal public."} {channel.topic ? `${channel.topic}. ` : ""}
+                    {channel.imported ? `L'historique a été repris depuis ${channel.imported}.` : "Début du canal."}
+                  </p>
+                </>
+              )}
+            </div>
+            {msgCount > 0 ? (
+              <div style={styles.day}>
+                <span style={styles.dayLine} />
+                <span style={styles.dayLbl}>Aujourd'hui</span>
+                <span style={styles.dayLine} />
               </div>
-              <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 6, maxWidth: 560 }}>
-                Canal privé créé le 14 janvier 2026 par Camille Roussel. L'historique a été repris
-                depuis Slack jusqu'au 12 janvier.
-              </p>
-            </div>
-            <div style={styles.day}>
-              <span style={styles.dayLine} />
-              <span style={styles.dayLbl}>Aujourd'hui</span>
-              <span style={styles.dayLine} />
-            </div>
+            ) : null}
             {messages.map((m) => (
               <Fragment key={m.id}>
                 {m.id === unreadMarker ? (
@@ -308,12 +390,51 @@ export function ChannelScreen({
             ))}
           </div>
         </div>
-        <TypingIndicator names={getTypingUsers(channel.id)} />
-        <Composer channelName={channel.name} onSend={onSend} onNotify={onNotify} />
+          {typing.length > 0 ? (
+            <>
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 56,
+                  background: "linear-gradient(0deg, var(--surface-canvas) 55%, transparent 100%)",
+                  pointerEvents: "none",
+                }}
+              />
+              <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, pointerEvents: "none" }}>
+                <TypingIndicator names={typing} />
+              </div>
+            </>
+          ) : null}
+        </div>
+        <Composer channelName={isDm ? dm.name : channel.name} onSend={onSend} onNotify={onNotify} />
       </div>
       <RightDock open={rightNode != null} contentKey={contentKey}>
         {rightNode}
       </RightDock>
+
+      {menuDialog === "settings" ? (
+        <ChannelSettingsDialog channel={channel} onClose={() => setMenuDialog(null)} onUpdate={onUpdateChannel} onNotify={onNotify} />
+      ) : null}
+      {menuDialog === "notifications" ? (
+        <ChannelNotificationsDialog channelName={channel.name} onClose={() => setMenuDialog(null)} onNotify={onNotify} />
+      ) : null}
+      {menuDialog === "addpeople" ? (
+        <AddPeopleDialog channelName={channel.name} people={getChannelMembers()} onClose={() => setMenuDialog(null)} onNotify={onNotify} />
+      ) : null}
+      {menuDialog === "leave" ? (
+        <LeaveChannelDialog
+          channelName={channel.name}
+          onClose={() => setMenuDialog(null)}
+          onConfirm={() => {
+            setMenuDialog(null);
+            onLeaveChannel();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

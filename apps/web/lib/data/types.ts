@@ -21,6 +21,8 @@ export type Channel = {
   fav: boolean;
   unread: number;
   type: ChannelType;
+  /** Short one-line channel purpose, shown in the header meta and intro. */
+  topic?: string;
   /** Set when the channel was migrated from another tool. */
   imported?: ImportSource;
 };

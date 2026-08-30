@@ -19,12 +19,12 @@ export const WORKSPACES: Workspace[] = [
 ];
 
 export const CHANNELS: Channel[] = [
-  { id: "general", name: "général", fav: true, unread: 0, type: "public" },
-  { id: "compta", name: "comptabilité-2026", fav: true, unread: 3, type: "private", imported: "Slack" },
-  { id: "atelier-bois", name: "atelier-bois", fav: false, unread: 0, type: "public" },
-  { id: "chantier-reze", name: "chantier-rezé", fav: false, unread: 12, type: "public", imported: "Mattermost" },
-  { id: "veille", name: "veille-marché", fav: false, unread: 0, type: "public" },
-  { id: "archives-2025", name: "archives-2025", fav: false, unread: 0, type: "archived" },
+  { id: "general", name: "général", fav: true, unread: 0, type: "public", topic: "Annonces et vie de l'atelier" },
+  { id: "compta", name: "comptabilité-2026", fav: true, unread: 3, type: "private", topic: "Suivi des écritures et rapprochements", imported: "Slack" },
+  { id: "atelier-bois", name: "atelier-bois", fav: false, unread: 0, type: "public", topic: "Coordination de l'atelier bois" },
+  { id: "chantier-reze", name: "chantier-rezé", fav: false, unread: 12, type: "public", topic: "Chantier de Rezé, suivi et logistique", imported: "Mattermost" },
+  { id: "veille", name: "veille-marché", fav: false, unread: 0, type: "public", topic: "Appels d'offres et veille concurrentielle" },
+  { id: "archives-2025", name: "archives-2025", fav: false, unread: 0, type: "archived", topic: "Canal archivé, lecture seule" },
 ];
 
 export const DMS: DirectMessage[] = [
@@ -46,6 +46,7 @@ export const MESSAGES: Record<string, Message[]> = {
         { emoji: "✅", count: 2 },
         { emoji: "👍", count: 1, mine: true },
       ],
+      saved: true,
     },
     {
       id: 2,
@@ -89,6 +90,7 @@ export const MESSAGES: Record<string, Message[]> = {
           "Opérations de clôture des comptes annuels pour les TPE et PME : inventaire, écritures d'ajustement, établissement des comptes.",
         hasImage: true,
       },
+      saved: true,
     },
     {
       id: 7,
@@ -111,6 +113,74 @@ export const MESSAGES: Record<string, Message[]> = {
       time: "10:27",
       body: "",
       deleted: true,
+    },
+  ],
+  general: [
+    {
+      id: 101,
+      author: "Adèle Fournier",
+      time: "08:55",
+      body: "Bonjour à toutes et tous. Réunion d'atelier à 14 h en salle bois, ordre du jour partagé dans les fichiers.",
+    },
+    {
+      id: 102,
+      author: "Sofia Nadir",
+      time: "09:10",
+      body: "@Camille Roussel peux-tu confirmer le budget fournitures pour le chantier de Rezé ? On aimerait commander cette semaine.",
+      replies: 1,
+    },
+    {
+      id: 103,
+      author: "Marc Lévêque",
+      time: "09:32",
+      body: "Les nouvelles lames sont arrivées, je les range à l'atelier.",
+      reactions: [{ emoji: "👍", count: 3 }],
+    },
+  ],
+  "chantier-reze": [
+    {
+      id: 201,
+      author: "Adèle Fournier",
+      time: "Hier, 16:40",
+      body: "Livraison décalée à jeudi matin. @Camille Roussel il faudra prévenir le client pour l'accès au parking.",
+      imported: true,
+      replies: 2,
+    },
+    {
+      id: 202,
+      author: "Yanis Berthier",
+      time: "Hier, 17:05",
+      body: "Le devis de menuiserie est validé côté compta, je l'ai déposé dans les fichiers de l'espace.",
+      attachment: { name: "Devis_menuiserie.pdf", size: "820 Ko", kind: "file" },
+    },
+  ],
+  yanis: [
+    {
+      id: 301,
+      author: "Yanis Berthier",
+      time: "09:20",
+      body: "Je te confirme les deux écritures de mars avant midi.",
+    },
+    {
+      id: 302,
+      author: "Camille Roussel",
+      time: "09:22",
+      body: "Parfait, merci. On boucle la relecture jeudi.",
+      readBy: ["Yanis Berthier"],
+    },
+  ],
+  bot: [
+    {
+      id: 401,
+      author: "Assistant d'import",
+      time: "Hier, 18:02",
+      body: "Import Slack terminé : 6 canaux, 8 912 messages et 143 fichiers repris. Les messages portent le label « Importé de Slack » pendant 7 jours.",
+    },
+    {
+      id: 402,
+      author: "Assistant d'import",
+      time: "Hier, 18:03",
+      body: "Import Nextcloud en cours : 42 % des fichiers transférés. Je te préviens ici dès que c'est terminé.",
     },
   ],
 };

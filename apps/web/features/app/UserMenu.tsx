@@ -4,7 +4,6 @@ import { type CSSProperties, type RefObject } from "react";
 import { Avatar, Icon, Popover } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { presenceLabel } from "./presence";
-import type { Toast } from "./types";
 
 const panel: CSSProperties = {
   width: 260,
@@ -64,7 +63,7 @@ export type UserMenuProps = {
   onOpenProfile: () => void;
   onEditProfile: () => void;
   onOpenSettings: () => void;
-  onNotify: (toast: Toast) => void;
+  onLogout: () => void;
 };
 
 /** The signed-in user's menu: presence and profile actions. */
@@ -78,7 +77,7 @@ export function UserMenu({
   onOpenProfile,
   onEditProfile,
   onOpenSettings,
-  onNotify,
+  onLogout,
 }: UserMenuProps) {
   const run = (fn: () => void) => {
     fn();
@@ -124,8 +123,8 @@ export function UserMenu({
           <button type="button" onClick={() => run(onOpenSettings)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
             <Icon name="settings" size={14} /> Préférences
           </button>
-          <button type="button" onClick={() => run(() => onNotify({ tone: "info", title: "Déconnexion", description: "À venir dans un prochain lot." }))} style={{ ...item, color: "var(--status-danger-fg)" }} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
-            <Icon name="arrow-left" size={14} /> Se déconnecter
+          <button type="button" onClick={() => run(onLogout)} style={{ ...item, color: "var(--status-danger-fg)" }} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
+            <Icon name="log-out" size={14} /> Se déconnecter
           </button>
         </div>
       </div>

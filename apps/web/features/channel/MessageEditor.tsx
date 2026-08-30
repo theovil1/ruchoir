@@ -34,6 +34,10 @@ export type MessageEditorHandle = {
   wrapSelection: (before: string, after?: string) => void;
   prefixLines: (prefix: string) => void;
   codeFormat: () => void;
+  /** Whether the editor currently has no text (used to allow attachment-only sends). */
+  isEmpty: () => boolean;
+  /** Clear the editor without sending. */
+  clear: () => void;
 };
 
 const menuStyle: CSSProperties = {
@@ -231,6 +235,17 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
     wrapSelection,
     prefixLines,
     codeFormat,
+    isEmpty: () => {
+      const ed = edRef.current;
+      return !ed || serialize(ed).trim() === "";
+    },
+    clear: () => {
+      const ed = edRef.current;
+      if (!ed) return;
+      ed.innerHTML = "";
+      setTrigger(null);
+      setEmpty(true);
+    },
   }));
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {

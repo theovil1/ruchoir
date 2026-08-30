@@ -2,7 +2,6 @@ import { type CSSProperties, useRef, useState } from "react";
 import { Avatar, IconButton, Tooltip } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Workspace } from "@/lib/data";
-import type { Toast } from "./types";
 import { UserMenu } from "./UserMenu";
 
 const rail: CSSProperties = {
@@ -41,11 +40,12 @@ export type WorkspaceRailProps = {
   presence: Presence;
   onSelect: (id: string) => void;
   onNew: () => void;
-  onNotify: (toast: Toast) => void;
   onSetPresence: (p: Presence) => void;
   onOpenOwnProfile: () => void;
   onEditOwnProfile: () => void;
   onOpenSettings: () => void;
+  onHelp: () => void;
+  onLogout: () => void;
 };
 
 /** Left-most rail: one square per workspace, plus help and the signed-in user. */
@@ -56,15 +56,15 @@ export function WorkspaceRail({
   presence,
   onSelect,
   onNew,
-  onNotify,
   onSetPresence,
   onOpenOwnProfile,
   onEditOwnProfile,
   onOpenSettings,
+  onHelp,
+  onLogout,
 }: WorkspaceRailProps) {
   const [userMenu, setUserMenu] = useState(false);
   const userRef = useRef<HTMLButtonElement>(null);
-  const soon = (title: string) => onNotify({ tone: "info", title, description: "À venir dans un prochain lot." });
 
   return (
     <div style={rail}>
@@ -80,7 +80,7 @@ export function WorkspaceRail({
       </Tooltip>
       <div style={{ flex: 1 }} />
       <Tooltip label="Aide" side="right">
-        <IconButton icon="life-buoy" label="Aide" onClick={() => soon("Aide")} />
+        <IconButton icon="life-buoy" label="Aide" onClick={onHelp} />
       </Tooltip>
       <Tooltip label="Mon profil" side="right">
         <button
@@ -103,7 +103,7 @@ export function WorkspaceRail({
         onOpenProfile={onOpenOwnProfile}
         onEditProfile={onEditOwnProfile}
         onOpenSettings={onOpenSettings}
-        onNotify={onNotify}
+        onLogout={onLogout}
       />
     </div>
   );

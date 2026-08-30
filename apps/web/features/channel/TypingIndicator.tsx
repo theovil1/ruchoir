@@ -13,13 +13,15 @@ export function TypingIndicator({ names }: { names: string[] }) {
       aria-live="polite"
       style={{
         maxWidth: "var(--channel-measure)",
+        width: "100%",
         margin: "0 auto",
-        padding: "0 24px 2px",
+        padding: "4px 24px 8px",
         display: "flex",
         alignItems: "center",
         gap: 8,
-        height: 18,
+        minHeight: 20,
         fontSize: 12,
+        fontStyle: "italic",
         color: "var(--text-subtle)",
       }}
     >
