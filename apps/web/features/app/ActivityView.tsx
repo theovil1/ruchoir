@@ -37,6 +37,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     gap: 8,
     padding: "0 16px",
+    margin: 0, // rendered as an <h1>
     borderBottom: "1px solid var(--border-subtle)",
     fontSize: 15,
     fontWeight: 600,
@@ -79,13 +80,13 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
 
   return (
     <div style={styles.root}>
-      <div style={styles.top}>
-        <Icon name={meta.icon} size={15} style={{ opacity: 0.55 }} />
+      <h1 style={styles.top}>
+        <Icon name={meta.icon} size={15} style={{ color: "var(--text-muted)" }} />
         {meta.title}
         {items.length > 0 ? (
           <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)" }}>· {items.length}</span>
         ) : null}
-      </div>
+      </h1>
 
       {items.length === 0 ? (
         <div style={styles.empty}>

@@ -46,7 +46,7 @@ export function AuthShell({ children, footer }: { children: ReactNode; footer?: 
         </div>
         <div style={styles.tagline}>Une ruche pour tout votre travail.</div>
       </div>
-      <div style={styles.card}>{children}</div>
+      <main style={styles.card}>{children}</main>
       {footer ? <div style={styles.footer}>{footer}</div> : null}
     </div>
   );

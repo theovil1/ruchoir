@@ -86,10 +86,6 @@
   src: url("/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2");
 }
 
-:root {
-  color-scheme: light;
-}
-
 body {
   background: var(--surface-canvas);
   color: var(--text-body);

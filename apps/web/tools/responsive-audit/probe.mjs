@@ -11,8 +11,26 @@
  *   - touch-target         an interactive control is smaller than 44x44 on a touch viewport
  *   - overlap              two interactive controls visibly overlap
  *
- * Each finding is `{ rule, severity, selector, detail, rect }`. Severity is one of
- * "critical" | "major" | "minor". The runner adds state/viewport context around it.
+ * It also runs UX / accessibility checks (category "ux" or "a11y"):
+ *   - low-contrast         text below the WCAG AA ratio for its size
+ *   - tiny-text            text under 12px
+ *   - dialog-overflows-viewport  a dialog taller than the viewport hides its own actions
+ *   - accessible-name      an interactive control exposes no accessible name (WCAG 4.1.2)
+ *   - icon-contrast        a meaningful icon below 3:1 against its backdrop (WCAG 1.4.11)
+ *   - img-alt              a content image with no alt attribute
+ *
+ * ...plus screen-reader structure checks (what a blind user needs to navigate and operate the app):
+ *   - html-lang            <html> has no lang (wrong speech synthesiser)
+ *   - landmark-main        no (or more than one) main landmark to skip to
+ *   - heading-order        no h1, or a skipped heading level
+ *   - aria-hidden-focusable  focus can land on content hidden from the screen reader
+ *   - aria-ref-broken      aria-labelledby/describedby/controls points at a missing id
+ *   - duplicate-id         a repeated id breaks label/aria associations
+ *   - dialog-name          a dialog with no accessible name
+ *   - positive-tabindex    a positive tabindex reorders the focus sequence
+ *
+ * Each finding is `{ rule, severity, selector, detail, rect, category }`. Severity is one of
+ * "critical" | "major" | "minor". The runner adds state/viewport/theme context around it.
  */
 
 export const PROBE = ({ isTouch, tolerance = 2, maxPerRule = 30 }) => {
@@ -239,6 +257,11 @@ export const PROBE = ({ isTouch, tolerance = 2, maxPerRule = 30 }) => {
   for (const el of all) {
     if (uxText >= maxPerRule) break;
     if (!isVisible(el) || el.children.length > 0 || !el.textContent.trim()) continue;
+    // Decorative text removed from the a11y tree (e.g. a faint "·" separator) is not subject to the
+    // text-contrast rule; skip it, consistent with the icon-contrast check.
+    if (el.closest('[aria-hidden="true"]')) continue;
+    // WCAG 1.4.3 exempts text in a disabled/inactive control (a dimmed button label is expected).
+    if (el.closest(":disabled, [aria-disabled='true']")) continue;
     const s = getComputedStyle(el);
     const size = parseFloat(s.fontSize);
 
@@ -267,6 +290,204 @@ export const PROBE = ({ isTouch, tolerance = 2, maxPerRule = 30 }) => {
     const r = dlg.getBoundingClientRect();
     if (r.height > window.innerHeight + 2) {
       add("dialog-overflows-viewport", "major", dlg, `dialog ${Math.round(r.height)}px > viewport ${window.innerHeight}px`, "ux");
+    }
+  }
+
+  // ---- Accessibility of controls, icons and images (RGAA / WCAG name + non-text contrast) ----
+
+  /** The accessible name of a control, from the properties assistive tech actually uses. */
+  function accessibleName(el) {
+    const label = (el.getAttribute("aria-label") || "").trim();
+    if (label) return label;
+    const labelledby = el.getAttribute("aria-labelledby");
+    if (labelledby) {
+      const t = labelledby
+        .split(/\s+/)
+        .map((id) => (document.getElementById(id)?.textContent || "").trim())
+        .join(" ")
+        .trim();
+      if (t) return t;
+    }
+    const title = (el.getAttribute("title") || "").trim();
+    if (title) return title;
+    const text = (el.textContent || "").replace(/\s+/g, " ").trim();
+    if (text) return text;
+    // Name lent by a nested labelled image or icon.
+    const named = el.querySelector("img[alt]:not([alt='']), svg[aria-label], [role='img'][aria-label]");
+    if (named) {
+      const n = (named.getAttribute("alt") || named.getAttribute("aria-label") || "").trim();
+      if (n) return n;
+    }
+    if (el.tagName === "INPUT") {
+      const type = (el.getAttribute("type") || "text").toLowerCase();
+      if (type === "submit" || type === "button" || type === "reset") return (el.getAttribute("value") || "").trim();
+      if (el.id) {
+        const forLabel = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+        if (forLabel && forLabel.textContent.trim()) return forLabel.textContent.trim();
+      }
+      const wrapLabel = el.closest("label");
+      if (wrapLabel && wrapLabel.textContent.trim()) return wrapLabel.textContent.trim();
+    }
+    return "";
+  }
+
+  // 1) Interactive controls with no accessible name (a screen reader announces nothing actionable).
+  let nameCount = 0;
+  const controlSel = 'a[href], button, [role="button"], input:not([type="hidden"]), select, textarea';
+  for (const el of document.querySelectorAll(controlSel)) {
+    if (nameCount >= maxPerRule) break;
+    if (!isVisible(el)) continue;
+    if (el.getAttribute("aria-hidden") === "true") continue; // intentionally removed from the a11y tree
+    if (!accessibleName(el)) {
+      add("accessible-name", "major", el, `${el.tagName.toLowerCase()} control has no accessible name`, "a11y");
+      nameCount++;
+    }
+  }
+
+  // 2) Meaningful icons must clear 3:1 against their backdrop (WCAG 1.4.11 non-text contrast).
+  //    Lucide glyphs paint with currentColor, so the SVG's computed color is the glyph colour.
+  //    Decorative (aria-hidden) glyphs are skipped unless they are the sole content of a control,
+  //    in which case they carry meaning and must be legible.
+  let iconCount = 0;
+  for (const svg of document.querySelectorAll("svg")) {
+    if (iconCount >= maxPerRule) break;
+    if (!isVisible(svg)) continue;
+    if (svg.getAttribute("aria-hidden") === "true") {
+      const ctrl = svg.closest('a[href], button, [role="button"]');
+      const ctrlText = ctrl ? (ctrl.textContent || "").replace(/\s+/g, "").trim() : "";
+      if (!ctrl || ctrlText) continue; // truly decorative (next to a text label), skip
+    }
+    const col = parseColor(getComputedStyle(svg).color);
+    if (!col) continue;
+    const ratio = contrast(col, effectiveBg(svg));
+    if (ratio + 0.05 < 3) {
+      add("icon-contrast", "major", svg, `icon contrast ${ratio.toFixed(2)}:1 < 3:1`, "a11y");
+      iconCount++;
+    }
+  }
+
+  // 3) Content images with no alt attribute at all (alt="" is a valid decorative opt-out).
+  let imgCount = 0;
+  for (const img of document.querySelectorAll("img")) {
+    if (imgCount >= maxPerRule) break;
+    if (!isVisible(img)) continue;
+    if (img.getAttribute("alt") === null) {
+      add("img-alt", "major", img, "img has no alt attribute", "a11y");
+      imgCount++;
+    }
+  }
+
+  // ---- Screen-reader structure (what a blind user relies on to navigate and operate the app) ----
+
+  const focusableSel = 'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex], [contenteditable="true"]';
+  const isTabbable = (el) => {
+    if (el.matches("[disabled]") || el.getAttribute("aria-hidden") === "true") return false;
+    const ti = el.getAttribute("tabindex");
+    if (ti !== null && parseInt(ti, 10) < 0) return false;
+    return true;
+  };
+
+  // 4) Document language: a screen reader picks its speech synthesiser from <html lang>. Missing or
+  //    empty lang makes it read every word with the wrong phonemes.
+  const langAttr = (document.documentElement.getAttribute("lang") || "").trim();
+  if (!langAttr) {
+    add("html-lang", "major", document.documentElement, "<html> has no lang attribute", "a11y");
+  }
+
+  // 5) Main landmark: SR users jump to "main" to skip the chrome. Exactly one is expected.
+  const mains = [...document.querySelectorAll('main, [role="main"]')].filter(isVisible);
+  if (mains.length === 0) {
+    add("landmark-main", "major", document.body, "no main landmark (SR users cannot skip to content)", "a11y");
+  } else if (mains.length > 1) {
+    add("landmark-main", "major", mains[1], `${mains.length} main landmarks (there must be one)`, "a11y");
+  }
+
+  // 6) Heading order: SR users navigate by headings. Flag a missing h1 and any skipped level.
+  //    A heading counts if it is in the accessibility tree (not display:none / visibility:hidden /
+  //    aria-hidden) with text - even a visually-hidden "sr-only" heading is announced, so it must not
+  //    be filtered out by the layout-oriented isVisible (which rejects clipped/1px-parked elements).
+  const inA11yTree = (el) => {
+    const cs = getComputedStyle(el);
+    if (cs.display === "none" || cs.visibility === "hidden") return false;
+    if (el.closest('[aria-hidden="true"]')) return false;
+    return el.textContent.trim().length > 0;
+  };
+  const headings = [...document.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"][aria-level]')].filter(inA11yTree);
+  let prevLevel = 0;
+  let headingFlagged = false;
+  for (const h of headings) {
+    const level = h.getAttribute("aria-level")
+      ? parseInt(h.getAttribute("aria-level"), 10)
+      : parseInt(h.tagName[1], 10);
+    if (!prevLevel && level !== 1 && !headingFlagged) {
+      add("heading-order", "major", h, `first heading is h${level}, not h1`, "a11y");
+      headingFlagged = true;
+    } else if (prevLevel && level > prevLevel + 1) {
+      add("heading-order", "major", h, `heading jumps from h${prevLevel} to h${level}`, "a11y");
+    }
+    prevLevel = level;
+  }
+  if (headings.length === 0) {
+    add("heading-order", "minor", document.body, "no headings at all (no structure to navigate)", "a11y");
+  }
+
+  // 7) Focusable content inside aria-hidden: the SR skips it but the keyboard still lands on it,
+  //    stranding focus on an element the SR will not announce.
+  let hiddenFocus = 0;
+  for (const hidden of document.querySelectorAll('[aria-hidden="true"]')) {
+    if (hiddenFocus >= maxPerRule) break;
+    const focusable = hidden.matches(focusableSel) ? hidden : hidden.querySelector(focusableSel);
+    if (focusable && isTabbable(focusable) && isVisible(hidden)) {
+      add("aria-hidden-focusable", "major", focusable, "focusable element inside aria-hidden subtree", "a11y");
+      hiddenFocus++;
+    }
+  }
+
+  // 8) Broken ARIA references: a name/description/relationship pointing at an id that does not exist
+  //    is announced as nothing.
+  let refBroken = 0;
+  for (const attr of ["aria-labelledby", "aria-describedby", "aria-controls", "aria-activedescendant"]) {
+    for (const el of document.querySelectorAll(`[${attr}]`)) {
+      if (refBroken >= maxPerRule) break;
+      const ids = (el.getAttribute(attr) || "").split(/\s+/).filter(Boolean);
+      const missing = ids.filter((id) => !document.getElementById(id));
+      if (missing.length) {
+        add("aria-ref-broken", "major", el, `${attr} points at missing id(s): ${missing.join(", ")}`, "a11y");
+        refBroken++;
+      }
+    }
+  }
+
+  // 9) Duplicate ids: they break every aria reference and label association that targets them.
+  const idCounts = new Map();
+  for (const el of document.querySelectorAll("[id]")) {
+    const id = el.id;
+    idCounts.set(id, (idCounts.get(id) || 0) + 1);
+  }
+  let dupCount = 0;
+  for (const [id, n] of idCounts) {
+    if (dupCount >= maxPerRule) break;
+    if (n > 1) {
+      add("duplicate-id", "major", document.getElementById(id) || document.body, `id "${id}" used ${n} times`, "a11y");
+      dupCount++;
+    }
+  }
+
+  // 10) Dialogs must expose an accessible name, or the SR announces "dialog" with no idea what it is.
+  for (const dlg of document.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog[open]')) {
+    if (!isVisible(dlg)) continue;
+    if (!accessibleName(dlg)) {
+      add("dialog-name", "major", dlg, "dialog has no accessible name (aria-label / aria-labelledby)", "a11y");
+    }
+  }
+
+  // 11) Positive tabindex reorders the tab sequence unpredictably; the natural DOM order should win.
+  let posTab = 0;
+  for (const el of document.querySelectorAll("[tabindex]")) {
+    if (posTab >= maxPerRule) break;
+    if (parseInt(el.getAttribute("tabindex"), 10) > 0) {
+      add("positive-tabindex", "minor", el, `tabindex="${el.getAttribute("tabindex")}" reorders focus`, "a11y");
+      posTab++;
     }
   }
 

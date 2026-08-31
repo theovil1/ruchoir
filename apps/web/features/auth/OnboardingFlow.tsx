@@ -25,7 +25,7 @@ const styles: Record<string, CSSProperties> = {
     textTransform: "uppercase",
     color: "var(--text-subtle)",
   },
-  heading: { fontSize: 24, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
+  heading: { margin: 0, fontSize: 24, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
   sub: { fontSize: 14, color: "var(--text-muted)", marginTop: 6 },
   card: {
     background: "var(--surface-canvas)",
@@ -66,7 +66,7 @@ export function OnboardingFlow({
     const invited = invites.filter((e) => e.includes("@")).length;
     return (
       <div style={styles.root}>
-        <div style={styles.col}>
+        <div style={styles.col} role="main">
           <div style={{ ...styles.card, alignItems: "center", textAlign: "center", gap: 12 }}>
             <span
               style={{
@@ -81,7 +81,7 @@ export function OnboardingFlow({
             >
               <Icon name="check" size={26} style={{ color: "var(--status-success-fg)" }} />
             </span>
-            <div style={styles.heading}>Tout est prêt{firstName ? `, ${firstName}` : ""}</div>
+            <h1 style={styles.heading}>Tout est prêt{firstName ? `, ${firstName}` : ""}</h1>
             <p style={{ fontSize: 14, color: "var(--text-muted)", maxWidth: 340 }}>
               L'espace <strong>{name}</strong> est créé{invited > 0 ? `, ${invited} invitation${invited > 1 ? "s" : ""} envoyée${invited > 1 ? "s" : ""}` : ""}. Vous pouvez importer vos
               historiques Slack, Mattermost ou Nextcloud à tout moment depuis la barre latérale.
@@ -97,7 +97,7 @@ export function OnboardingFlow({
 
   return (
     <div style={styles.root}>
-      <div style={styles.col}>
+      <div style={styles.col} role="main">
         <div style={styles.progress}>
           {Array.from({ length: TOTAL }).map((_, i) => (
             <span key={i} style={{ ...styles.seg, ...(i <= step ? styles.segOn : {}) }} />
@@ -105,9 +105,9 @@ export function OnboardingFlow({
         </div>
         <div>
           <div style={styles.step}>Étape {step + 1} sur {TOTAL}</div>
-          <div style={{ ...styles.heading, marginTop: 8 }}>
+          <h1 style={{ ...styles.heading, marginTop: 8 }}>
             {step === 0 ? "Comment s'appelle votre espace ?" : step === 1 ? "Parlez-nous de vous" : "Invitez votre équipe"}
-          </div>
+          </h1>
           <p style={styles.sub}>
             {step === 0
               ? "Ce sera le nom affiché de votre espace de travail. Vous pourrez le changer plus tard."

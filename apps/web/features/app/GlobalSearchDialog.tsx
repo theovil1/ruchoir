@@ -87,6 +87,7 @@ export function GlobalSearchDialog({
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          aria-label="Rechercher dans tout l'espace"
           placeholder="Messages, fichiers, personnes dans tout l'espace…"
           style={{
             flex: 1,

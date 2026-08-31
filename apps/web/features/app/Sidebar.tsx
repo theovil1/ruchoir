@@ -74,7 +74,7 @@ function item(on: boolean): CSSProperties {
     border: 0,
     borderRadius: "var(--radius-sm)",
     background: on ? "var(--surface-selected)" : "transparent",
-    color: on ? "var(--terracotta-800)" : "var(--text-body)",
+    color: on ? "var(--text-accent)" : "var(--text-body)",
     cursor: "pointer",
     fontFamily: "var(--font-sans)",
     fontSize: 14,
@@ -144,13 +144,13 @@ function SideItem({ icon, label, active, unread, muted, tag, onClick, children, 
       onMouseLeave={() => setHover(false)}
       style={{ ...item(!!active), background: bg }}
     >
-      {children ?? <Icon name={icon ?? "hash"} size={14} style={{ opacity: muted ? 0.5 : 0.75 }} />}
+      {children ?? <Icon name={icon ?? "hash"} size={14} style={{ color: muted ? "var(--text-subtle)" : "var(--text-muted)" }} />}
       <span
         style={{
           ...styles.name,
-          opacity: muted ? 0.6 : 1,
           fontWeight: unread ? 500 : undefined,
-          color: unread ? "var(--text-strong)" : undefined,
+          // De-emphasise muted (archived) channels with a token, not opacity, so contrast stays measurable.
+          color: unread ? "var(--text-strong)" : muted ? "var(--text-subtle)" : undefined,
         }}
       >
         {label}
@@ -275,7 +275,10 @@ export function Sidebar({
   const wsRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div style={{ ...styles.side, width: compact ? "100%" : styles.side.width, flex: compact ? 1 : styles.side.flex }}>
+    <nav
+      aria-label="Canaux et messages"
+      style={{ ...styles.side, width: compact ? "100%" : styles.side.width, flex: compact ? 1 : styles.side.flex }}
+    >
       {!compact ? (
         <>
           <Wordmark />
@@ -334,7 +337,12 @@ export function Sidebar({
                   onClick={() => onChannel(c.id)}
                   menuItems={channelMenu(c.id, c.name)}
                 >
-                  <Icon name={c.type === "private" ? "lock" : "hash"} size={13} style={{ opacity: 0.6 }} />
+                  <Icon
+                    name={c.type === "private" ? "lock" : "hash"}
+                    size={13}
+                    title={c.type === "private" ? "Canal privé" : undefined}
+                    style={{ color: "var(--text-muted)" }}
+                  />
                 </SideItem>
               ))}
 
@@ -363,7 +371,8 @@ export function Sidebar({
                   <Icon
                     name={c.type === "archived" ? "archive" : c.type === "private" ? "lock" : "hash"}
                     size={13}
-                    style={{ opacity: 0.6 }}
+                    title={c.type === "archived" ? "Canal archivé" : c.type === "private" ? "Canal privé" : undefined}
+                    style={{ color: "var(--text-muted)" }}
                   />
                 </SideItem>
               ))}
@@ -396,6 +405,6 @@ export function Sidebar({
           </div>
         ) : null}
       </div>
-    </div>
+    </nav>
   );
 }

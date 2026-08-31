@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "lint": "eslint .",
-    "audit:responsive": "node tools/responsive-audit/run.mjs"
+    "audit:responsive": "node tools/responsive-audit/run.mjs",
+    "audit:a11y": "node tools/responsive-audit/run.mjs --all-themes"
   },
   "dependencies": {
     "@dicebear/core": "^10.7.0",

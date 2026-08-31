@@ -5,7 +5,7 @@ import { Button, Checkbox, Field, Input } from "@/components/ds";
 import { AuthShell } from "./AuthShell";
 
 const styles: Record<string, CSSProperties> = {
-  title: { fontSize: 20, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
+  title: { margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
   subtitle: { fontSize: 13, color: "var(--text-muted)", marginTop: 4, marginBottom: 20 },
   fields: { display: "flex", flexDirection: "column", gap: 14 },
   optionRow: { display: "flex", alignItems: "center", justifyContent: "space-between" },
@@ -43,7 +43,7 @@ export function LoginScreen({ onSubmit, onCreateAccount }: { onSubmit: () => voi
         </>
       }
     >
-      <div style={styles.title}>Connexion</div>
+      <h1 style={styles.title}>Connexion</h1>
       <p style={styles.subtitle}>Connectez-vous au serveur de votre organisation.</p>
       <form
         style={styles.fields}

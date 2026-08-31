@@ -8,6 +8,8 @@
  */
 
 :root {
+  color-scheme: light;
+
   /* Neutrals: warm sand/cream, ramped from the brand cream #f7f3ed to the brand ink #171716. */
   --grey-0: #f7f3ed;
   --grey-25: #f3eee6;
@@ -191,9 +193,9 @@
   --text-strong: var(--grey-900);
   --text-body: var(--grey-800);
   --text-muted: var(--grey-600);
-  /* Warm subtle grey: clears WCAG AA on the cream canvas (4.8:1) while staying lighter than
-     --text-muted, so the hierarchy holds. */
-  --text-subtle: #706a61;
+  /* Warm subtle grey: clears WCAG AA on every light surface including the sunken cream
+     (5.2:1 canvas / 4.8:1 sunken) while staying lighter than --text-muted, so the hierarchy holds. */
+  --text-subtle: #6b655c;
   --text-disabled: var(--grey-400);
   --text-inverse: var(--grey-0);
   --text-accent: var(--terracotta-700);
@@ -268,4 +270,152 @@
 }
 ::placeholder {
   color: var(--text-subtle);
+}
+
+/* ============================================================================
+ * Themes
+ *
+ * The :root block above IS the default "RuchUI" theme (warm cream + terracotta).
+ * The three alternates below override only the raw neutral ramp plus the handful
+ * of semantic tokens that cannot follow from a ramp swap alone (veils, elevation,
+ * inverse/accent text, status fills). Because the semantic layer resolves against
+ * the ramp via var(), swapping the ramp flips surfaces and text automatically.
+ *
+ * A theme is selected by setting data-theme on <html> (see SettingsProvider and
+ * the pre-paint script in layout.tsx); absent, RuchUI applies. These blocks come
+ * after :root so, at equal specificity, source order lets them win.
+ * ========================================================================== */
+
+/* --- Clair: neutral white/grey canvas, terracotta accent kept -------------- */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --grey-0: #ffffff;
+  --grey-25: #fafafb;
+  --grey-50: #f4f5f6;
+  --grey-100: #e8eaed;
+  --grey-200: #d7dade;
+  --grey-300: #c0c4ca;
+  --grey-400: #9a9ea6;
+  --grey-500: #767a82;
+  --grey-600: #5b5f67;
+  --grey-700: #42454c;
+  --grey-800: #2a2c30;
+  --grey-900: #17181b;
+
+  /* Rail/sidebar sit a touch greyer than the pure-white canvas. */
+  --surface-chrome: var(--grey-50);
+  /* grey-500 (#767a82) is only 4.31:1 on white: darkened so subtle text clears WCAG AA. */
+  --text-subtle: #676b73;
+  /* Frosted sticky headers: tint the veil to the canvas, not the brand cream. */
+  --alpha-paper-70: rgb(255 255 255 / 0.7);
+  --alpha-paper-90: rgb(255 255 255 / 0.9);
+}
+
+/* --- Shared dark scaffolding (RuchUI-Dark + Sombre) ------------------------- */
+[data-theme="ruchui-dark"],
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --text-subtle: var(--grey-500);
+
+  /* Veils flip: light films over dark surfaces for hover/press. */
+  --alpha-ink-4: rgb(255 255 255 / 0.05);
+  --alpha-ink-8: rgb(255 255 255 / 0.1);
+  --alpha-ink-16: rgb(255 255 255 / 0.16);
+  --surface-hover: rgb(255 255 255 / 0.05);
+  --surface-active: rgb(255 255 255 / 0.1);
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.05);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.1);
+
+  /* Scrim reads stronger over an already-dark page. */
+  --scrim: rgb(0 0 0 / 0.66);
+
+  /* Elevation reads as black, not warm ink, on dark. */
+  --shadow-popover: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 20px -6px rgb(0 0 0 / 0.55);
+  --shadow-dialog: 0 2px 4px rgb(0 0 0 / 0.4), 0 24px 48px -12px rgb(0 0 0 / 0.62);
+  --shadow-inset-top: inset 0 1px 0 rgb(255 255 255 / 0.06);
+
+  /* Toasts/tooltips keep a light label on their dark chip. */
+  --text-inverse: #f4f3ed;
+
+  /* Primary button keeps the terracotta-600 fill; its label stays light. */
+  --action-primary-fg: #fbf3ee;
+
+  /* Links and accent text lighten so they clear contrast on a dark canvas. */
+  --text-accent: var(--terracotta-300);
+  --text-link: var(--terracotta-300);
+  --text-link-hover: var(--terracotta-200);
+
+  /* Selected rows: a terracotta wash instead of the pale light tint. */
+  --surface-selected: rgb(198 93 69 / 0.2);
+
+  /* Status: dark-tinted fills with lightened text (the pale light tints would glare). */
+  --status-success-fg: #7fd3a1;
+  --status-success-bg: rgb(31 122 77 / 0.16);
+  --status-success-border: rgb(31 122 77 / 0.34);
+  --status-warning-fg: #e6bd63;
+  --status-warning-bg: rgb(169 117 12 / 0.18);
+  --status-warning-border: rgb(169 117 12 / 0.36);
+  --status-danger-fg: #f0909e;
+  --status-danger-bg: rgb(183 36 58 / 0.18);
+  --status-danger-border: rgb(183 36 58 / 0.36);
+  --status-info-fg: #8fb2e6;
+  --status-info-bg: rgb(44 95 168 / 0.18);
+  --status-info-border: rgb(44 95 168 / 0.36);
+
+  --border-inverse: rgb(255 255 255 / 0.16);
+}
+
+[data-theme="ruchui-dark"] ::selection,
+[data-theme="dark"] ::selection {
+  background: var(--terracotta-500);
+  color: #fff;
+}
+
+/* --- RuchUI-Dark: deep-teal surfaces, cream text, terracotta accent -------- */
+[data-theme="ruchui-dark"] {
+  --grey-0: #143336;
+  --grey-25: #0f2629;
+  --grey-50: #102c2f;
+  --grey-100: #244b4e;
+  --grey-200: #315a5d;
+  --grey-300: #416d70;
+  --grey-400: #5f898b;
+  --grey-500: #83a7a7;
+  --grey-600: #a6c4c3;
+  --grey-700: #c2d8d6;
+  --grey-800: #e0ece9;
+  --grey-900: #f5f3ec;
+
+  /* Cards lift a hair above the canvas so panels read without a heavy border. */
+  --surface-card: #183a3c;
+  --surface-raised: #183a3c;
+  --surface-inverse: var(--teal-500);
+  /* Frosted sticky headers tint to the teal canvas. */
+  --alpha-paper-70: rgb(20 51 54 / 0.72);
+  --alpha-paper-90: rgb(20 51 54 / 0.92);
+}
+
+/* --- Sombre: neutral slate dark, terracotta accent kept -------------------- */
+[data-theme="dark"] {
+  --grey-0: #1a1a1c;
+  --grey-25: #141416;
+  --grey-50: #202023;
+  --grey-100: #2c2c30;
+  --grey-200: #3a3a40;
+  --grey-300: #4a4a51;
+  --grey-400: #6d6d75;
+  --grey-500: #8a8a92;
+  --grey-600: #a7a7ae;
+  --grey-700: #c3c3c9;
+  --grey-800: #dedee2;
+  --grey-900: #f4f4f6;
+
+  --surface-card: #202023;
+  --surface-raised: #202023;
+  --surface-inverse: #2f2f34;
+  /* Frosted sticky headers tint to the neutral dark canvas. */
+  --alpha-paper-70: rgb(26 26 28 / 0.72);
+  --alpha-paper-90: rgb(26 26 28 / 0.92);
 }

@@ -432,7 +432,13 @@ function AppShell() {
   );
 
   const content = (
-    <>
+    // The main landmark: screen-reader users jump here to skip the rail and channel list. Exactly one
+    // view renders at a time, so there is always exactly one main. Flex container so the view fills it
+    // in both the desktop row shell and the compact column shell.
+    <main
+      aria-label="Contenu principal"
+      style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
+    >
       {view === "channel" ? (
         <ChannelScreen
           channel={chan}
@@ -478,7 +484,7 @@ function AppShell() {
       {view === "threads" ? <ActivityView kind="threads" items={threads} onOpen={openMessage} /> : null}
       {view === "mentions" ? <ActivityView kind="mentions" items={mentions} onOpen={openMessage} /> : null}
       {view === "saved" ? <ActivityView kind="saved" items={saved} onOpen={openMessage} /> : null}
-    </>
+    </main>
   );
 
   const overlays = (
@@ -588,8 +594,16 @@ function AppShell() {
             {mobileContent ? (
               content
             ) : (
-              <Sidebar
-                workspace={getWorkspace(ws) ?? workspaces.find((w) => w.id === ws)}
+              // The mobile list screen is a main landmark; a visually-hidden h1 gives the screen reader
+              // a heading to land on (the top bar shows the same name visually).
+              <main style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <h1
+                  style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0 }}
+                >
+                  {wsName}
+                </h1>
+                <Sidebar
+                  workspace={getWorkspace(ws) ?? workspaces.find((w) => w.id === ws)}
                 channels={channels}
                 directMessages={dms}
                 view={view}
@@ -614,7 +628,8 @@ function AppShell() {
                 onLeaveChannel={leaveChannel}
                 onChannelSettings={setChannelSettingsId}
                 onLogout={() => setAuthStage("login")}
-              />
+                />
+              </main>
             )}
           </div>
           <BottomTabs

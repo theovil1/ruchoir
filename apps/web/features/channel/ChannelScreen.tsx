@@ -95,6 +95,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
     minWidth: 0,
     flexShrink: 0,
+    margin: 0, // rendered as an <h1>: drop the UA heading margin
     fontSize: 17,
     fontWeight: 600,
     letterSpacing: "var(--tracking-tight)",
@@ -130,7 +131,7 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 600,
     letterSpacing: "var(--tracking-caps)",
     textTransform: "uppercase",
-    color: "var(--terracotta-700)",
+    color: "var(--text-accent)",
   },
 };
 
@@ -291,24 +292,29 @@ export function ChannelScreen({
         <div style={styles.top}>
           {isDm ? (
             <>
-              <div style={styles.title}>
+              <h1 style={styles.title}>
                 <Avatar name={dm.name} size={22} presence={getPresence(dm.name)} kind={dm.bot ? "bot" : "person"} />
                 {dm.name}
-              </div>
+              </h1>
               <div style={styles.meta}>{dmProfile?.role ?? PRESENCE_LABEL[getPresence(dm.name)]}</div>
             </>
           ) : (
             <>
-              <div style={styles.title}>
-                <Icon name={channel.type === "private" ? "lock" : "hash"} size={15} style={{ opacity: 0.55 }} />
+              <h1 style={styles.title}>
+                <Icon
+                  name={channel.type === "private" ? "lock" : "hash"}
+                  size={15}
+                  title={channel.type === "private" ? "Canal privé" : undefined}
+                  style={{ color: "var(--text-muted)" }}
+                />
                 {channel.name}
-              </div>
+              </h1>
               <div style={styles.meta}>
                 <Icon name="users" size={13} />
                 {members.length}
                 {channel.topic ? (
                   <>
-                    <span style={{ color: "var(--border-strong)" }}>·</span>
+                    <span aria-hidden style={{ color: "var(--border-strong)" }}>·</span>
                     {channel.topic}
                   </>
                 ) : null}

@@ -20,6 +20,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 6,
+    margin: 0, // rendered as the page <h1> (breadcrumb heading)
     fontSize: 14,
     fontWeight: 600,
     color: "var(--text-strong)",
@@ -191,8 +192,9 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
             : styles.top
         }
       >
-        <div style={styles.crumb}>
-          <Icon name="hard-drive" size={15} style={{ opacity: 0.55 }} />
+        {/* Page heading: the file location, as a breadcrumb. */}
+        <h1 style={styles.crumb}>
+          <Icon name="hard-drive" size={15} style={{ color: "var(--text-muted)" }} />
           {currentFolder ? (
             <button
               type="button"
@@ -204,17 +206,17 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
           ) : (
             <>
               Fichiers de l'espace
-              <Icon name="chevron-right" size={13} style={{ opacity: 0.4 }} />
+              <Icon name="chevron-right" size={13} style={{ color: "var(--text-subtle)" }} />
               <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>{workspaceName}</span>
             </>
           )}
           {currentFolder ? (
             <>
-              <Icon name="chevron-right" size={13} style={{ opacity: 0.4 }} />
+              <Icon name="chevron-right" size={13} style={{ color: "var(--text-subtle)" }} />
               <span>{currentFolder}</span>
             </>
           ) : null}
-        </div>
+        </h1>
         <div style={{ flex: compact ? "1 0 100%" : 1 }} />
         <Button size="sm" iconLeft="folder-plus" onClick={() => setFolderOpen(true)}>
           Nouveau dossier

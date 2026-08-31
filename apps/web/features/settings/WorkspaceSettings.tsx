@@ -25,6 +25,7 @@ const st: Record<string, CSSProperties> = {
     alignItems: "center",
     gap: 8,
     padding: "0 16px",
+    margin: 0, // rendered as an <h1>
     borderBottom: "1px solid var(--border-subtle)",
     fontSize: 15,
     fontWeight: 600,
@@ -70,7 +71,7 @@ function navItem(on: boolean, compact = false): CSSProperties {
     border: 0,
     borderRadius: "var(--radius-sm)",
     background: on ? "var(--surface-selected)" : compact ? "var(--surface-sunken)" : "transparent",
-    color: on ? "var(--terracotta-800)" : "var(--text-body)",
+    color: on ? "var(--text-accent)" : "var(--text-body)",
     fontFamily: "var(--font-sans)",
     fontSize: 13,
     fontWeight: on ? 500 : 400,
@@ -125,10 +126,10 @@ export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify, 
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
-      <div style={st.top}>
-        <Icon name="settings" size={15} style={{ opacity: 0.55 }} />
+      <h1 style={st.top}>
+        <Icon name="settings" size={15} style={{ color: "var(--text-muted)" }} />
         Réglages de l'espace
-      </div>
+      </h1>
       <div style={compact ? { ...st.body, flexDirection: "column" } : st.body}>
         <div
           style={
@@ -146,7 +147,7 @@ export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify, 
         >
           {NAV.map(([v, l, i]) => (
             <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
-              <Icon name={i} size={14} style={{ opacity: 0.7 }} />
+              <Icon name={i} size={14} style={{ color: "var(--text-muted)" }} />
               {l}
             </button>
           ))}

@@ -299,7 +299,7 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
         role="combobox"
         aria-expanded={acOpen}
         aria-autocomplete="list"
-        aria-controls={listId}
+        aria-controls={acOpen ? listId : undefined}
         aria-activedescendant={acOpen ? optionId(activeIdx) : undefined}
         aria-label={ariaLabel ?? placeholder}
         data-placeholder={placeholder}
