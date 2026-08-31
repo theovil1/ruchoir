@@ -8,7 +8,7 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const SEVERITY_ORDER = { critical: 0, major: 1, minor: 2 };
-const SEVERITY_COLOR = { critical: "#E0533D", major: "#c78a00", minor: "#7a7a7a" };
+const SEVERITY_COLOR = { critical: "#c65d45", major: "#c78a00", minor: "#7a7a7a" };
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -56,7 +56,7 @@ function renderHtml(meta, summary, runs) {
 
   return `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Audit responsive - Workchat</title>
+<title>Audit responsive - Ruchoir</title>
 <style>
   :root { color-scheme: light dark; --edge: #8884; --bg: Canvas; --fg: CanvasText; }
   * { box-sizing: border-box; }
@@ -87,7 +87,7 @@ function renderHtml(meta, summary, runs) {
 </style></head>
 <body>
 <header>
-  <h1>Audit responsive - Workchat</h1>
+  <h1>Audit responsive - Ruchoir</h1>
   <div class="sub">${esc(meta.generatedAt)} - ${esc(meta.url)} - ${summary.runs} combinaisons (${meta.stateCount} etats x ${meta.viewportCount} viewports)${meta.reloaded ? " - rechargement par viewport" : ""}</div>
 </header>
 <div class="wrap">

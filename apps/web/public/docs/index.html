@@ -3,50 +3,50 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Workchat API reference</title>
+    <title>Ruchoir API reference</title>
     <style>
-      /* Provisional Workchat wordmark bar. The brand is not finalized (the design system
+      /* Provisional Ruchoir wordmark bar. The brand is not finalized (the design system
          ships a placeholder logotype); full brand integration lands later. */
       .wc-topbar {
         display: flex;
         align-items: baseline;
         gap: 12px;
         padding: 14px 20px;
-        border-bottom: 1px solid #e7e7e1;
-        background: #fcfcfb;
+        border-bottom: 1px solid #e8ded2;
+        background: #f7f3ed;
         font-family: "IBM Plex Sans", system-ui, sans-serif;
       }
       .wc-mark {
         font-size: 20px;
         font-weight: 600;
         letter-spacing: -0.03em;
-        color: #1a1a18;
+        color: #171716;
       }
       .wc-dot {
-        color: #e0533d;
+        color: #c65d45;
       }
       .wc-sub {
         font-size: 12px;
-        color: #7a7a71;
+        color: #807a74;
         font-family: "IBM Plex Mono", ui-monospace, monospace;
       }
       @media (prefers-color-scheme: dark) {
         .wc-topbar {
-          background: #1a1a18;
-          border-color: #2c2c29;
+          background: #171716;
+          border-color: #31302e;
         }
         .wc-mark {
-          color: #f8f8f5;
+          color: #f3eee6;
         }
         .wc-sub {
-          color: #9c9c92;
+          color: #9a938c;
         }
       }
     </style>
   </head>
   <body>
     <div class="wc-topbar">
-      <span class="wc-mark">Workchat<span class="wc-dot">.</span></span>
+      <span class="wc-mark">Ruchoir<span class="wc-dot">.</span></span>
       <span class="wc-sub">API reference</span>
     </div>
 
@@ -54,14 +54,14 @@
       Interactive OpenAPI reference (Scalar), served same-origin (strict CSP). It renders
       the live spec at /api/openapi.json. Configuration:
         - withDefaultFonts:false  -> no external font CDN (sovereignty rule)
-        - customCss               -> Workchat palette (terracotta accent, olive neutrals),
+        - customCss               -> Ruchoir palette (terracotta accent, olive neutrals),
                                      IBM Plex fonts, and hides the "Powered by Scalar" link.
       The standalone bundle is vendored: see public/vendor/README.md.
     -->
     <script
       id="api-reference"
       data-url="/api/openapi.json"
-      data-configuration="{&quot;withDefaultFonts&quot;:false,&quot;customCss&quot;:&quot;:root{--scalar-color-accent:#E0533D;--scalar-color-1:#1A1A18;--scalar-color-2:#43433E;--scalar-color-3:#7A7A71;--scalar-background-1:#FCFCFB;--scalar-background-2:#F8F8F5;--scalar-background-3:#F1F1EC;--scalar-border-color:#E7E7E1;--scalar-font:'IBM Plex Sans',system-ui,sans-serif;--scalar-font-code:'IBM Plex Mono',ui-monospace,monospace}.dark-mode{--scalar-color-accent:#E76F5B;--scalar-color-1:#F8F8F5;--scalar-color-2:#D8D8D0;--scalar-color-3:#9C9C92;--scalar-background-1:#1A1A18;--scalar-background-2:#2C2C29;--scalar-background-3:#43433E;--scalar-border-color:#2C2C29}a[href*='scalar.com']{display:none!important}&quot;}"
+      data-configuration="{&quot;withDefaultFonts&quot;:false,&quot;customCss&quot;:&quot;:root{--scalar-color-accent:#c65d45;--scalar-color-1:#171716;--scalar-color-2:#4b4945;--scalar-color-3:#807a74;--scalar-background-1:#f7f3ed;--scalar-background-2:#f3eee6;--scalar-background-3:#f0e8e0;--scalar-border-color:#e8ded2;--scalar-font:'IBM Plex Sans',system-ui,sans-serif;--scalar-font-code:'IBM Plex Mono',ui-monospace,monospace}.dark-mode{--scalar-color-accent:#d07a66;--scalar-color-1:#f3eee6;--scalar-color-2:#cec5ba;--scalar-color-3:#9a938c;--scalar-background-1:#171716;--scalar-background-2:#31302e;--scalar-background-3:#4b4945;--scalar-border-color:#31302e}a[href*='scalar.com']{display:none!important}&quot;}"
     ></script>
     <script src="/vendor/scalar.standalone.js"></script>
   </body>

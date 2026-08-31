@@ -1,6 +1,6 @@
 # Self-hosted fonts
 
-Sovereignty rule: Workchat never loads fonts from Google Fonts or any external CDN
+Sovereignty rule: Ruchoir never loads fonts from Google Fonts or any external CDN
 (see `AGENTS.md`). The UI uses **IBM Plex Sans** and **IBM Plex Mono**, both under the SIL Open
 Font License (OFL, see `OFL.txt`), served from this folder.
 

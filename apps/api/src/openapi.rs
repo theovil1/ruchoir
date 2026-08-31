@@ -13,7 +13,7 @@ use utoipa::OpenApi;
 #[derive(OpenApi)]
 #[openapi(
     info(
-        title = "Workchat API",
+        title = "Ruchoir API",
         version = env!("CARGO_PKG_VERSION"),
         description = "Sovereign, open-core workspace: real-time messaging and file sharing.",
         license(name = "AGPL-3.0-only")

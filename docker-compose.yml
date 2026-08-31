@@ -1,25 +1,25 @@
-# Workchat all-in-one stack for local development and single-node deployment.
+# Ruchoir all-in-one stack for local development and single-node deployment.
 #
 # One production service (`api`) serves both the REST/real-time API and the static web
 # bundle. It is backed by PostgreSQL (source of truth), Valkey (sessions, pub/sub,
 # presence, cache) and Garage (S3-compatible object storage).
 #
 # Copy `.env.example` to `.env` and fill in values before `docker compose up`.
-name: workchat
+name: ruchoir
 
 services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-workchat}
-      POSTGRES_USER: ${POSTGRES_USER:-workchat}
+      POSTGRES_DB: ${POSTGRES_DB:-ruchoir}
+      POSTGRES_USER: ${POSTGRES_USER:-ruchoir}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       # Postgres 18+ images store data in a version-specific subdirectory, so the mount
       # point is /var/lib/postgresql (not /var/lib/postgresql/data as in older images).
       - postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-workchat} -d ${POSTGRES_DB:-workchat}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ruchoir} -d ${POSTGRES_DB:-ruchoir}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -54,19 +54,19 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     environment:
-      WORKCHAT_API_HOST: 0.0.0.0
-      WORKCHAT_API_PORT: 8080
-      WORKCHAT_WEB_DIST: /srv/workchat/web
+      RUCHOIR_API_HOST: 0.0.0.0
+      RUCHOIR_API_PORT: 8080
+      RUCHOIR_WEB_DIST: /srv/ruchoir/web
       RUST_LOG: ${RUST_LOG:-info}
-      DATABASE_URL: postgres://${POSTGRES_USER:-workchat}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-workchat}
+      DATABASE_URL: postgres://${POSTGRES_USER:-ruchoir}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ruchoir}
       VALKEY_URL: redis://valkey:6379
       S3_ENDPOINT: http://garage:3900
       S3_REGION: ${S3_REGION:-garage}
-      S3_BUCKET: ${S3_BUCKET:-workchat}
+      S3_BUCKET: ${S3_BUCKET:-ruchoir}
     ports:
       # Host port is configurable (default 8080) to avoid clashes with other local projects.
       # Only the published host port changes; the container still listens on 8080.
-      - "${WORKCHAT_HOST_PORT:-8080}:8080"
+      - "${RUCHOIR_HOST_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy

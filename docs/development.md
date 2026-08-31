@@ -1,6 +1,6 @@
 # Development
 
-Local setup and workflow for Workchat. English only, like everything in the repo.
+Local setup and workflow for Ruchoir. English only, like everything in the repo.
 
 ## Prerequisites
 
@@ -16,10 +16,10 @@ cp .env.example .env   # then fill in values (never commit .env)
 
 # 2. Build the web bundle (static export to apps/web/out).
 pnpm install
-pnpm --filter @workchat/web build
+pnpm --filter @ruchoir/web build
 
 # 3. Run the API, which serves the bundle at http://localhost:8080.
-cargo run -p workchat-api
+cargo run -p ruchoir-api
 ```
 
 Open http://localhost:8080. The landing page probes `/api/v1/health`. The interactive API
@@ -34,11 +34,11 @@ mode every time. Instead:
 - **API:** run it natively for fast incremental debug builds. It serves the web bundle from
   `apps/web/out`. Until the API talks to the databases, no infra is needed.
   ```bash
-  cargo run -p workchat-api
+  cargo run -p ruchoir-api
   ```
 - **Web:** use the dev server for hot reload.
   ```bash
-  pnpm --filter @workchat/web dev
+  pnpm --filter @ruchoir/web dev
   ```
 - **`docker compose up` without `--build`** reuses the existing image; only pass `--build`
   when the API source changed. Image rebuilds are cached (BuildKit cache mounts), so after the
@@ -57,9 +57,9 @@ Use this for integration and to mirror production, not for the inner loop.
 
 ```bash
 scripts/dev-tls.sh
-export WORKCHAT_TLS_CERT="$PWD/certs/dev-cert.pem"
-export WORKCHAT_TLS_KEY="$PWD/certs/dev-key.pem"
-cargo run -p workchat-api --features tls
+export RUCHOIR_TLS_CERT="$PWD/certs/dev-cert.pem"
+export RUCHOIR_TLS_KEY="$PWD/certs/dev-key.pem"
+cargo run -p ruchoir-api --features tls
 ```
 
 ## Quality gates
@@ -68,7 +68,7 @@ cargo run -p workchat-api --features tls
 cargo fmt --all --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-features
-pnpm --filter @workchat/web lint
+pnpm --filter @ruchoir/web lint
 scripts/check-deps.sh   # outdated + security audit sweep
 ```
 
@@ -89,7 +89,7 @@ SCALAR_VERSION=1.25.28
 curl -fsSL \
   "https://cdn.jsdelivr.net/npm/@scalar/api-reference@${SCALAR_VERSION}/dist/browser/standalone.js" \
   -o apps/web/public/vendor/scalar.standalone.js
-pnpm --filter @workchat/web build   # copies public/ into the served bundle
+pnpm --filter @ruchoir/web build   # copies public/ into the served bundle
 ```
 
 Then reload `http://localhost:8080/docs`. See `apps/web/public/vendor/README.md` for the
@@ -131,9 +131,9 @@ from the file-storage work on, so this setup is optional until then.
   hit this after an image bump, recreate the volume: `docker compose down -v && docker compose up`.
 - **Valkey warns about `vm.overcommit_memory`.** This is a host kernel setting (not namespaced,
   so it cannot be set per-container). On Linux:
-  `echo 'vm.overcommit_memory = 1' | sudo tee /etc/sysctl.d/99-workchat-valkey.conf && sudo sysctl --system`.
+  `echo 'vm.overcommit_memory = 1' | sudo tee /etc/sysctl.d/99-ruchoir-valkey.conf && sudo sysctl --system`.
 - **`Bind for 0.0.0.0:8080 failed: port is already allocated`.** Another local process holds
-  port 8080. Set `WORKCHAT_HOST_PORT` in your `.env` to a free port (the container still listens
+  port 8080. Set `RUCHOIR_HOST_PORT` in your `.env` to a free port (the container still listens
   on 8080 internally), then `docker compose up` again.
 
 ## Dependency freshness

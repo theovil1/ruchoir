@@ -186,8 +186,8 @@ export const MESSAGES: Record<string, Message[]> = {
 };
 
 export const FILES: SpaceFile[] = [
-  { name: "Bilan_2026_v4.ods", kind: "file-spreadsheet", size: "248 Ko", by: "Camille Roussel", when: "Aujourd'hui, 09:41", source: "Workchat", version: "v4" },
-  { name: "Rapprochement_mars.csv", kind: "file-text", size: "18 Ko", by: "Yanis Berthier", when: "Hier, 17:20", source: "Workchat", version: "v1" },
+  { name: "Bilan_2026_v4.ods", kind: "file-spreadsheet", size: "248 Ko", by: "Camille Roussel", when: "Aujourd'hui, 09:41", source: "Ruchoir", version: "v4" },
+  { name: "Rapprochement_mars.csv", kind: "file-text", size: "18 Ko", by: "Yanis Berthier", when: "Hier, 17:20", source: "Ruchoir", version: "v1" },
   { name: "Plan_atelier_rezé.pdf", kind: "file", size: "3,4 Mo", by: "Adèle Fournier", when: "24 août", source: "Nextcloud", version: "v2" },
   { name: "Devis_menuiserie.pdf", kind: "file", size: "820 Ko", by: "Camille Roussel", when: "21 août", source: "Slack", version: "v1" },
   { name: "Photos_chantier", kind: "folder", size: "36 éléments", by: "Yanis Berthier", when: "18 août", source: "Nextcloud", version: "" },
@@ -249,7 +249,7 @@ export const PROFILES: Record<string, Profile> = {
     name: "Assistant d'import",
     role: "Robot d'espace",
     presence: "online",
-    email: "import@workchat.local",
+    email: "import@ruchoir.local",
     timezone: "Europe/Paris",
     localTime: "10:32",
     bio: "Suit et rapporte l'avancement des imports Nextcloud, Slack et Mattermost.",

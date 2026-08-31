@@ -27,18 +27,18 @@ pub struct Config {
 impl Config {
     /// Build the configuration from the process environment, applying defaults.
     pub fn from_env() -> Result<Self, ConfigError> {
-        let host: IpAddr = env_or("WORKCHAT_API_HOST", "0.0.0.0")
+        let host: IpAddr = env_or("RUCHOIR_API_HOST", "0.0.0.0")
             .parse()
-            .map_err(|_| ConfigError::Invalid("WORKCHAT_API_HOST"))?;
-        let port: u16 = env_or("WORKCHAT_API_PORT", "8080")
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_API_HOST"))?;
+        let port: u16 = env_or("RUCHOIR_API_PORT", "8080")
             .parse()
-            .map_err(|_| ConfigError::Invalid("WORKCHAT_API_PORT"))?;
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_API_PORT"))?;
 
-        let web_dist = PathBuf::from(env_or("WORKCHAT_WEB_DIST", "./apps/web/out"));
-        let emoji_dir = env_opt("WORKCHAT_EMOJI_DIR").map(PathBuf::from);
+        let web_dist = PathBuf::from(env_or("RUCHOIR_WEB_DIST", "./apps/web/out"));
+        let emoji_dir = env_opt("RUCHOIR_EMOJI_DIR").map(PathBuf::from);
 
-        let tls_cert = env_opt("WORKCHAT_TLS_CERT").map(PathBuf::from);
-        let tls_key = env_opt("WORKCHAT_TLS_KEY").map(PathBuf::from);
+        let tls_cert = env_opt("RUCHOIR_TLS_CERT").map(PathBuf::from);
+        let tls_key = env_opt("RUCHOIR_TLS_KEY").map(PathBuf::from);
 
         Ok(Self {
             addr: SocketAddr::new(host, port),

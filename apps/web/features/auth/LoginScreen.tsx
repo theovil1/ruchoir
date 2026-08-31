@@ -21,7 +21,7 @@ const styles: Record<string, CSSProperties> = {
 
 /** The sign-in screen: a centered card, faithful to common team-app login patterns. */
 export function LoginScreen({ onSubmit, onCreateAccount }: { onSubmit: () => void; onCreateAccount: () => void }) {
-  const [server, setServer] = useState("atelier.workchat.fr");
+  const [server, setServer] = useState("atelier.ruchoir.fr");
   const [mail, setMail] = useState("camille@atelier-nantes.fr");
 
   return (

@@ -24,7 +24,7 @@ const SettingsContext = createContext<SettingsContextValue>({
   set: () => {},
 });
 
-const STORAGE_KEY = "workchat.settings";
+const STORAGE_KEY = "ruchoir.settings";
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(DEFAULTS);

@@ -16,7 +16,7 @@ dist/
 CLAUDE.md
 CAHIER-DES-CHARGES.md
 fixtures/
-workchat-design-system/
+ruchoir-design-system/
 
 # Secrets and env
 .env

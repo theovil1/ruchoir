@@ -6,23 +6,28 @@
  * Design tokens (Tailwind v4 is CSS-first: theme values live here, not in a JS config).
  * The full token set lives in tokens.css; this @theme block mirrors the brand subset so
  * Tailwind utilities (bg-terracotta-500, font-sans, ...) exist alongside the raw vars.
- * Terracotta is the single saturated accent; IBM Plex Sans/Mono are the type families.
+ * Two brand colours: terracotta (accent) and teal (dark surfaces); IBM Plex Sans/Mono are the type.
  */
 @theme {
   --font-sans: "IBM Plex Sans", "Helvetica Neue", Helvetica, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* The only saturated color in the product. Use sparingly, as an accent. */
-  --color-terracotta-50: #fdf3f0;
-  --color-terracotta-100: #fbe0d9;
-  --color-terracotta-200: #f5beb1;
-  --color-terracotta-300: #ee9484;
-  --color-terracotta-400: #e76f5b;
-  --color-terracotta-500: #e0533d;
-  --color-terracotta-600: #c43f2b;
-  --color-terracotta-700: #9e3222;
-  --color-terracotta-800: #75261a;
-  --color-terracotta-900: #48170f;
+  /* Primary brand accent (palette #c65d45). Use sparingly. */
+  --color-terracotta-50: #f8ece9;
+  --color-terracotta-100: #f0d5cf;
+  --color-terracotta-200: #e5b4a9;
+  --color-terracotta-300: #db9788;
+  --color-terracotta-400: #d07a66;
+  --color-terracotta-500: #c65d45;
+  --color-terracotta-600: #aa513d;
+  --color-terracotta-700: #894433;
+  --color-terracotta-800: #69362a;
+  --color-terracotta-900: #492821;
+
+  /* Second brand colour: deep teal, for dark surfaces. */
+  --color-teal-500: #18383d;
+  --color-teal-600: #122c30;
+  --color-teal-700: #0d2124;
 }
 
 /*

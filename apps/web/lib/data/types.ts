@@ -5,7 +5,7 @@
  */
 import type { Presence } from "@/components/ds";
 
-export type ImportSource = "Nextcloud" | "Slack" | "Mattermost" | "Workchat";
+export type ImportSource = "Nextcloud" | "Slack" | "Mattermost" | "Ruchoir";
 
 export type Workspace = {
   id: string;

@@ -1,38 +1,44 @@
 /*
- * Workchat design tokens, ported from the design-system handoff.
+ * Ruchoir design tokens, ported from the design-system handoff.
  *
  * These are the raw CSS custom properties the design-system component styles resolve
  * against (see components.css). The Tailwind `@theme` block in globals.css mirrors the
  * brand subset so Tailwind utilities exist too; this file is the full source of truth
- * for the component layer. Terracotta is the only saturated colour in the product.
+ * for the component layer. Two brand colours: terracotta (the accent) and a deep teal (dark surfaces).
  */
 
 :root {
-  /* Neutrals: olive-tinted grey (h~=105, very low chroma). The skeleton of the UI. */
-  --grey-0: #fcfcfb;
-  --grey-25: #f8f8f5;
-  --grey-50: #f1f1ec;
-  --grey-100: #e7e7e1;
-  --grey-200: #d8d8d0;
-  --grey-300: #bebeb4;
-  --grey-400: #9c9c92;
-  --grey-500: #7a7a71;
-  --grey-600: #5c5c55;
-  --grey-700: #43433e;
-  --grey-800: #2c2c29;
-  --grey-900: #1a1a18;
+  /* Neutrals: warm sand/cream, ramped from the brand cream #f7f3ed to the brand ink #171716. */
+  --grey-0: #f7f3ed;
+  --grey-25: #f3eee6;
+  --grey-50: #f0e8e0;
+  --grey-100: #e8ded2;
+  --grey-200: #cec5ba;
+  --grey-300: #b4aca3;
+  --grey-400: #9a938c;
+  --grey-500: #807a74;
+  --grey-600: #65625c;
+  --grey-700: #4b4945;
+  --grey-800: #31302e;
+  --grey-900: #171716;
 
-  /* Terracotta: the brand colour. The only saturated colour in the whole product. */
-  --terracotta-50: #fdf3f0;
-  --terracotta-100: #fbe0d9;
-  --terracotta-200: #f5beb1;
-  --terracotta-300: #ee9484;
-  --terracotta-400: #e76f5b;
-  --terracotta-500: #e0533d;
-  --terracotta-600: #c43f2b;
-  --terracotta-700: #9e3222;
-  --terracotta-800: #75261a;
-  --terracotta-900: #48170f;
+  /* Terracotta: primary brand colour (palette #c65d45). */
+  --terracotta-50: #f8ece9;
+  --terracotta-100: #f0d5cf;
+  --terracotta-200: #e5b4a9;
+  --terracotta-300: #db9788;
+  --terracotta-400: #d07a66;
+  --terracotta-500: #c65d45;
+  --terracotta-600: #aa513d;
+  --terracotta-700: #894433;
+  --terracotta-800: #69362a;
+  --terracotta-900: #492821;
+
+  /* Teal: second brand colour, reserved for dark surfaces (toasts, dark chrome, future dark theme).
+     Holds white/cream text (white on -500 = 12.6:1). Terracotta stays the only accent. */
+  --teal-500: #18383d;
+  --teal-600: #122c30;
+  --teal-700: #0d2124;
 
   /* Semantic scales: desaturated, never competing with terracotta. */
   --green-50: #eef6f1;
@@ -60,12 +66,12 @@
   --blue-700: #1b3a68;
 
   /* Alpha veils: laid over unknown backgrounds (images, video, hovers). */
-  --alpha-ink-4: rgb(26 26 24 / 0.04);
-  --alpha-ink-8: rgb(26 26 24 / 0.08);
-  --alpha-ink-16: rgb(26 26 24 / 0.16);
-  --alpha-ink-60: rgb(26 26 24 / 0.6);
-  --alpha-paper-70: rgb(252 252 251 / 0.7);
-  --alpha-paper-90: rgb(252 252 251 / 0.9);
+  --alpha-ink-4: rgb(23 23 22 / 0.04);
+  --alpha-ink-8: rgb(23 23 22 / 0.08);
+  --alpha-ink-16: rgb(23 23 22 / 0.16);
+  --alpha-ink-60: rgb(23 23 22 / 0.6);
+  --alpha-paper-70: rgb(247 243 237 / 0.7);
+  --alpha-paper-90: rgb(247 243 237 / 0.9);
 
   /*
    * Type scale. L5a reframing (see docs/specs/L5a-reframing-log.md): bumped one notch to a
@@ -149,9 +155,9 @@
 
   /* Elevation: read the hairline first, the shadow second. Two shadows, not ten. */
   --shadow-none: none;
-  --shadow-popover: 0 1px 2px rgb(26 26 24 / 0.06), 0 8px 20px -6px rgb(26 26 24 / 0.14);
-  --shadow-dialog: 0 2px 4px rgb(26 26 24 / 0.06), 0 24px 48px -12px rgb(26 26 24 / 0.22);
-  --shadow-inset-top: inset 0 1px 0 rgb(252 252 251 / 0.12);
+  --shadow-popover: 0 1px 2px rgb(23 23 22 / 0.06), 0 8px 20px -6px rgb(23 23 22 / 0.14);
+  --shadow-dialog: 0 2px 4px rgb(23 23 22 / 0.06), 0 24px 48px -12px rgb(23 23 22 / 0.22);
+  --shadow-inset-top: inset 0 1px 0 rgb(247 243 237 / 0.12);
 
   --ring-width: 2px;
   --ring-offset: 1px;
@@ -174,7 +180,7 @@
   --surface-card: var(--grey-0);
   --surface-raised: var(--grey-0);
   --surface-chrome: var(--grey-25);
-  --surface-inverse: var(--grey-900);
+  --surface-inverse: var(--teal-500);
   --surface-hover: var(--alpha-ink-4);
   --surface-active: var(--alpha-ink-8);
   --surface-selected: var(--terracotta-50);
@@ -185,9 +191,9 @@
   --text-strong: var(--grey-900);
   --text-body: var(--grey-800);
   --text-muted: var(--grey-600);
-  /* Darker than grey-500 (#7a7a71, only 4.33:1) so small subtle labels clear WCAG AA on light
-     surfaces; still clearly lighter than --text-muted, so the hierarchy holds. */
-  --text-subtle: #6c6c64;
+  /* Warm subtle grey: clears WCAG AA on the cream canvas (4.8:1) while staying lighter than
+     --text-muted, so the hierarchy holds. */
+  --text-subtle: #706a61;
   --text-disabled: var(--grey-400);
   --text-inverse: var(--grey-0);
   --text-accent: var(--terracotta-700);
@@ -198,11 +204,11 @@
   --border-subtle: var(--grey-100);
   --border-default: var(--grey-200);
   --border-strong: var(--grey-300);
-  --border-inverse: rgb(252 252 251 / 0.18);
+  --border-inverse: rgb(247 243 237 / 0.18);
   --border-accent: var(--terracotta-500);
 
   /* Primary action */
-  /* terracotta-600 (not -500) so white text clears WCAG AA (~4.8:1); -500 stays the brand accent. */
+  /* terracotta-600 (not -500) so white text clears WCAG AA (~5.3:1); -500 stays the brand accent. */
   --action-primary-bg: var(--terracotta-600);
   --action-primary-bg-hover: var(--terracotta-700);
   --action-primary-bg-active: var(--terracotta-800);

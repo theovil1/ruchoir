@@ -1,6 +1,6 @@
 # Responsive audit
 
-An automated responsive stress test for the Workchat web client. It does not ask "does the
+An automated responsive stress test for the Ruchoir web client. It does not ask "does the
 page fit on a phone"; it checks that the layout stays usable, readable and coherent at **every**
 width a real user can produce, and flags the exact spots to review.
 

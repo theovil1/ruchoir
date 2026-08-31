@@ -1,4 +1,4 @@
-//! Workchat API entrypoint.
+//! Ruchoir API entrypoint.
 //!
 //! For now this is a minimal but real service: it initializes structured logging,
 //! loads configuration from the environment, and serves an HTTP surface consisting of
@@ -33,7 +33,7 @@ async fn main() -> ExitCode {
     tracing::info!(
         addr = %config.addr,
         web_dist = %config.web_dist.display(),
-        "starting workchat-api"
+        "starting ruchoir-api"
     );
 
     match serve(config).await {
@@ -70,7 +70,7 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let listener = tokio::net::TcpListener::bind(config.addr).await?;
-    // Report the actual bound address: with WORKCHAT_API_PORT=0 the OS picks a free port.
+    // Report the actual bound address: with RUCHOIR_API_PORT=0 the OS picks a free port.
     let local_addr = listener.local_addr().unwrap_or(config.addr);
     tracing::info!("listening on http://{}", local_addr);
     axum::serve(listener, app)

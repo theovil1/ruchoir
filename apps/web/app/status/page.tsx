@@ -41,7 +41,7 @@ export default function Status() {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-8 px-6">
       <header className="flex items-center gap-3">
         <span className="inline-block h-3 w-3 rounded-full bg-terracotta-500" />
-        <h1 className="text-2xl font-semibold tracking-tight">Workchat</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Ruchoir</h1>
       </header>
 
       <p className="text-neutral-600">

@@ -1,5 +1,5 @@
 /**
- * Workchat design-system primitives, ported from the handoff into typed React.
+ * Ruchoir design-system primitives, ported from the handoff into typed React.
  * Import from here (`@/components/ds`) rather than from individual files.
  */
 export { Avatar } from "./Avatar";

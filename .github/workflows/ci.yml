@@ -38,7 +38,7 @@ jobs:
       - name: Test
         run: cargo test --all-features
       - name: Build (release)
-        run: cargo build --release -p workchat-api
+        run: cargo build --release -p ruchoir-api
 
   web:
     name: Web (Next.js static export)
@@ -54,9 +54,9 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: Lint
-        run: pnpm --filter @workchat/web lint
+        run: pnpm --filter @ruchoir/web lint
       - name: Build (static export)
-        run: pnpm --filter @workchat/web build
+        run: pnpm --filter @ruchoir/web build
 
   responsive:
     name: Responsive audit (web)
@@ -72,11 +72,11 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: Install Chromium for Playwright
-        run: pnpm --filter @workchat/web exec playwright install --with-deps chromium
+        run: pnpm --filter @ruchoir/web exec playwright install --with-deps chromium
       - name: Start dev server
         # The audit reaches each screen via the dev deep-link, which only exists in development,
         # so it must run against `next dev` (not the production static export).
-        run: pnpm --filter @workchat/web dev &
+        run: pnpm --filter @ruchoir/web dev &
       - name: Wait for the dev server
         run: |
           for i in $(seq 1 60); do
@@ -85,7 +85,7 @@ jobs:
           done
           echo "dev server did not start" >&2; exit 1
       - name: Run responsive audit (fails on critical overflow or JS error)
-        run: pnpm --filter @workchat/web audit:responsive -- --quick --fail-on critical
+        run: pnpm --filter @ruchoir/web audit:responsive -- --quick --fail-on critical
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4

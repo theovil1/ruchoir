@@ -2,14 +2,14 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Workchat",
+  title: "Ruchoir",
   description:
     "Sovereign, open-core workspace: real-time team messaging and file sharing.",
-  applicationName: "Workchat",
+  applicationName: "Ruchoir",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#E0533D",
+  themeColor: "#c65d45",
   width: "device-width",
   initialScale: 1,
 };

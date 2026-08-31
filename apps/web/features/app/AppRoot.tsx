@@ -317,7 +317,7 @@ function AppShell() {
 
   const createFolder = (name: string) =>
     setFiles((prev) => [
-      { name, kind: "folder", size: "0 élément", by: currentUser, when: "À l'instant", source: "Workchat", version: "" },
+      { name, kind: "folder", size: "0 élément", by: currentUser, when: "À l'instant", source: "Ruchoir", version: "" },
       ...prev,
     ]);
 

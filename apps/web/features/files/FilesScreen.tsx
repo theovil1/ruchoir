@@ -131,7 +131,7 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
   const baseFiles = currentFolder ? FOLDER_CONTENTS[currentFolder] ?? [] : files;
   const rows = baseFiles
     .filter((f) => f.name.toLowerCase().includes(q.toLowerCase()))
-    .filter((f) => tab === "Tous" || (tab === "Importés" ? f.source !== "Workchat" : f.kind === "folder"));
+    .filter((f) => tab === "Tous" || (tab === "Importés" ? f.source !== "Ruchoir" : f.kind === "folder"));
 
   const openFolder = (name: string) => {
     setCurrentFolder(name);
@@ -175,7 +175,7 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
       size: bytesToSize(file.size),
       by: currentUser,
       when: "À l'instant",
-      source: "Workchat",
+      source: "Ruchoir",
       version: "v1",
     });
     onNotify({ tone: "success", title: "Fichier déposé", description: file.name });
@@ -357,7 +357,7 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
                   <Avatar name={f.by} size={18} />
                   {f.size}
                 </div>
-                {f.source !== "Workchat" ? <Tag icon="import">{f.source}</Tag> : null}
+                {f.source !== "Ruchoir" ? <Tag icon="import">{f.source}</Tag> : null}
               </Card>
             ))}
           </div>
@@ -374,7 +374,7 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
         ) : null}
         <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 12 }}>
           La colonne « Source » indique l'outil d'origine des fichiers repris lors d'un import (Slack, Mattermost,
-          Nextcloud). Les fichiers créés dans Workchat n'affichent pas de badge.
+          Nextcloud). Les fichiers créés dans Ruchoir n'affichent pas de badge.
         </p>
       </div>
 
@@ -415,7 +415,7 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
         footer={
           preview ? (
             <>
-              {preview.source !== "Workchat" ? <Tag icon="import">Importé de {preview.source}</Tag> : null}
+              {preview.source !== "Ruchoir" ? <Tag icon="import">Importé de {preview.source}</Tag> : null}
               {preview.version ? (
                 <Tag mono tone="info">
                   {preview.version}
@@ -458,7 +458,7 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
             <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
               {isImage(preview.name) ? "Aperçu de l'image" : "Aperçu du document"}
             </div>
-            <div style={{ fontSize: 12, color: "var(--text-subtle)" }}>Ouvert dans Workchat, sans téléchargement.</div>
+            <div style={{ fontSize: 12, color: "var(--text-subtle)" }}>Ouvert dans Ruchoir, sans téléchargement.</div>
           </div>
         ) : null}
       </Dialog>
@@ -534,7 +534,7 @@ function FileRow({
       </td>
       <td style={{ ...styles.td, color: "var(--text-muted)", fontSize: 12 }}>{f.when}</td>
       <td style={styles.td}>
-        {f.source === "Workchat" ? (
+        {f.source === "Ruchoir" ? (
           <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>-</span>
         ) : (
           <Tag icon="import">{f.source}</Tag>

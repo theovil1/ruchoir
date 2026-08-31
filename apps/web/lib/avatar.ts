@@ -5,7 +5,7 @@ import gazeDef from "@dicebear/styles/gaze.json";
 
 /**
  * Default avatars, generated locally with DiceBear (EU-authored, MIT + per-style licenses),
- * preset with the Workchat palette. Seeded by name, so each subject gets a stable, distinct
+ * preset with the Ruchoir palette. Seeded by name, so each subject gets a stable, distinct
  * avatar (deterministic, not re-randomized per render). Generated client-side as a data URI,
  * no remote request (sovereignty). Styles per subject:
  *   - person    -> "shadows"
@@ -38,7 +38,7 @@ const STYLES: Record<AvatarKind, Style<any>> = {
 const cache = new Map<string, string>();
 
 export function avatarDataUri(seed: string, kind: AvatarKind = "person"): string {
-  const s = seed || "workchat";
+  const s = seed || "ruchoir";
   const key = `${kind}:${s}`;
   const hit = cache.get(key);
   if (hit) return hit;

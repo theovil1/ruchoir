@@ -10,13 +10,7 @@ const bar: CSSProperties = {
   borderBottom: "1px solid var(--border-subtle)",
 };
 
-const dot: CSSProperties = {
-  width: 9,
-  height: 9,
-  flex: "none",
-  borderRadius: "var(--radius-full)",
-  background: "var(--terracotta-500)",
-};
+const mark: CSSProperties = { width: 22, height: 22, flex: "none", display: "block" };
 
 const name: CSSProperties = {
   fontFamily: "var(--font-sans)",
@@ -26,15 +20,13 @@ const name: CSSProperties = {
   color: "var(--text-strong)",
 };
 
-/**
- * Product wordmark. The design system ships no logo yet: the brand is provisional and the name
- * is set in type, preceded by a terracotta dot (no icon) until a real logo lands.
- */
+/** Product wordmark: the Ruchoir mark (public/brand/ruchoir-mark.png) followed by the name in type. */
 export function Wordmark() {
   return (
     <div style={bar}>
-      <span style={dot} aria-hidden />
-      <span style={name}>Workchat</span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/ruchoir-mark.png" alt="" style={mark} />
+      <span style={name}>Ruchoir</span>
     </div>
   );
 }

@@ -14,12 +14,15 @@ const styles: Record<string, CSSProperties> = {
     padding: "40px 24px",
     background: "var(--surface-sunken)",
   },
+  brand: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8 },
+  mark: { width: 48, height: 48, display: "block" },
   wordmark: {
     fontSize: 24,
     fontWeight: 600,
     letterSpacing: "-0.03em",
     color: "var(--text-strong)",
   },
+  tagline: { fontSize: 13, color: "var(--text-muted)" },
   card: {
     width: "min(400px, 100%)",
     background: "var(--surface-canvas)",
@@ -35,8 +38,13 @@ const styles: Record<string, CSSProperties> = {
 export function AuthShell({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
   return (
     <div style={styles.root}>
-      <div style={styles.wordmark}>
-        Workchat<span style={{ color: "var(--terracotta-500)" }}>.</span>
+      <div style={styles.brand}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/ruchoir-mark.png" alt="" style={styles.mark} />
+        <div style={styles.wordmark}>
+          Ruchoir<span style={{ color: "var(--terracotta-500)" }}>.</span>
+        </div>
+        <div style={styles.tagline}>Une ruche pour tout votre travail.</div>
       </div>
       <div style={styles.card}>{children}</div>
       {footer ? <div style={styles.footer}>{footer}</div> : null}

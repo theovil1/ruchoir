@@ -55,7 +55,7 @@ export function SignupScreen({
       }
     >
       <div style={styles.title}>Créer votre compte</div>
-      <p style={styles.subtitle}>Un compte Workchat, hébergé par votre organisation.</p>
+      <p style={styles.subtitle}>Un compte Ruchoir, hébergé par votre organisation.</p>
       <form
         style={styles.fields}
         onSubmit={(e) => {

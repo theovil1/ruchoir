@@ -9,7 +9,7 @@
 #
 # Run from the repo root:  bash apps/web/scripts/build-emoji-pack.sh
 # Output (default): apps/web/public/emoji  (served by `next dev`; for prod, copy it to the dir
-# behind the API's WORKCHAT_EMOJI_DIR). Override with:  OUT=/some/dir bash .../build-emoji-pack.sh
+# behind the API's RUCHOIR_EMOJI_DIR). Override with:  OUT=/some/dir bash .../build-emoji-pack.sh
 set -euo pipefail
 
 OUT="${OUT:-apps/web/public/emoji}"

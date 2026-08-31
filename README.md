@@ -1,11 +1,16 @@
-# Workchat
+<p align="center">
+  <img src="apps/web/public/brand/ruchoir-mark.png" alt="Ruchoir" width="120" />
+</p>
 
-A sovereign, open-core team workspace - real-time messaging and file sharing in one place.
-A European alternative to Slack, Mattermost and Nextcloud, with a zero-loss import tool that
-migrates an existing Nextcloud or Mattermost instance in under two minutes.
+<h1 align="center">Ruchoir</h1>
 
-> **Status:** early development. The codename is *Workchat*; the final name is not settled.
-> Web interface only for now.
+<p align="center"><em>A hive for all your work.</em></p>
+
+<p align="center">
+  A sovereign, open-core team workspace: real-time messaging and file sharing in one place.<br />
+  A European alternative to Slack, Mattermost and Nextcloud, with a zero-loss import that migrates
+  an existing Nextcloud or Mattermost instance in under two minutes.
+</p>
 
 ## Why
 
@@ -13,7 +18,7 @@ migrates an existing Nextcloud or Mattermost instance in under two minutes.
   non-European service.
 - **All-in-one** - messaging and files in a single, clean, professional workspace.
 - **Painless migration** - an official export script runs on your existing Nextcloud/Mattermost
-  server and produces an encrypted archive that Workchat imports without data loss.
+  server and produces an encrypted archive that Ruchoir imports without data loss.
 
 ## Features (MVP scope)
 
@@ -43,8 +48,8 @@ migrates an existing Nextcloud or Mattermost instance in under two minutes.
 Prerequisites: Docker and Docker Compose.
 
 ```bash
-git clone https://github.com/theovil1/workchat.git
-cd workchat
+git clone https://github.com/theovil1/ruchoir.git
+cd ruchoir
 docker compose up
 ```
 

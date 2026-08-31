@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Responsive stress test for the Workchat web client.
+ * Responsive stress test for the Ruchoir web client.
  *
  * Sweeps every UI state (tools/responsive-audit/states.mjs) across a wide matrix of viewports
  * (viewports.mjs), runs an in-page probe (probe.mjs) at each combination, screenshots the

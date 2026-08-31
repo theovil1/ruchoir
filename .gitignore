@@ -7,6 +7,7 @@
 /docs/specs/
 
 # Local development assets: import fixtures, work exports, seed stacks, design handoff.
+# (The handoff directory keeps its original on-disk name; do not rename this pattern.)
 /fixtures/
 /workchat-design-system/
 

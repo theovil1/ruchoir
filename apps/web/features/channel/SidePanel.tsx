@@ -105,7 +105,7 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                     {fl.size} · {fl.when}
                   </span>
                 </span>
-                {fl.source !== "Workchat" ? <Tag>{fl.source}</Tag> : null}
+                {fl.source !== "Ruchoir" ? <Tag>{fl.source}</Tag> : null}
                 <IconButton
                   icon={fl.kind === "folder" ? "folder-open" : "download"}
                   label={fl.kind === "folder" ? "Ouvrir le dossier" : "Télécharger"}

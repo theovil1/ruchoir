@@ -13,7 +13,7 @@
 //   node scripts/prepare-emoji.mjs \
 //     --static  /path/to/fluentui-emoji \
 //     --animated /path/to/fluentui-emoji-animated \
-//     --out public/emoji            # dev: served by `next dev`; or a dir behind WORKCHAT_EMOJI_DIR
+//     --out public/emoji            # dev: served by `next dev`; or a dir behind RUCHOIR_EMOJI_DIR
 //     [--style Flat]                # Color | Flat | 3D | "High Contrast" (default Flat)
 import {
   copyFileSync,

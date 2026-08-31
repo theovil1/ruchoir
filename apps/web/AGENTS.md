@@ -12,7 +12,8 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
 - **Self-hosted fonts.** IBM Plex Sans/Mono are served from `public/fonts/` as committed woff2
   (latin subset, static per weight: Sans 400/500/600/700, Mono 400/500/600; OFL, see the README and
   `OFL.txt` there). The `@font-face` rules are in `app/globals.css`, one per weight. Never load fonts
-  from Google Fonts or any external CDN. The browser-tab icon is `app/icon.svg` (the terracotta dot).
+  from Google Fonts or any external CDN. The browser-tab icon is `app/icon.png` (the Ruchoir mark);
+  the wordmark and login use `public/brand/ruchoir-mark.png`.
 - **CSP is strict** (`script-src 'self'`): any script or viewer must be same-origin. The
   vendored API reference viewer lives in `public/vendor/` for this reason.
 
@@ -20,7 +21,8 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
 
 - Next.js (App Router) + React + TypeScript.
 - Tailwind CSS v4, **CSS-first**: theme tokens live in `app/globals.css` under `@theme`,
-  not in a JS config. Terracotta is the only saturated color; IBM Plex is the type family.
+  not in a JS config. Two brand colors: terracotta (accent) and deep teal (dark surfaces only);
+  warm cream/sand neutrals. IBM Plex is the type family.
 - ESLint flat config (`eslint.config.mjs`): import and spread `eslint-config-next`'s native
   flat-config array directly. Do not wrap it in `FlatCompat` (it re-processes an already-flat
   config and crashes under ESLint 10).
@@ -36,10 +38,10 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
 
 ## Commands
 
-- Dev server: `pnpm --filter @workchat/web dev`
-- Build (static export to `out/`): `pnpm --filter @workchat/web build`
-- Lint: `pnpm --filter @workchat/web lint`
-- Responsive audit: `pnpm --filter @workchat/web audit:responsive` (run against a live dev server)
+- Dev server: `pnpm --filter @ruchoir/web dev`
+- Build (static export to `out/`): `pnpm --filter @ruchoir/web build`
+- Lint: `pnpm --filter @ruchoir/web lint`
+- Responsive audit: `pnpm --filter @ruchoir/web audit:responsive` (run against a live dev server)
 
 ## Dev deep-link
 
@@ -130,7 +132,7 @@ prototype internals when they do not fit. Enforce token usage with the design-sy
   The pack is built by `scripts/build-emoji-pack.sh` (one-shot: sparse-clones the Fluent repos without
   the ~5GB, then runs `scripts/prepare-emoji.mjs`, which emits `sprite.svg` + curated `animated/*.png`
   + `manifest.json`) into `public/emoji/` (dev, gitignored) or a dir behind the API's
-  `WORKCHAT_EMOJI_DIR` (prod). Fallback chain per emoji: animated (reactions, opt-in) -> static
+  `RUCHOIR_EMOJI_DIR` (prod). Fallback chain per emoji: animated (reactions, opt-in) -> static
   (sprite) -> native. Emoji picker data/keywords live in `lib/emoji.ts`.
 - **User settings** live in `features/app/settings.tsx` (`SettingsProvider` + `useSettings`,
   persisted to localStorage): currently emoji animation and the simulated pack-present flag.

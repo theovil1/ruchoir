@@ -87,7 +87,7 @@ export function OnboardingFlow({
               historiques Slack, Mattermost ou Nextcloud à tout moment depuis la barre latérale.
             </p>
             <Button variant="primary" size="lg" fullWidth onClick={() => onFinish({ workspaceName: name })}>
-              Entrer dans Workchat
+              Entrer dans Ruchoir
             </Button>
           </div>
         </div>

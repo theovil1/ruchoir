@@ -27,7 +27,7 @@ impl Health {
     fn ok() -> Self {
         Self {
             status: "ok",
-            service: "workchat-api",
+            service: "ruchoir-api",
             version: env!("CARGO_PKG_VERSION"),
         }
     }

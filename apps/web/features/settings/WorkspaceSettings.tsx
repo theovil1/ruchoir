@@ -175,7 +175,7 @@ export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify, 
                   <Input id="wn" defaultValue={workspaceName} />
                 </Field>
                 <Field label="Adresse du serveur" hint="Modifiable par un administrateur système uniquement" htmlFor="wu">
-                  <Input id="wu" defaultValue="atelier.workchat.fr" disabled />
+                  <Input id="wu" defaultValue="atelier.ruchoir.fr" disabled />
                 </Field>
                 <Field label="Langue par défaut" htmlFor="wl">
                   <Select id="wl" options={["Français", "English", "Deutsch", "Español"]} />
