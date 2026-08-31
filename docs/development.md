@@ -23,8 +23,7 @@ cargo run -p ruchoir-api
 ```
 
 Open http://localhost:8080. The landing page probes `/api/v1/health`. The interactive API
-reference is at `/docs` (once the viewer is vendored, see `apps/web/public/vendor/README.md`)
-and the raw spec at `/api/openapi.json`.
+reference (MielApi) is at `/docs` and the raw spec at `/api/openapi.json`.
 
 ## Fast iteration
 
@@ -81,19 +80,10 @@ attributes and typed schemas) and served at:
 http://localhost:8080/api/openapi.json
 ```
 
-An interactive reference (Scalar) is served at `http://localhost:8080/docs`. The viewer is
-self-hosted (no external CDN, to satisfy the strict CSP), so it must be vendored once:
-
-```bash
-SCALAR_VERSION=1.25.28
-curl -fsSL \
-  "https://cdn.jsdelivr.net/npm/@scalar/api-reference@${SCALAR_VERSION}/dist/browser/standalone.js" \
-  -o apps/web/public/vendor/scalar.standalone.js
-pnpm --filter @ruchoir/web build   # copies public/ into the served bundle
-```
-
-Then reload `http://localhost:8080/docs`. See `apps/web/public/vendor/README.md` for the
-governance note. The raw `/api/openapi.json` works without the viewer.
+An interactive reference (MielApi) is served at `http://localhost:8080/docs`. It is our own
+renderer: a single self-contained page (`apps/web/public/docs/index.html`) that fetches the live
+spec from `/api/openapi.json` and renders it. No third-party viewer, no CDN, no build step, so it
+satisfies the strict CSP by construction. The raw `/api/openapi.json` also works on its own.
 
 ## Object storage keys (Garage)
 

@@ -14,8 +14,10 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
   `OFL.txt` there). The `@font-face` rules are in `app/globals.css`, one per weight. Never load fonts
   from Google Fonts or any external CDN. The browser-tab icon is `app/icon.png` (the Ruchoir mark);
   the wordmark and login use `public/brand/ruchoir-mark.png`.
-- **CSP is strict** (`script-src 'self'`): any script or viewer must be same-origin. The
-  vendored API reference viewer lives in `public/vendor/` for this reason.
+- **CSP is strict** (`script-src 'self'`): any script or viewer must be same-origin, with no
+  external request. The API reference is our own renderer at `public/docs/index.html`: a single
+  self-contained page that fetches the live spec from `/api/openapi.json` and renders it (no
+  third-party viewer, no CDN).
 
 ## Stack
 
