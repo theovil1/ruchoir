@@ -1,7 +1,7 @@
 /**
  * Account-security model for the personal preferences dialog.
  *
- * This is the L5a UI exploration: there is no backend, so two-factor state, passkeys and recovery
+ * This is the UI exploration: there is no backend, so two-factor state, passkeys and recovery
  * codes are all mock. Values are derived deterministically (no `Math.random`, which the static export
  * forbids at build time) from a small counter seed carried in the persisted settings, so regenerating
  * the recovery codes yields a fresh, stable set each time without any randomness source.

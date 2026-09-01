@@ -1,9 +1,8 @@
-# Local, private, or AI-facing files that must never reach the public repo.
-# The only AI-facing file allowed on the repo is AGENTS.md.
+# Local and private files that must never reach the public repo.
 /CLAUDE.md
 /CAHIER-DES-CHARGES.md
 /.claude/
-# Internal, lot-numbered planning specs (kept local, like the cahier).
+# Internal planning specs (kept local, alongside the product spec).
 /docs/specs/
 
 # Local development assets: import fixtures, work exports, seed stacks, design handoff.

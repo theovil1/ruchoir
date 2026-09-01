@@ -15,7 +15,7 @@ type Probe =
 
 /**
  * Status page. Exercises the full path end to end: a static asset served by the Rust API
- * calls the API's own health endpoint. Kept from L0 while the app shell (L5a) takes over /.
+ * calls the API's own health endpoint. Kept while the app shell takes over /.
  */
 export default function Status() {
   const [probe, setProbe] = useState<Probe>({ state: "loading" });

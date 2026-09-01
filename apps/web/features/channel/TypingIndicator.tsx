@@ -1,5 +1,5 @@
 /**
- * "Someone is typing" indicator. Ephemeral: L3 delivers this over the realtime channel and
+ * "Someone is typing" indicator. Ephemeral: the realtime layer delivers this over the channel and
  * never stores it. Rendered just above the composer.
  */
 export function TypingIndicator({ names }: { names: string[] }) {

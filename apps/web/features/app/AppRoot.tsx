@@ -94,7 +94,7 @@ function uniqueId(base: string, taken: string[]): string {
 
 /**
  * Client root of the app shell. Holds the simulated navigation and mutable domain state for the
- * L5a exploration. No network, no persistence: reloading resets everything. All seed data is read
+ * UI exploration. No network, no persistence: reloading resets everything. All seed data is read
  * through the data seam (@/lib/data), then lifted into state so the UI can mutate it.
  */
 function AppShell() {
