@@ -48,6 +48,8 @@ export type DeepLink = {
   pop?: (typeof POPOVERS)[number];
   /** Preferences section to open when `view=prefs` (defaults to appearance). */
   prefsTab?: (typeof PREF_TABS)[number];
+  /** Show the first-run getting-started checklist (audits hide it by default to keep screens clean). */
+  welcome?: boolean;
   /** Compact shell only: push the content view full-screen (instead of showing the list). */
   push?: boolean;
 };
@@ -76,6 +78,7 @@ export function readDeepLink(): DeepLink | null {
     font: pick("font", FONTS),
     pop: pick("pop", POPOVERS),
     prefsTab: pick("prefsTab", PREF_TABS),
+    welcome: q.get("welcome") === "1" || q.get("welcome") === "true" ? true : undefined,
     push: q.get("push") === "1" || q.get("push") === "true" ? true : undefined,
   };
 

@@ -27,6 +27,7 @@ import { ImportDialog } from "@/features/import/ImportDialog";
 import { ActivityView } from "./ActivityView";
 import { collectMentions, collectSaved, collectThreads, flattenMessages, type MessageMap } from "./activity";
 import { HelpDialog, InviteDialog, NewChannelDialog, NewMessageDialog, NewWorkspaceDialog } from "./dialogs";
+import { GettingStarted } from "./GettingStarted";
 import { GlobalSearchDialog } from "./GlobalSearchDialog";
 import { QuickSwitcher } from "./QuickSwitcher";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
@@ -190,7 +191,13 @@ function AppShell() {
       const stored = raw ? JSON.parse(raw) : {};
       localStorage.setItem(
         "ruchoir.settings",
-        JSON.stringify({ ...stored, textSize: link.text ?? "m", font: link.font ?? "plex" }),
+        JSON.stringify({
+          ...stored,
+          textSize: link.text ?? "m",
+          font: link.font ?? "plex",
+          // Hidden by default under a deep-link so it does not clutter every audited screen; welcome=1 shows it.
+          welcome: { dismissed: !link.welcome, done: [] },
+        }),
       );
     } catch {
       // ignore storage failures (dev-only affordance)
@@ -252,6 +259,31 @@ function AppShell() {
     setToastKey((k) => k + 1);
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToastVisible(false), 4000);
+  };
+
+  // First-run getting-started checklist, persisted in settings.welcome.
+  const markWelcomeDone = (id: string) =>
+    settings.set("welcome", { ...settings.welcome, done: Array.from(new Set([...settings.welcome.done, id])) });
+  const dismissWelcome = () => settings.set("welcome", { ...settings.welcome, dismissed: true });
+  const restartWelcome = () => settings.set("welcome", { dismissed: false, done: settings.welcome.done });
+  /** Launch the action for a checklist step and tick it off. */
+  const runWelcomeStep = (id: string) => {
+    markWelcomeDone(id);
+    if (id === "profile") {
+      setModal(null);
+      setView("channel");
+      setThread(null);
+      setProfileEdit(true);
+      setProfile(currentUser);
+    } else if (id === "channel") {
+      setModal("newChannel");
+    } else if (id === "message") {
+      openChannel(channels[0]?.id ?? channelId);
+    } else if (id === "invite") {
+      setModal("invite");
+    } else if (id === "import") {
+      setModal("import");
+    }
   };
 
   /** Open the full-screen preferences on a given section, remembering the current view so closing returns to it. */
@@ -680,7 +712,14 @@ function AppShell() {
       ) : null}
       {modal === "newWorkspace" ? <NewWorkspaceDialog onClose={() => setModal(null)} onCreate={createWorkspace} /> : null}
       {modal === "help" ? (
-        <HelpDialog onClose={() => setModal(null)} onCustomize={() => openPreferences("shortcuts")} />
+        <HelpDialog
+          onClose={() => setModal(null)}
+          onCustomize={() => openPreferences("shortcuts")}
+          onGettingStarted={() => {
+            setModal(null);
+            restartWelcome();
+          }}
+        />
       ) : null}
       {modal === "switcher" ? (
         <QuickSwitcher
@@ -761,11 +800,22 @@ function AppShell() {
         </Dialog>
       ) : null}
 
+      {!settings.welcome.dismissed ? (
+        <GettingStarted
+          done={settings.welcome.done}
+          onRun={runWelcomeStep}
+          onDismiss={dismissWelcome}
+          compact={compact}
+        />
+      ) : null}
+
       {toastMounted && toast ? (
         <div
           key={toastKey}
           className={toastClosing ? "wc-toast--out" : "wc-toast--in"}
-          style={toastStyle.wrap}
+          // Lift the toast above the getting-started card when it is on screen (desktop only; on compact
+          // the card sits above the bottom tabs and the toast keeps its place).
+          style={{ ...toastStyle.wrap, bottom: !settings.welcome.dismissed && !compact ? 84 : 20 }}
           role="status"
           aria-live="polite"
         >

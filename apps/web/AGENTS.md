@@ -49,8 +49,9 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
 
 The app is a state machine (auth stage + view + optional modal), not routes. `lib/dev/deeplink.ts`
 reads query params (`?stage=`, `view=`, `channel=`, `panel=`, `modal=`, `prefsTab=`, `text=`, `font=`,
-`pop=`, `push=1`) on mount to land directly on any screen. `prefsTab=` picks the preferences section
-when `view=prefs` (appearance/notifications/shortcuts/security/emojis). In the compact shell `push=1`
+`pop=`, `welcome=1`, `push=1`) on mount to land directly on any screen. `prefsTab=` picks the preferences
+section when `view=prefs` (appearance/notifications/shortcuts/security/emojis). `welcome=1` shows the
+first-run checklist (a deep-link otherwise forces it hidden so it does not clutter audited screens). In the compact shell `push=1`
 opens the content full-screen instead of the
 bottom-tab list, so the audit can reach the mobile conversation/content views. It is **development only**: `readDeepLink()` returns `null` under `NODE_ENV=production`,
 so the static export ignores it. Used by the responsive audit to reach every state without click
@@ -193,6 +194,11 @@ prototype internals when they do not fit. Enforce token usage with the design-sy
   from the handoff into typed React with their CSS appended to `app/components.css` (the handoff
   injected it at runtime; we do not). `Dialog` is the shared modal base (scrim + head + body + footer,
   closes on scrim/Escape); reuse it rather than hand-rolling a scrim.
+- **First-run onboarding.** The signup wizard is `features/auth/OnboardingFlow.tsx` (workspace name,
+  profile, invites). Inside the app, `features/app/GettingStarted.tsx` is a floating, collapsible
+  checklist (create a channel, send a message, invite, import, profile) whose state persists in
+  `settings.welcome` (`{ dismissed, done }`). Clicking a step runs the real action and ticks it off;
+  the Help dialog's first link reopens it (`restartWelcome` in `AppRoot`).
 - **Empty / no-results states** all go through `components/ds/EmptyState.tsx` (icon, title,
   description, optional action). `size="hero"` fills a whole view (icon in a soft badge); `size="compact"`
   suits popovers, side panels and search dropdowns. Do not hand-roll empty placeholders; reuse this so

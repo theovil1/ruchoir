@@ -1,0 +1,183 @@
+"use client";
+
+import { type CSSProperties, useState } from "react";
+import { Button, Icon, IconButton } from "@/components/ds";
+
+export type GettingStartedStep = { id: string; icon: string; label: string; desc: string };
+
+/** The first-run steps, in order. Ids are persisted in settings.welcome.done. */
+export const GETTING_STARTED_STEPS: GettingStartedStep[] = [
+  { id: "profile", icon: "smile", label: "Complétez votre profil", desc: "Ajoutez une photo et votre fonction." },
+  { id: "channel", icon: "hash", label: "Créez un canal", desc: "Organisez les échanges par sujet." },
+  { id: "message", icon: "send", label: "Envoyez un premier message", desc: "Dites bonjour dans un canal." },
+  { id: "invite", icon: "user-plus", label: "Invitez votre équipe", desc: "Ruchoir prend tout son sens à plusieurs." },
+  { id: "import", icon: "import", label: "Importez vos historiques", desc: "Depuis Slack, Mattermost ou Nextcloud." },
+];
+
+const st: Record<string, CSSProperties> = {
+  card: {
+    display: "flex",
+    flexDirection: "column",
+    width: "min(340px, calc(var(--ui-vw, 100vw) - 32px))",
+    background: "var(--surface-canvas)",
+    border: "1px solid var(--border-default)",
+    borderRadius: "var(--radius-lg)",
+    boxShadow: "var(--shadow-dialog)",
+    overflow: "hidden",
+  },
+  head: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 8px 8px 14px",
+  },
+  headToggle: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+    padding: "4px 0",
+    cursor: "pointer",
+    border: 0,
+    background: "transparent",
+    textAlign: "left",
+  },
+  title: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
+  count: { fontSize: 12, fontWeight: 500, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
+  bar: { height: 3, background: "var(--grey-200)" },
+  barFill: { height: "100%", background: "var(--terracotta-500)", transition: "width var(--duration-base) var(--ease-out)" },
+  list: { display: "flex", flexDirection: "column", padding: "6px 8px 10px" },
+  row: {
+    display: "flex",
+    alignItems: "center",
+    gap: 11,
+    width: "100%",
+    padding: "9px 8px",
+    border: 0,
+    borderRadius: "var(--radius-md)",
+    background: "transparent",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+  bullet: {
+    flex: "none",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 30,
+    height: 30,
+    borderRadius: "var(--radius-full)",
+  },
+  foot: { padding: "4px 14px 14px", display: "flex", justifyContent: "flex-end" },
+};
+
+export type GettingStartedProps = {
+  /** Ids of completed steps (persisted). */
+  done: string[];
+  /** Run the action for a step (also marks it done). */
+  onRun: (id: string) => void;
+  /** Dismiss the checklist for good. */
+  onDismiss: () => void;
+  compact?: boolean;
+};
+
+/** First-run getting-started checklist, floating bottom-right (above the bottom tabs on compact). */
+export function GettingStarted({ done, onRun, onDismiss, compact = false }: GettingStartedProps) {
+  const [open, setOpen] = useState(true);
+  const doneSet = new Set(done);
+  const count = GETTING_STARTED_STEPS.filter((s) => doneSet.has(s.id)).length;
+  const total = GETTING_STARTED_STEPS.length;
+  const allDone = count === total;
+
+  return (
+    <div
+      className="wc-fade-in"
+      style={{
+        position: "fixed",
+        right: compact ? 12 : 20,
+        bottom: compact ? 76 : 20,
+        zIndex: 55,
+      }}
+    >
+      <div style={st.card} role="region" aria-label="Prise en main">
+        <div style={st.head}>
+          <button type="button" style={st.headToggle} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+            <span style={st.title}>Prise en main</span>
+            <span style={st.count}>
+              {count}/{total}
+            </span>
+            <Icon
+              name="chevron-down"
+              size={16}
+              style={{
+                color: "var(--text-muted)",
+                transform: open ? "none" : "rotate(180deg)",
+                transition: "transform var(--duration-fast) var(--ease-out)",
+              }}
+            />
+          </button>
+          <IconButton icon="x" label="Masquer la prise en main" size="sm" onClick={onDismiss} />
+        </div>
+
+        <div style={st.bar}>
+          <div style={{ ...st.barFill, width: `${(count / total) * 100}%` }} />
+        </div>
+
+        {open ? (
+          <>
+            <div style={st.list}>
+              {GETTING_STARTED_STEPS.map((s) => {
+                const isDone = doneSet.has(s.id);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="wc-listrow"
+                    style={st.row}
+                    onClick={() => onRun(s.id)}
+                  >
+                    <span
+                      style={{
+                        ...st.bullet,
+                        background: isDone ? "var(--terracotta-500)" : "var(--surface-sunken)",
+                        color: isDone ? "var(--action-primary-fg)" : "var(--text-muted)",
+                      }}
+                    >
+                      <Icon name={isDone ? "check" : s.icon} size={16} />
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span
+                        style={{
+                          display: "block",
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: isDone ? "var(--text-muted)" : "var(--text-strong)",
+                        }}
+                      >
+                        {s.label}
+                      </span>
+                      <span style={{ display: "block", fontSize: 12, color: "var(--text-subtle)", marginTop: 1 }}>{s.desc}</span>
+                    </span>
+                    <Icon name="chevron-right" size={15} style={{ color: "var(--text-subtle)", flex: "none" }} />
+                  </button>
+                );
+              })}
+            </div>
+            <div style={st.foot}>
+              {allDone ? (
+                <Button size="sm" variant="primary" onClick={onDismiss}>
+                  Terminer
+                </Button>
+              ) : (
+                <Button size="sm" variant="link" onClick={onDismiss}>
+                  Ne plus afficher
+                </Button>
+              )}
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}

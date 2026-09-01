@@ -21,6 +21,10 @@ function isFont(value: unknown): value is FontChoice {
   return typeof value === "string" && (FONTS as string[]).includes(value);
 }
 
+/** First-run "getting started" checklist: whether it is dismissed and which steps are done. */
+export type WelcomeState = { dismissed: boolean; done: string[] };
+export const DEFAULT_WELCOME: WelcomeState = { dismissed: false, done: [] };
+
 /** Text size, applied as a proportional zoom on the whole interface. */
 export type TextSize = "s" | "m" | "l" | "xl";
 export const TEXT_SIZES: TextSize[] = ["s", "m", "l", "xl"];
@@ -49,6 +53,8 @@ export type Settings = {
   security: AccountSecurity;
   /** Customizable keyboard shortcut bindings, keyed by command id. */
   shortcuts: Bindings;
+  /** First-run getting-started checklist state. */
+  welcome: WelcomeState;
 };
 
 type SettingsContextValue = Settings & {
@@ -64,6 +70,7 @@ const DEFAULTS: Settings = {
   notif: DEFAULT_NOTIF_PREFS,
   security: DEFAULT_ACCOUNT_SECURITY,
   shortcuts: DEFAULT_BINDINGS,
+  welcome: DEFAULT_WELCOME,
 };
 
 const SettingsContext = createContext<SettingsContextValue>({
@@ -107,6 +114,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           security: { ...DEFAULT_ACCOUNT_SECURITY, ...(parsed.security ?? {}) },
           // Keep only known commands and string bindings; unknown/missing ones fall back to default.
           shortcuts: mergeBindings(parsed.shortcuts),
+          welcome: {
+            dismissed: typeof parsed.welcome?.dismissed === "boolean" ? parsed.welcome.dismissed : false,
+            done: Array.isArray(parsed.welcome?.done)
+              ? parsed.welcome.done.filter((x: unknown) => typeof x === "string")
+              : [],
+          },
         });
       }
     } catch {

@@ -111,6 +111,7 @@ export const STATES = [
   { id: "modal-newWorkspace", label: "Nouvel espace", query: "stage=app&modal=newWorkspace" },
   { id: "modal-help", label: "Aide", query: "stage=app&modal=help" },
   { id: "modal-switcher", label: "Aller a une conversation", query: "stage=app&modal=switcher" },
+  { id: "welcome", label: "Prise en main (premiere ouverture)", query: "stage=app&view=channel&channel=general&welcome=1" },
 
   // Appearance: every text size and every typeface across the key surfaces (generated above).
   ...APPEARANCE_STATES,
