@@ -80,8 +80,12 @@ function item(on: boolean): CSSProperties {
     cursor: "pointer",
     fontFamily: "var(--font-sans)",
     fontSize: 14,
-    fontWeight: on ? 500 : 400,
+    fontWeight: on ? 600 : 400,
     textAlign: "left",
+    // Active row: a solid left accent bar (drawn with an inset shadow so it adds no layout width).
+    // A shape cue on top of the colour so the active channel is legible even where the pale selected
+    // surface has low contrast against the canvas.
+    boxShadow: on ? "inset 3px 0 0 0 var(--border-accent)" : undefined,
   };
 }
 
@@ -130,7 +134,13 @@ function SideItem({ icon, label, active, unread, muted, notifMuted, tag, onClick
   const [hover, setHover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
-  const bg = active ? "var(--surface-selected)" : hover || menuOpen ? "var(--surface-hover)" : "transparent";
+  // Active fill: a clearly visible terracotta tint (the token --surface-selected is too pale on the
+  // cream canvas to read). Mixed over transparent so it tints correctly in both light and dark themes.
+  const bg = active
+    ? "color-mix(in srgb, var(--border-accent) 16%, transparent)"
+    : hover || menuOpen
+      ? "var(--surface-hover)"
+      : "transparent";
   const showMore = !!menuItems && menuItems.length > 0 && (hover || menuOpen);
 
   return (
