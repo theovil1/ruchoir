@@ -22,6 +22,8 @@
 /.next/
 /dist/
 /apps/web/out/
+# TypeScript incremental build cache.
+*.tsbuildinfo
 # Generated self-hosted emoji pack (built from the Fluent Emoji repos by scripts/prepare-emoji.mjs).
 /apps/web/public/emoji/
 
