@@ -31,3 +31,8 @@ dotenvy = { workspace = true }
 utoipa = { workspace = true }
 axum-server = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
+
+# Data layer: PostgreSQL via SeaORM, Valkey via fred, migrations from the workspace crate.
+sea-orm = { workspace = true }
+fred = { workspace = true }
+ruchoir-migration = { path = "../../migrations" }

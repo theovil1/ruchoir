@@ -19,7 +19,7 @@ use utoipa::OpenApi;
         license(name = "AGPL-3.0-only")
     ),
     paths(crate::http::healthz, crate::http::api_health),
-    components(schemas(crate::http::Health)),
+    components(schemas(crate::http::Health, crate::http::ApiHealth)),
     tags((name = "health", description = "Liveness and health checks"))
 )]
 pub struct ApiDoc;

@@ -1,10 +1,10 @@
 //! HTTP surface: router, health endpoints, static web hosting and security headers.
 
-use std::path::Path;
-
+use axum::extract::State;
 use axum::http::{header, HeaderName, HeaderValue};
 use axum::routing::get;
 use axum::{Json, Router};
+use fred::interfaces::ClientLike;
 use serde::Serialize;
 use tower::ServiceBuilder;
 use tower_http::services::{ServeDir, ServeFile};
@@ -12,7 +12,10 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 use utoipa::ToSchema;
 
-/// Health payload returned by the liveness and API health endpoints.
+use crate::state::AppState;
+
+/// Liveness payload returned by `/healthz`. This never touches dependencies, so it stays a pure
+/// "the process is up" signal for orchestration and load balancers.
 #[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct Health {
     /// Always `"ok"` when the endpoint responds.
@@ -33,6 +36,21 @@ impl Health {
     }
 }
 
+/// Readiness payload returned by `/api/v1/health`, including dependency probes.
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct ApiHealth {
+    /// `"ok"` when every dependency is reachable, otherwise `"degraded"`.
+    status: &'static str,
+    /// Service identifier.
+    service: &'static str,
+    /// Semantic version of the running binary.
+    version: &'static str,
+    /// PostgreSQL reachability: `"ok"` or `"down"`.
+    database: &'static str,
+    /// Valkey reachability: `"ok"` or `"down"`.
+    cache: &'static str,
+}
+
 /// Liveness probe. Used by container orchestration and load balancers.
 #[utoipa::path(
     get,
@@ -44,16 +62,37 @@ pub(crate) async fn healthz() -> Json<Health> {
     Json(Health::ok())
 }
 
-/// API health endpoint. Kept separate from `/healthz` so it can grow richer
-/// dependency checks (database, cache, object storage) without touching liveness.
+/// Readiness endpoint: reports whether PostgreSQL and Valkey are reachable. Kept separate from
+/// `/healthz` so liveness never depends on downstream systems.
 #[utoipa::path(
     get,
     path = "/api/v1/health",
     tag = "health",
-    responses((status = 200, description = "API is healthy", body = Health))
+    responses((status = 200, description = "API readiness with dependency probes", body = ApiHealth))
 )]
-pub(crate) async fn api_health() -> Json<Health> {
-    Json(Health::ok())
+pub(crate) async fn api_health(State(state): State<AppState>) -> Json<ApiHealth> {
+    let database = match state.db.ping().await {
+        Ok(()) => "ok",
+        Err(_) => "down",
+    };
+    // A bare PING; the reply payload is irrelevant, only whether the round-trip succeeds.
+    let cache = match state.valkey.ping::<String>(None).await {
+        Ok(_) => "ok",
+        Err(_) => "down",
+    };
+    let status = if database == "ok" && cache == "ok" {
+        "ok"
+    } else {
+        "degraded"
+    };
+
+    Json(ApiHealth {
+        status,
+        service: "ruchoir-api",
+        version: env!("CARGO_PKG_VERSION"),
+        database,
+        cache,
+    })
 }
 
 /// Build the full application router.
@@ -65,12 +104,12 @@ pub(crate) async fn api_health() -> Json<Health> {
 ///    fallback to `index.html` for client-side routes.
 ///
 /// A conservative baseline of security headers is applied to every response,
-/// aligned with the "self-hosted, no external origin" posture
-/// (self-hosted, no external origin). It is tightened later (nonce-based CSP,
-/// HSTS once TLS is terminated in front of the API).
-pub fn router(web_dist: &Path, emoji_dir: Option<&Path>) -> Router {
+/// aligned with the "self-hosted, no external origin" posture. It is tightened later
+/// (nonce-based CSP, HSTS once TLS is terminated in front of the API).
+pub fn router(state: AppState) -> Router {
+    let web_dist = state.config.web_dist.clone();
     let index = web_dist.join("index.html");
-    let static_service = ServeDir::new(web_dist).not_found_service(ServeFile::new(index));
+    let static_service = ServeDir::new(&web_dist).not_found_service(ServeFile::new(index));
 
     // Content Security Policy: same-origin only.
     //
@@ -98,7 +137,7 @@ pub fn router(web_dist: &Path, emoji_dir: Option<&Path>) -> Router {
     // pack at a couple of requests per client per week instead of one per glyph on every load. The
     // window is intentionally not `immutable`: `sprite.svg`/`manifest.json` keep a stable name across
     // rebuilds, so a bounded max-age lets a rebuilt pack propagate (or a hard refresh forces it).
-    if let Some(dir) = emoji_dir {
+    if let Some(dir) = state.config.emoji_dir.clone() {
         let emoji_service = ServeDir::new(dir);
         router = router.nest_service(
             "/emoji",
@@ -121,6 +160,7 @@ pub fn router(web_dist: &Path, emoji_dir: Option<&Path>) -> Router {
             "geolocation=(), camera=(), microphone=()",
         ))
         .layer(TraceLayer::new_for_http())
+        .with_state(state)
 }
 
 /// Build a layer that sets a static header value on every response.

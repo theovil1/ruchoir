@@ -1,19 +1,25 @@
 //! Ruchoir API entrypoint.
 //!
-//! For now this is a minimal but real service: it initializes structured logging,
-//! loads configuration from the environment, and serves an HTTP surface consisting of
-//! health endpoints plus the exported static web bundle. Business logic, real-time
-//! transport, auth and data access arrive in later lots.
+//! Initializes structured logging, loads configuration, connects to PostgreSQL and Valkey,
+//! applies database migrations (automatically in dev, or via the `migrate` subcommand), and
+//! serves an HTTP surface: health endpoints plus the exported static web bundle. Auth,
+//! real-time transport and richer business logic build on this foundation in later stages.
 
+mod cache;
 mod config;
+mod db;
 mod http;
 mod openapi;
+mod state;
 
 use std::process::ExitCode;
+use std::sync::Arc;
 
+use ruchoir_migration::{Migrator, MigratorTrait};
 use tracing_subscriber::{fmt, EnvFilter};
 
 use crate::config::Config;
+use crate::state::AppState;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -30,19 +36,54 @@ async fn main() -> ExitCode {
         }
     };
 
-    tracing::info!(
-        addr = %config.addr,
-        web_dist = %config.web_dist.display(),
-        "starting ruchoir-api"
-    );
-
-    match serve(config).await {
+    match run(config).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            tracing::error!(error = %err, "server error");
+            tracing::error!(error = %err, "fatal error");
             ExitCode::FAILURE
         }
     }
+}
+
+/// Wire up datastores, run migrations as configured, and either serve or handle a subcommand.
+async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+    // Subcommand dispatch. `ruchoir-api migrate` applies pending migrations and exits: this is
+    // the explicit, production-safe path. Regular startup serves the app.
+    let subcommand = std::env::args().nth(1);
+
+    let db = db::connect(&config).await?;
+    tracing::info!("connected to PostgreSQL");
+
+    if subcommand.as_deref() == Some("migrate") {
+        tracing::info!("applying database migrations");
+        Migrator::up(&db, None).await?;
+        tracing::info!("migrations applied");
+        return Ok(());
+    }
+
+    // In development the API applies pending migrations on boot for convenience. Production sets
+    // RUCHOIR_AUTO_MIGRATE=false and runs the `migrate` subcommand explicitly before deploying.
+    if config.auto_migrate {
+        tracing::info!("auto-migrate enabled; applying pending migrations");
+        Migrator::up(&db, None).await?;
+    }
+
+    let valkey = cache::connect(&config).await?;
+    tracing::info!("connected to Valkey");
+
+    let state = AppState {
+        db,
+        valkey,
+        config: Arc::new(config),
+    };
+
+    tracing::info!(
+        addr = %state.config.addr,
+        web_dist = %state.config.web_dist.display(),
+        "starting ruchoir-api"
+    );
+
+    serve(state).await
 }
 
 /// Configure structured, filtered logging. Never logs secrets.
@@ -53,25 +94,26 @@ fn init_tracing() {
 
 /// Serve the application, selecting HTTPS when TLS material is configured and the
 /// `tls` feature is built in, otherwise plain HTTP for local development.
-async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
-    let app = http::router(&config.web_dist, config.emoji_dir.as_deref());
+async fn serve(state: AppState) -> Result<(), Box<dyn std::error::Error>> {
+    let addr = state.config.addr;
+    let app = http::router(state.clone());
 
     #[cfg(feature = "tls")]
-    if config.tls_enabled() {
-        return serve_tls(config, app).await;
+    if state.config.tls_enabled() {
+        return serve_tls(state, app).await;
     }
 
     #[cfg(not(feature = "tls"))]
-    if config.tls_enabled() {
+    if state.config.tls_enabled() {
         tracing::warn!(
             "TLS certificate/key are set but this binary was built without the `tls` feature; \
              serving plain HTTP"
         );
     }
 
-    let listener = tokio::net::TcpListener::bind(config.addr).await?;
+    let listener = tokio::net::TcpListener::bind(addr).await?;
     // Report the actual bound address: with RUCHOIR_API_PORT=0 the OS picks a free port.
-    let local_addr = listener.local_addr().unwrap_or(config.addr);
+    let local_addr = listener.local_addr().unwrap_or(addr);
     tracing::info!("listening on http://{}", local_addr);
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
@@ -81,7 +123,7 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
 /// Serve over HTTPS using rustls with the community `ring` crypto provider.
 #[cfg(feature = "tls")]
-async fn serve_tls(config: Config, app: axum::Router) -> Result<(), Box<dyn std::error::Error>> {
+async fn serve_tls(state: AppState, app: axum::Router) -> Result<(), Box<dyn std::error::Error>> {
     use axum_server::tls_rustls::RustlsConfig;
 
     // Install the `ring` provider explicitly. `aws-lc-rs` (the rustls default) is
@@ -90,12 +132,12 @@ async fn serve_tls(config: Config, app: axum::Router) -> Result<(), Box<dyn std:
         .install_default()
         .map_err(|_| "failed to install rustls ring crypto provider")?;
 
-    let cert = config.tls_cert.as_ref().expect("tls_enabled checked");
-    let key = config.tls_key.as_ref().expect("tls_enabled checked");
+    let cert = state.config.tls_cert.as_ref().expect("tls_enabled checked");
+    let key = state.config.tls_key.as_ref().expect("tls_enabled checked");
     let tls = RustlsConfig::from_pem_file(cert, key).await?;
 
-    tracing::info!("listening on https://{}", config.addr);
-    axum_server::bind_rustls(config.addr, tls)
+    tracing::info!("listening on https://{}", state.config.addr);
+    axum_server::bind_rustls(state.config.addr, tls)
         .serve(app.into_make_service())
         .await?;
     Ok(())

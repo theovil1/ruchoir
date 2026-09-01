@@ -32,6 +32,7 @@ WORKDIR /build
 COPY rust-toolchain.toml Cargo.toml ./
 COPY Cargo.lock* ./
 COPY apps/api ./apps/api
+COPY migrations ./migrations
 # Cache the cargo registry/git and the target dir. The binary is copied out of the cached
 # target within the same layer (cache mounts are not part of the image filesystem).
 RUN --mount=type=cache,target=/usr/local/cargo/registry \

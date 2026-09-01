@@ -18,6 +18,10 @@ services:
       # Postgres 18+ images store data in a version-specific subdirectory, so the mount
       # point is /var/lib/postgresql (not /var/lib/postgresql/data as in older images).
       - postgres-data:/var/lib/postgresql
+    ports:
+      # Published so the API can run on the host (cargo run) against localhost. Change the host
+      # port if 5432 is already taken locally.
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ruchoir} -d ${POSTGRES_DB:-ruchoir}"]
       interval: 10s
@@ -30,6 +34,9 @@ services:
     command: ["valkey-server", "--save", "60", "1", "--appendonly", "yes"]
     volumes:
       - valkey-data:/data
+    ports:
+      # Published for host-side dev (cargo run). Change the host port if 6379 is taken.
+      - "${VALKEY_HOST_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 10s

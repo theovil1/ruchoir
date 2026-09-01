@@ -22,6 +22,18 @@ pub struct Config {
     /// the server serves HTTPS; otherwise it serves plain HTTP (local dev only).
     pub tls_cert: Option<PathBuf>,
     pub tls_key: Option<PathBuf>,
+    /// PostgreSQL connection URL (source of truth). Dev connects in plaintext over the trusted
+    /// Docker network; TLS-to-database is a later hardening concern.
+    pub database_url: String,
+    /// Maximum size of the PostgreSQL connection pool.
+    pub db_max_connections: u32,
+    /// Valkey (RESP) connection URL, used for opaque sessions and, later, pub-sub / presence.
+    pub valkey_url: String,
+    /// Size of the Valkey connection pool.
+    pub valkey_pool_size: usize,
+    /// Whether the API applies pending migrations automatically on startup. True in dev; set
+    /// `RUCHOIR_AUTO_MIGRATE=false` in production and apply them through the `migrate` subcommand.
+    pub auto_migrate: bool,
 }
 
 impl Config {
@@ -40,12 +52,32 @@ impl Config {
         let tls_cert = env_opt("RUCHOIR_TLS_CERT").map(PathBuf::from);
         let tls_key = env_opt("RUCHOIR_TLS_KEY").map(PathBuf::from);
 
+        let database_url = env_or(
+            "DATABASE_URL",
+            "postgres://ruchoir:ruchoir@localhost:5432/ruchoir",
+        );
+        let db_max_connections: u32 = env_or("RUCHOIR_DB_MAX_CONNECTIONS", "10")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_DB_MAX_CONNECTIONS"))?;
+        let valkey_url = env_or("VALKEY_URL", "redis://localhost:6379");
+        let valkey_pool_size: usize = env_or("RUCHOIR_VALKEY_POOL_SIZE", "6")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_VALKEY_POOL_SIZE"))?;
+        let auto_migrate: bool = env_or("RUCHOIR_AUTO_MIGRATE", "true")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_AUTO_MIGRATE"))?;
+
         Ok(Self {
             addr: SocketAddr::new(host, port),
             web_dist,
             emoji_dir,
             tls_cert,
             tls_key,
+            database_url,
+            db_max_connections,
+            valkey_url,
+            valkey_pool_size,
+            auto_migrate,
         })
     }
 
