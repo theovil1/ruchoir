@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
+import { DEFAULT_NOTIF_PREFS, type NotifPrefs } from "./notifications";
+import { DEFAULT_ACCOUNT_SECURITY, type AccountSecurity } from "./security";
 
 /** The four shipped themes. RuchUI (warm cream + terracotta) is the default. */
 export type ThemeName = "ruchui" | "light" | "ruchui-dark" | "dark";
@@ -11,9 +13,27 @@ function isTheme(value: unknown): value is ThemeName {
   return typeof value === "string" && (THEMES as string[]).includes(value);
 }
 
+/** Interface typeface: the default IBM Plex, the OS system stack, or the dyslexia-friendly OpenDyslexic. */
+export type FontChoice = "plex" | "system" | "dyslexic";
+export const FONTS: FontChoice[] = ["plex", "system", "dyslexic"];
+function isFont(value: unknown): value is FontChoice {
+  return typeof value === "string" && (FONTS as string[]).includes(value);
+}
+
+/** Text size, applied as a proportional zoom on the whole interface. */
+export type TextSize = "s" | "m" | "l" | "xl";
+export const TEXT_SIZES: TextSize[] = ["s", "m", "l", "xl"];
+function isTextSize(value: unknown): value is TextSize {
+  return typeof value === "string" && (TEXT_SIZES as string[]).includes(value);
+}
+
 export type Settings = {
   /** Active colour theme, applied as data-theme on <html>. Default RuchUI. */
   theme: ThemeName;
+  /** Interface typeface, applied as data-font on <html>. Default IBM Plex. */
+  font: FontChoice;
+  /** Text size, applied as data-text on <html> (proportional interface zoom). Default medium. */
+  textSize: TextSize;
   /** Whether Fluent emoji should animate (when the pack is available). Default on. */
   emojiAnimated: boolean;
   /**
@@ -22,13 +42,25 @@ export type Settings = {
    * fallback can be demonstrated. When false, emoji render with the OS-native glyphs.
    */
   emojiPack: boolean;
+  /** Global notification preferences (master switch, sound, quiet hours, @channel). */
+  notif: NotifPrefs;
+  /** Personal account security (two-factor, passkeys, recovery codes). */
+  security: AccountSecurity;
 };
 
 type SettingsContextValue = Settings & {
   set: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 };
 
-const DEFAULTS: Settings = { theme: "ruchui", emojiAnimated: true, emojiPack: true };
+const DEFAULTS: Settings = {
+  theme: "ruchui",
+  font: "plex",
+  textSize: "m",
+  emojiAnimated: true,
+  emojiPack: true,
+  notif: DEFAULT_NOTIF_PREFS,
+  security: DEFAULT_ACCOUNT_SECURITY,
+};
 
 const SettingsContext = createContext<SettingsContextValue>({
   ...DEFAULTS,
@@ -55,7 +87,21 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        setSettings({ ...DEFAULTS, ...parsed, theme: isTheme(parsed.theme) ? parsed.theme : DEFAULTS.theme });
+        // Hydration-safe: the server renders the defaults, then this reconciles from localStorage after
+        // mount. Reading storage in the initializer instead would cause a hydration mismatch, so the
+        // one-shot setState here is intentional.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSettings({
+          ...DEFAULTS,
+          ...parsed,
+          theme: isTheme(parsed.theme) ? parsed.theme : DEFAULTS.theme,
+          font: isFont(parsed.font) ? parsed.font : DEFAULTS.font,
+          textSize: isTextSize(parsed.textSize) ? parsed.textSize : DEFAULTS.textSize,
+          // Deep-merge notif so a stored object missing newer keys still gets their defaults.
+          notif: { ...DEFAULT_NOTIF_PREFS, ...(parsed.notif ?? {}) },
+          // Same deep-merge for account security (passkeys array kept as stored when present).
+          security: { ...DEFAULT_ACCOUNT_SECURITY, ...(parsed.security ?? {}) },
+        });
       }
     } catch {
       // ignore malformed storage
@@ -66,6 +112,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;
   }, [settings.theme]);
+
+  // Reflect the active typeface and text size onto <html> so the CSS [data-font]/[data-text] blocks apply.
+  useEffect(() => {
+    document.documentElement.dataset.font = settings.font;
+    document.documentElement.dataset.text = settings.textSize;
+  }, [settings.font, settings.textSize]);
 
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     setSettings((prev) => {

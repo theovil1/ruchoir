@@ -5,6 +5,7 @@ import { Avatar, Icon, IconButton, Tooltip } from "@/components/ds";
 import { getChannelMembers, getDirectMessages, getPresence, getProfile, getSpaceFiles, getTypingUsers } from "@/lib/data";
 import type { Channel, DirectMessage, Message, MessageAttachment } from "@/lib/data";
 import { useMountAnimation } from "../app/useMountAnimation";
+import type { ChannelNotifPref } from "../app/notifications";
 import { ProfilePanel } from "./ProfilePanel";
 import type { ChannelPanel, Toast } from "../app/types";
 import { ChannelMenu } from "./ChannelMenu";
@@ -35,12 +36,16 @@ function RightDock({
   children: ReactNode;
 }) {
   const { mounted, closing } = useMountAnimation(open, 200);
+  // Remember the last open content so it stays visible through the exit animation. Written in an effect
+  // (not during render); the exit-time reads below are the one place the ref must be read during render.
   const last = useRef<ReactNode>(null);
   const lastKey = useRef("");
-  if (open) {
-    last.current = children;
-    lastKey.current = contentKey;
-  }
+  useEffect(() => {
+    if (open) {
+      last.current = children;
+      lastKey.current = contentKey;
+    }
+  });
   if (!mounted) return null;
   // Compact: the panel (members, files, thread, profile) can no longer be a fixed column beside the
   // feed, so it covers the whole view as a full-screen sheet. Setting `--panel-width: 100%` makes the
@@ -57,14 +62,20 @@ function RightDock({
         ["--panel-width" as string]: "100%",
       }
     : { display: "flex", flex: "none" };
+  // The exit animation renders the cached last-open content, which requires reading these refs during
+  // render; scope the ref-access rule here since the values are written from the effect above.
+  /* eslint-disable react-hooks/refs */
+  const dockKey = open ? contentKey : lastKey.current;
+  const dockNode = open ? children : last.current;
+  /* eslint-enable react-hooks/refs */
   return (
     <div style={container} className={closing ? "wc-dock--out" : "wc-dock--in"}>
       <div
-        key={open ? contentKey : lastKey.current}
+        key={dockKey}
         className="wc-dock-content"
         style={{ display: "flex", flex: compact ? 1 : undefined, minWidth: 0, background: compact ? "var(--surface-canvas)" : undefined }}
       >
-        {open ? children : last.current}
+        {dockNode}
       </div>
     </div>
   );
@@ -176,6 +187,9 @@ export type ChannelScreenProps = {
   onNotify: (toast: Toast) => void;
   onUpdateChannel: (patch: Partial<Channel>) => void;
   onLeaveChannel: () => void;
+  /** Current notification preference for this conversation, and a persist callback. */
+  notifPref: ChannelNotifPref;
+  onSaveNotifPref: (pref: ChannelNotifPref) => void;
   /** When set, the feed scrolls to and flashes this message after it renders. */
   focusMessageId?: number | null;
   /** Compact (mobile) mode: the right panel becomes a full-width overlay instead of a column. */
@@ -200,6 +214,8 @@ export function ChannelScreen({
   onNotify,
   onUpdateChannel,
   onLeaveChannel,
+  notifPref,
+  onSaveNotifPref,
   focusMessageId,
   compact = false,
   actions,
@@ -240,7 +256,6 @@ export function ChannelScreen({
     if (!focusMessageId) return;
     const raf = requestAnimationFrame(() => jumpToMessage(focusMessageId));
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusMessageId, channel.id]);
 
   const files = getSpaceFiles();
@@ -406,7 +421,7 @@ export function ChannelScreen({
             {msgCount > 0 ? (
               <div style={styles.day}>
                 <span style={styles.dayLine} />
-                <span style={styles.dayLbl}>Aujourd'hui</span>
+                <span style={styles.dayLbl}>Aujourd&apos;hui</span>
                 <span style={styles.dayLine} />
               </div>
             ) : null}
@@ -473,7 +488,14 @@ export function ChannelScreen({
         <ChannelSettingsDialog channel={channel} onClose={() => setMenuDialog(null)} onUpdate={onUpdateChannel} onNotify={onNotify} />
       ) : null}
       {menuDialog === "notifications" ? (
-        <ChannelNotificationsDialog channelName={channel.name} onClose={() => setMenuDialog(null)} onNotify={onNotify} />
+        <ChannelNotificationsDialog
+          channelName={isDm ? dm!.name : channel.name}
+          isDm={isDm}
+          value={notifPref}
+          onClose={() => setMenuDialog(null)}
+          onSave={onSaveNotifPref}
+          onNotify={onNotify}
+        />
       ) : null}
       {menuDialog === "addpeople" ? (
         <AddPeopleDialog channelName={channel.name} people={getChannelMembers()} onClose={() => setMenuDialog(null)} onNotify={onNotify} />

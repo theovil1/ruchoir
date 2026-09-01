@@ -1,0 +1,415 @@
+"use client";
+
+import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { Button, Field, Icon, Input, Switch } from "@/components/ds";
+import { AccountSecuritySection } from "./AccountSecurity";
+import { Emoji } from "./Emoji";
+import { DEFAULT_NOTIF_PREFS, quietHoursLabel } from "./notifications";
+import { useSettings, type FontChoice, type TextSize, type ThemeName } from "./settings";
+import type { Toast } from "./types";
+
+type PrefTab = "appearance" | "notifications" | "security" | "emojis";
+
+const NAV: [PrefTab, string, string][] = [
+  ["appearance", "Apparence", "layout-grid"],
+  ["notifications", "Notifications", "bell"],
+  ["security", "Compte et sécurité", "shield"],
+  ["emojis", "Emojis", "smile"],
+];
+
+/** Representative swatches per theme, purely for the picker preview (fixed, not live tokens). */
+const THEME_PREVIEWS: { id: ThemeName; label: string; canvas: string; chrome: string; accent: string; ink: string }[] = [
+  { id: "ruchui", label: "RuchUI", canvas: "#f7f3ed", chrome: "#f0e8e0", accent: "#c65d45", ink: "#171716" },
+  { id: "light", label: "Clair", canvas: "#ffffff", chrome: "#f4f5f6", accent: "#c65d45", ink: "#17181b" },
+  { id: "ruchui-dark", label: "RuchUI Dark", canvas: "#143336", chrome: "#0f2629", accent: "#d07a66", ink: "#f5f3ec" },
+  { id: "dark", label: "Sombre", canvas: "#1a1a1c", chrome: "#141416", accent: "#db9788", ink: "#f4f4f6" },
+];
+
+const st: Record<string, CSSProperties> = {
+  top: {
+    height: "var(--topbar-height)",
+    flex: "none",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "0 12px",
+    borderBottom: "1px solid var(--border-subtle)",
+  },
+  mark: { width: 22, height: 22, flex: "none", display: "block" },
+  wordmark: {
+    fontFamily: "var(--font-sans)",
+    fontSize: 16,
+    fontWeight: 600,
+    letterSpacing: "var(--tracking-display)",
+    color: "var(--text-strong)",
+  },
+  divider: { width: 1, height: 20, flex: "none", background: "var(--border-subtle)", margin: "0 2px" },
+  title: {
+    margin: 0,
+    // Grow to fill the bar and truncate, so the mark + title never push the Retour button off-screen
+    // at very narrow widths (mobile + browser zoom + large text size).
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: 15,
+    fontWeight: 600,
+    letterSpacing: "var(--tracking-tight)",
+    color: "var(--text-strong)",
+  },
+  body: { flex: 1, overflow: "auto", display: "flex", minWidth: 0, minHeight: 0 },
+  nav: { width: 200, flex: "none", padding: "16px 8px", borderRight: "1px solid var(--border-subtle)" },
+  main: { flex: 1, minWidth: 0, padding: "24px 28px", maxWidth: 760 },
+  h: { fontSize: 18, marginBottom: 4 },
+  sub: { fontSize: 13, color: "var(--text-muted)", marginBottom: 20 },
+  sect: {
+    fontSize: 11,
+    fontWeight: 600,
+    letterSpacing: "var(--tracking-caps)",
+    textTransform: "uppercase",
+    color: "var(--text-subtle)",
+    margin: "22px 0 10px",
+  },
+};
+
+function navItem(on: boolean, compact = false): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    width: compact ? "auto" : "100%",
+    flex: "none",
+    height: 30,
+    padding: "0 10px",
+    border: 0,
+    borderRadius: "var(--radius-sm)",
+    background: on ? "var(--surface-selected)" : compact ? "var(--surface-sunken)" : "transparent",
+    color: on ? "var(--text-accent)" : "var(--text-body)",
+    fontFamily: "var(--font-sans)",
+    fontSize: 13,
+    fontWeight: on ? 500 : 400,
+    cursor: "pointer",
+    textAlign: "left",
+    whiteSpace: "nowrap",
+  };
+}
+
+const rowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  flexWrap: "wrap",
+  gap: 12,
+  rowGap: 8,
+  padding: "12px 0",
+  borderBottom: "1px solid var(--border-subtle)",
+};
+
+/** A title + description on the left, a control on the right. */
+function Row({ title, desc, children }: { title: ReactNode; desc?: ReactNode; children: ReactNode }) {
+  return (
+    <div style={rowStyle}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{title}</div>
+        {desc ? <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 460 }}>{desc}</div> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Preview font stacks, independent of the live --font-sans so each card always shows its own type. */
+const FONT_OPTIONS: { id: FontChoice; label: string; desc: string; stack: string }[] = [
+  { id: "plex", label: "IBM Plex Sans", desc: "Par défaut", stack: '"IBM Plex Sans", "Helvetica Neue", sans-serif' },
+  { id: "system", label: "Système", desc: "La police de votre appareil", stack: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },
+  { id: "dyslexic", label: "OpenDyslexic", desc: "Lecture facilitée (dyslexie)", stack: '"OpenDyslexic", "Comic Sans MS", sans-serif' },
+];
+
+function FontPicker({ value, onChange }: { value: FontChoice; onChange: (f: FontChoice) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Police d'écriture" style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 520 }}>
+      {FONT_OPTIONS.map((f) => {
+        const selected = f.id === value;
+        return (
+          <button
+            key={f.id}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(f.id)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              padding: "12px 14px",
+              cursor: "pointer",
+              textAlign: "left",
+              borderRadius: "var(--radius-md)",
+              background: selected ? "var(--surface-selected)" : "var(--surface-canvas)",
+              border: `1px solid ${selected ? "var(--border-accent)" : "var(--border-default)"}`,
+              boxShadow: selected ? "0 0 0 1px var(--border-accent)" : "none",
+              transition: "border-color var(--duration-fast) var(--ease-out)",
+            }}
+          >
+            <span aria-hidden style={{ fontFamily: f.stack, fontSize: 30, lineHeight: 1, color: "var(--text-strong)", flex: "none", width: 44, textAlign: "center" }}>
+              Ag
+            </span>
+            <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: 1, overflowWrap: "anywhere" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{f.label}</span>
+                {selected ? <span style={{ fontSize: 11, color: "var(--text-accent)" }}>Actif</span> : null}
+              </span>
+              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{f.desc}</span>
+              {/* Sample rendered in the target font so the choice previews before it is applied. */}
+              <span style={{ fontFamily: f.stack, fontSize: 13, color: "var(--text-body)" }}>
+                Portez ce vieux whisky au juge blond qui fume.
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const SIZE_OPTIONS: { id: TextSize; label: string; sample: number }[] = [
+  { id: "s", label: "Petite", sample: 13 },
+  { id: "m", label: "Normale", sample: 15 },
+  { id: "l", label: "Grande", sample: 17 },
+  { id: "xl", label: "Très grande", sample: 20 },
+];
+
+function TextSizePicker({ value, onChange }: { value: TextSize; onChange: (t: TextSize) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Taille du texte" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      {SIZE_OPTIONS.map((o) => {
+        const selected = o.id === value;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(o.id)}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 4,
+              width: 96,
+              height: 72,
+              cursor: "pointer",
+              borderRadius: "var(--radius-md)",
+              background: selected ? "var(--surface-selected)" : "var(--surface-canvas)",
+              border: `1px solid ${selected ? "var(--border-accent)" : "var(--border-default)"}`,
+              boxShadow: selected ? "0 0 0 1px var(--border-accent)" : "none",
+              transition: "border-color var(--duration-fast) var(--ease-out)",
+            }}
+          >
+            <span aria-hidden style={{ fontSize: o.sample, fontWeight: 600, lineHeight: 1, color: "var(--text-strong)" }}>A</span>
+            <span style={{ fontSize: 12, color: selected ? "var(--text-accent)" : "var(--text-muted)" }}>{o.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ThemePicker({ value, onChange }: { value: ThemeName; onChange: (t: ThemeName) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Thème" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, maxWidth: 520 }}>
+      {THEME_PREVIEWS.map((t) => {
+        const selected = t.id === value;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(t.id)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: 8,
+              cursor: "pointer",
+              textAlign: "left",
+              borderRadius: "var(--radius-md)",
+              background: selected ? "var(--surface-selected)" : "var(--surface-canvas)",
+              border: `1px solid ${selected ? "var(--border-accent)" : "var(--border-default)"}`,
+              boxShadow: selected ? "0 0 0 1px var(--border-accent)" : "none",
+              transition: "border-color var(--duration-fast) var(--ease-out)",
+            }}
+          >
+            {/* Miniature UI: chrome strip + canvas with an accent dot and text bars. */}
+            <span
+              aria-hidden
+              style={{
+                display: "flex",
+                width: 46,
+                height: 34,
+                flex: "none",
+                borderRadius: "var(--radius-sm)",
+                overflow: "hidden",
+                border: "1px solid var(--border-subtle)",
+                background: t.canvas,
+              }}
+            >
+              <span style={{ width: 12, height: "100%", background: t.chrome }} />
+              <span style={{ flex: 1, position: "relative", padding: 5 }}>
+                <span style={{ display: "block", width: 8, height: 8, borderRadius: "var(--radius-full)", background: t.accent }} />
+                <span style={{ display: "block", width: "80%", height: 3, marginTop: 4, borderRadius: 2, background: t.ink, opacity: 0.55 }} />
+                <span style={{ display: "block", width: "55%", height: 3, marginTop: 3, borderRadius: 2, background: t.ink, opacity: 0.3 }} />
+              </span>
+            </span>
+            <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t.label}</span>
+              {selected ? <span style={{ fontSize: 11, color: "var(--text-accent)" }}>Actif</span> : null}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export type PreferencesScreenProps = {
+  onClose: () => void;
+  onNotify?: (t: Toast) => void;
+  /** Compact (mobile): stack the sub-nav above the panel. */
+  compact?: boolean;
+};
+
+/** Full-screen personal preferences view: appearance, notifications, account security and emojis. */
+export function PreferencesScreen({ onClose, onNotify, compact = false }: PreferencesScreenProps) {
+  const s = useSettings();
+  const [tab, setTab] = useState<PrefTab>("appearance");
+
+  // Escape leaves the preferences, but only when no sub-dialog is open (a dialog handles Escape first).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (document.querySelector('[role="dialog"]')) return;
+      onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
+      <div style={st.top}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/ruchoir-mark.png" alt="" style={st.mark} />
+        {compact ? null : <span style={st.wordmark}>Ruchoir</span>}
+        <span style={st.divider} aria-hidden />
+        <h1 style={st.title}>Préférences</h1>
+        <Button variant="secondary" iconLeft="arrow-left" onClick={onClose} style={{ flexShrink: 0 }}>
+          {compact ? "Retour" : "Retour à l'espace"}
+        </Button>
+      </div>
+      <div style={compact ? { ...st.body, flexDirection: "column" } : st.body}>
+        <div
+          style={
+            compact
+              ? { flex: "none", display: "flex", flexWrap: "wrap", gap: 6, padding: "8px 12px", borderBottom: "1px solid var(--border-subtle)" }
+              : st.nav
+          }
+        >
+          {NAV.map(([v, l, i]) => (
+            <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
+              <Icon name={i} size={14} style={{ color: "var(--text-muted)" }} />
+              {l}
+            </button>
+          ))}
+        </div>
+
+        <div style={compact ? { ...st.main, padding: "16px 16px 24px" } : st.main}>
+          {tab === "appearance" ? (
+            <>
+              <h2 style={st.h}>Apparence</h2>
+              <p style={st.sub}>Thème, police et taille du texte de l&apos;interface.</p>
+              <div style={st.sect}>Thème</div>
+              <ThemePicker value={s.theme} onChange={(t) => s.set("theme", t)} />
+              <div style={st.sect}>Police d&apos;écriture</div>
+              <FontPicker value={s.font} onChange={(f) => s.set("font", f)} />
+              <div style={st.sect}>Taille du texte</div>
+              <TextSizePicker value={s.textSize} onChange={(t) => s.set("textSize", t)} />
+            </>
+          ) : null}
+
+          {tab === "notifications" ? (
+            <>
+              <h2 style={st.h}>Notifications</h2>
+              <p style={st.sub}>Choisissez quand et comment Ruchoir vous alerte.</p>
+              <Row title="Activer les notifications" desc="Coupe toutes les notifications de bureau et sonores quand c'est désactivé.">
+                <Switch checked={s.notif.enabled} onChange={(e) => s.set("notif", { ...s.notif, enabled: e.target.checked })} aria-label="Activer les notifications" />
+              </Row>
+              <Row title="Son de notification" desc="Joue un son discret à chaque nouvelle notification.">
+                <Switch checked={s.notif.sound} onChange={(e) => s.set("notif", { ...s.notif, sound: e.target.checked })} aria-label="Son de notification" />
+              </Row>
+              <Row title="Mentions de canal" desc="Être notifié aussi sur @canal et @ici, pas seulement sur les mentions directes.">
+                <Switch checked={s.notif.channelMentions} onChange={(e) => s.set("notif", { ...s.notif, channelMentions: e.target.checked })} aria-label="Mentions de canal" />
+              </Row>
+              <Row
+                title="Heures calmes"
+                desc={
+                  s.notif.quietHours
+                    ? `Notifications suspendues de ${quietHoursLabel(s.notif)}.`
+                    : "Suspend les notifications sur une plage horaire que vous définissez."
+                }
+              >
+                <Switch checked={s.notif.quietHours} onChange={(e) => s.set("notif", { ...s.notif, quietHours: e.target.checked })} aria-label="Heures calmes" />
+              </Row>
+              {s.notif.quietHours ? (
+                <div style={{ display: "flex", gap: 12, padding: "16px 0 4px" }}>
+                  <Field label="Début" htmlFor="quiet-from">
+                    <Input id="quiet-from" type="time" size="sm" value={s.notif.quietFrom ?? DEFAULT_NOTIF_PREFS.quietFrom} onChange={(e) => s.set("notif", { ...s.notif, quietFrom: e.target.value })} />
+                  </Field>
+                  <Field label="Fin" htmlFor="quiet-to">
+                    <Input id="quiet-to" type="time" size="sm" value={s.notif.quietTo ?? DEFAULT_NOTIF_PREFS.quietTo} onChange={(e) => s.set("notif", { ...s.notif, quietTo: e.target.value })} />
+                  </Field>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+
+          {tab === "security" ? (
+            <>
+              <h2 style={st.h}>Compte et sécurité</h2>
+              <p style={st.sub}>Mot de passe, double authentification, clés d&apos;accès et codes de récupération.</p>
+              <AccountSecuritySection onNotify={onNotify} />
+            </>
+          ) : null}
+
+          {tab === "emojis" ? (
+            <>
+              <h2 style={st.h}>Emojis</h2>
+              <p style={st.sub}>Rendu des emojis dans les messages et les réactions.</p>
+              <Row
+                title={
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    Emojis animés <Emoji emoji="🎉" size={18} />
+                  </span>
+                }
+                desc="Anime les emojis Fluent des réactions (quand le pack est installé). Ailleurs, ils restent statiques."
+              >
+                <Switch checked={s.emojiAnimated} onChange={(e) => s.set("emojiAnimated", e.target.checked)} aria-label="Emojis animés" />
+              </Row>
+              {/* Dev-only: simulates the operator NOT installing the pack, to demo the native fallback.
+                  In production the pack presence comes from the server, so this toggle has no place there. */}
+              {process.env.NODE_ENV !== "production" ? (
+                <Row title="Pack emoji installé" desc="Active le pack Fluent auto-hébergé. Désactivé, les emojis reviennent au rendu natif du système.">
+                  <Switch checked={s.emojiPack} onChange={(e) => s.set("emojiPack", e.target.checked)} aria-label="Pack emoji installé" />
+                </Row>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}

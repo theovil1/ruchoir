@@ -3,6 +3,7 @@ export type AppView =
   | "channel"
   | "files"
   | "settings"
+  | "prefs"
   | "threads"
   | "mentions"
   | "saved";

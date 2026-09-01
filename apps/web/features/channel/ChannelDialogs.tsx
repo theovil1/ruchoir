@@ -5,6 +5,7 @@ import { Avatar, Button, Checkbox, Dialog, Field, Input, Radio, Select, Switch }
 import type { Presence } from "@/components/ds";
 import { getChannelMembers } from "@/lib/data";
 import type { Channel, ChannelType } from "@/lib/data";
+import type { ChannelNotifPref, NotifLevel } from "../app/notifications";
 import type { Toast } from "../app/types";
 
 const CHANNEL_ROLES = ["Membre", "Modérateur", "Administrateur"];
@@ -116,28 +117,36 @@ export function ChannelSettingsDialog({
   );
 }
 
-/** Per-channel notification preferences. */
+/** Per-channel notification preferences. Controlled: the current preference is persisted in AppRoot. */
 export function ChannelNotificationsDialog({
   channelName,
+  isDm = false,
+  value,
   onClose,
+  onSave,
   onNotify,
 }: {
   channelName: string;
+  isDm?: boolean;
+  value: ChannelNotifPref;
   onClose: () => void;
+  onSave: (pref: ChannelNotifPref) => void;
   onNotify: (toast: Toast) => void;
 }) {
-  const [level, setLevel] = useState("all");
-  const [muted, setMuted] = useState(false);
+  const [level, setLevel] = useState<NotifLevel>(value.level);
+  const [muted, setMuted] = useState(value.muted);
+  const label = isDm ? channelName : `#${channelName}`;
 
   const save = () => {
-    onNotify({ tone: "success", title: "Notifications mises à jour", description: `#${channelName}` });
+    onSave({ level, muted });
+    onNotify({ tone: "success", title: "Notifications mises à jour", description: label });
     onClose();
   };
 
   return (
     <Dialog
-      title="Notifications du canal"
-      subtitle={`#${channelName}`}
+      title={isDm ? "Notifications de la conversation" : "Notifications du canal"}
+      subtitle={label}
       size="sm"
       onClose={onClose}
       footer={
@@ -154,7 +163,7 @@ export function ChannelNotificationsDialog({
         <Radio name="notif" checked={level === "mentions"} onChange={() => setLevel("mentions")} label="Mentions uniquement" description="@vous et @canal" />
         <Radio name="notif" checked={level === "none"} onChange={() => setLevel("none")} label="Rien" />
         <div style={{ height: 1, background: "var(--border-subtle)", margin: "6px 0" }} />
-        <Switch checked={muted} onChange={() => setMuted((m) => !m)} label="Mettre le canal en sourdine" reverse />
+        <Switch checked={muted} onChange={() => setMuted((m) => !m)} label={isDm ? "Mettre la conversation en sourdine" : "Mettre le canal en sourdine"} reverse />
       </div>
     </Dialog>
   );
@@ -254,7 +263,7 @@ export function LeaveChannelDialog({
       }
     >
       <p style={{ fontSize: 13, color: "var(--text-body)" }}>
-        Vous ne recevrez plus les messages de #{channelName}. Vous pourrez le rejoindre à nouveau tant qu'il est public.
+        Vous ne recevrez plus les messages de #{channelName}. Vous pourrez le rejoindre à nouveau tant qu&apos;il est public.
       </p>
     </Dialog>
   );

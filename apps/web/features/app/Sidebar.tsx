@@ -4,6 +4,8 @@ import { type CSSProperties, type ReactNode, useRef, useState } from "react";
 import { Avatar, Badge, Icon, IconButton, Input, Popover, Tag } from "@/components/ds";
 import type { Channel, DirectMessage, Workspace } from "@/lib/data";
 import { MenuPopover } from "./MenuPopover";
+import { NotificationCenter } from "./NotificationCenter";
+import type { AppNotification, ChannelNotifPref } from "./notifications";
 import type { AppView, Toast } from "./types";
 import { Wordmark } from "./Wordmark";
 
@@ -116,13 +118,15 @@ type SideItemProps = {
   active?: boolean;
   unread?: number;
   muted?: boolean;
+  /** Notifications silenced (muted or level "none"): shows a bell-off and dims the unread badge. */
+  notifMuted?: boolean;
   tag?: ReactNode;
   onClick?: () => void;
   children?: ReactNode;
   menuItems?: SideMenuItem[];
 };
 
-function SideItem({ icon, label, active, unread, muted, tag, onClick, children, menuItems }: SideItemProps) {
+function SideItem({ icon, label, active, unread, muted, notifMuted, tag, onClick, children, menuItems }: SideItemProps) {
   const [hover, setHover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
@@ -156,11 +160,14 @@ function SideItem({ icon, label, active, unread, muted, tag, onClick, children, 
         {label}
       </span>
       {tag}
+      {notifMuted ? (
+        <Icon name="bell-off" size={13} title="Notifications en sourdine" style={{ flex: "none", color: "var(--text-subtle)" }} />
+      ) : null}
       {menuItems && menuItems.length > 0 ? (
         // Fixed-width slot: the more-button is always mounted (opacity toggled) so the popover anchor
         // never moves as hover changes, and the unread badge shows underneath when it is hidden.
         <span style={{ position: "relative", flex: "none", width: 24, height: 20, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-          {!showMore && unread ? <Badge count={unread} /> : null}
+          {!showMore && unread ? <Badge count={unread} tone={notifMuted ? "neutral" : "accent"} /> : null}
           <IconButton
             ref={moreRef}
             icon="more-horizontal"
@@ -204,7 +211,7 @@ function SideItem({ icon, label, active, unread, muted, tag, onClick, children, 
           </Popover>
         </span>
       ) : unread ? (
-        <Badge count={unread} />
+        <Badge count={unread} tone={notifMuted ? "neutral" : "accent"} />
       ) : null}
     </div>
   );
@@ -217,6 +224,12 @@ export type SidebarProps = {
   view: AppView;
   channel: string;
   mentionCount: number;
+  /** Per-conversation notification preferences, keyed by channel/DM id. */
+  channelPrefs: Record<string, ChannelNotifPref>;
+  /** Notifications already filtered by the channel and global preferences. */
+  notifications: AppNotification[];
+  /** Unread count among the visible notifications (drives the bell badge). */
+  notifUnread: number;
   onView: (view: AppView) => void;
   onChannel: (id: string) => void;
   onNotify: (toast: Toast) => void;
@@ -227,11 +240,19 @@ export type SidebarProps = {
   onGlobalSearch: () => void;
   onLeaveChannel: (id: string) => void;
   onChannelSettings: (id: string) => void;
+  onChannelNotifications: (id: string) => void;
+  onMarkRead: (id: string) => void;
+  onOpenNotification: (channelId: string, messageId: number, id: string) => void;
+  onToggleNotifRead: (id: string, read: boolean) => void;
+  onMarkAllNotifsRead: () => void;
+  onOpenNotifPrefs: () => void;
   onLogout: () => void;
   /** Compact (mobile) mode: full width, no wordmark/header/search (the mobile top bar owns those). */
   compact?: boolean;
   /** Render only one section, for the compact bottom-tab panels. Omit for the full desktop column. */
   only?: "channels" | "messages" | "activity";
+  /** Dev/audit only: open the notification center on mount so the popover can be probed under zoom. */
+  openNotifications?: boolean;
 };
 
 /** Channel/DM navigation column for the active workspace. */
@@ -242,6 +263,9 @@ export function Sidebar({
   view,
   channel,
   mentionCount,
+  channelPrefs,
+  notifications,
+  notifUnread,
   onView,
   onChannel,
   onNotify,
@@ -252,27 +276,44 @@ export function Sidebar({
   onGlobalSearch,
   onLeaveChannel,
   onChannelSettings,
+  onChannelNotifications,
+  onMarkRead,
+  onOpenNotification,
+  onToggleNotifRead,
+  onMarkAllNotifsRead,
+  onOpenNotifPrefs,
   onLogout,
   compact = false,
   only,
+  openNotifications = false,
 }: SidebarProps) {
   const showActivity = !only || only === "activity";
   const showChannels = !only || only === "channels";
   const showMessages = !only || only === "messages";
   const showFooter = !only || only === "channels";
   const channelMenu = (id: string, name: string): SideMenuItem[] => [
-    { icon: "check-check", label: "Marquer comme lu", onClick: () => onNotify({ tone: "info", title: "Marqué comme lu", description: `#${name}` }) },
-    { icon: "bell", label: "Notifications", onClick: () => onNotify({ tone: "info", title: "Notifications", description: `#${name}` }) },
+    { icon: "check-check", label: "Marquer comme lu", onClick: () => onMarkRead(id) },
+    { icon: "bell", label: "Notifications", onClick: () => onChannelNotifications(id) },
     { icon: "settings", label: "Paramètres du canal", onClick: () => onChannelSettings(id) },
     { icon: "log-out", label: "Quitter le canal", danger: true, onClick: () => onLeaveChannel(id) },
   ];
-  const dmMenu = (name: string): SideMenuItem[] => [
-    { icon: "check-check", label: "Marquer comme lu", onClick: () => onNotify({ tone: "info", title: "Marqué comme lu", description: name }) },
-    { icon: "bell", label: "Notifications", onClick: () => onNotify({ tone: "info", title: "Notifications", description: name }) },
+  const dmMenu = (id: string, name: string): SideMenuItem[] => [
+    { icon: "check-check", label: "Marquer comme lu", onClick: () => onMarkRead(id) },
+    { icon: "bell", label: "Notifications", onClick: () => onChannelNotifications(id) },
     { icon: "x", label: "Masquer la conversation", onClick: () => onNotify({ tone: "info", title: "Conversation masquée", description: name }) },
   ];
+  const notifMutedFor = (id: string): boolean => {
+    const p = channelPrefs[id];
+    return !!p && (p.muted || p.level === "none");
+  };
   const [wsMenu, setWsMenu] = useState(false);
   const wsRef = useRef<HTMLButtonElement>(null);
+  const [notifClicked, setNotifClicked] = useState(false);
+  // Derive the open state from the user toggle OR the dev/audit deep-link flag (which arrives post-mount
+  // as a prop). Deriving avoids a set-state-in-effect and any server/first-client render divergence.
+  const notifOpen = notifClicked || openNotifications;
+  const setNotifOpen = setNotifClicked;
+  const bellRef = useRef<HTMLButtonElement>(null);
 
   return (
     <nav
@@ -300,7 +341,40 @@ export function Sidebar({
                 { icon: "log-out", label: "Se déconnecter", danger: true, onClick: onLogout },
               ]}
             />
-            <IconButton icon="square-pen" label="Nouveau message" size="sm" onClick={onNewMessage} />
+            <span style={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <span style={{ position: "relative", display: "flex" }}>
+                <IconButton
+                  ref={bellRef}
+                  icon="bell"
+                  label="Notifications"
+                  size="sm"
+                  aria-expanded={notifOpen}
+                  onClick={() => setNotifOpen((o) => !o)}
+                />
+                {notifUnread > 0 ? (
+                  <span style={{ position: "absolute", top: -3, right: -3, pointerEvents: "none" }}>
+                    <Badge count={notifUnread} />
+                  </span>
+                ) : null}
+              </span>
+              <IconButton icon="square-pen" label="Nouveau message" size="sm" onClick={onNewMessage} />
+            </span>
+            <NotificationCenter
+              anchorRef={bellRef}
+              open={notifOpen}
+              onClose={() => setNotifOpen(false)}
+              notifications={notifications}
+              onOpen={(channelId, messageId, id) => {
+                setNotifOpen(false);
+                onOpenNotification(channelId, messageId, id);
+              }}
+              onToggleRead={onToggleNotifRead}
+              onMarkAllRead={onMarkAllNotifsRead}
+              onOpenPrefs={() => {
+                setNotifOpen(false);
+                onOpenNotifPrefs();
+              }}
+            />
           </div>
           <div style={{ padding: "8px 8px 0" }}>
             <Input
@@ -333,6 +407,7 @@ export function Sidebar({
                   key={c.id}
                   label={c.name}
                   unread={c.unread}
+                  notifMuted={notifMutedFor(c.id)}
                   active={view === "channel" && channel === c.id}
                   onClick={() => onChannel(c.id)}
                   menuItems={channelMenu(c.id, c.name)}
@@ -364,6 +439,7 @@ export function Sidebar({
                   label={c.name}
                   unread={c.unread}
                   muted={c.type === "archived"}
+                  notifMuted={notifMutedFor(c.id)}
                   active={view === "channel" && channel === c.id}
                   onClick={() => onChannel(c.id)}
                   menuItems={channelMenu(c.id, c.name)}
@@ -387,10 +463,11 @@ export function Sidebar({
                 key={d.id}
                 label={d.name}
                 unread={d.unread}
+                notifMuted={notifMutedFor(d.id)}
                 active={view === "channel" && channel === d.id}
                 tag={d.bot ? <Tag>Bot</Tag> : undefined}
                 onClick={() => onChannel(d.id)}
-                menuItems={dmMenu(d.name)}
+                menuItems={dmMenu(d.id, d.name)}
               >
                 <Avatar name={d.name} size={20} presence={d.presence} kind={d.bot ? "bot" : "person"} shape={d.bot ? "round" : "square"} />
               </SideItem>

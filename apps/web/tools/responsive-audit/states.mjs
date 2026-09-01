@@ -10,6 +10,68 @@
 
 /** @typedef {{ id: string, label: string, query: string, waitFor?: string }} AuditState */
 
+/**
+ * Appearance cross-product (text size x typeface). The larger text sizes zoom the whole UI
+ * (globals.css --ui-zoom), which is where viewport-unit, overlay and popover overflow bugs live;
+ * the typefaces swap --font-sans (OpenDyslexic in particular is noticeably wider). We sweep EVERY
+ * non-default size and EVERY non-default font across the key layout surfaces below. The m/plex
+ * baseline is already covered by the base states, except the click-only popover, whose default-size
+ * baseline is added explicitly.
+ */
+const APPEARANCE_SCREENS = [
+  { key: "channel", label: "Canal", query: "stage=app&view=channel&channel=general" },
+  { key: "files", label: "Fichiers", query: "stage=app&view=files" },
+  { key: "settings", label: "Reglages espace", query: "stage=app&view=settings" },
+  { key: "prefs", label: "Preferences", query: "stage=app&view=prefs" },
+  { key: "dialog", label: "Dialog", query: "stage=app&modal=newChannel" },
+  { key: "login", label: "Connexion", query: "stage=login" },
+  {
+    key: "notifications",
+    label: "Centre de notifications",
+    query: "stage=app&view=channel&channel=general&pop=notifications",
+    waitFor: ".wc-pop",
+  },
+];
+
+// Non-default text sizes (m is the baseline). See the appearance setting / deeplink `text` param.
+const TEXT_SIZES = [
+  { key: "s", label: "texte petit" },
+  { key: "l", label: "texte grand" },
+  { key: "xl", label: "texte tres grand" },
+];
+
+// Non-default typefaces (plex is the baseline). See the appearance setting / deeplink `font` param.
+const FONTS = [
+  { key: "system", label: "police systeme" },
+  { key: "dyslexic", label: "police OpenDyslexic" },
+];
+
+/** Carry a screen's optional waitFor selector onto a generated state. */
+const withWaitFor = (screen, state) => (screen.waitFor ? { ...state, waitFor: screen.waitFor } : state);
+
+/** @type {AuditState[]} */
+const APPEARANCE_STATES = [
+  // Default-size popover baseline (every other surface has its m/plex baseline in the base states).
+  {
+    id: "pop-notifications",
+    label: "Centre de notifications",
+    query: "stage=app&view=channel&channel=general&pop=notifications",
+    waitFor: ".wc-pop",
+  },
+  // Every text size on every key surface.
+  ...APPEARANCE_SCREENS.flatMap((s) =>
+    TEXT_SIZES.map((t) =>
+      withWaitFor(s, { id: `text-${t.key}-${s.key}`, label: `${s.label} (${t.label})`, query: `${s.query}&text=${t.key}` }),
+    ),
+  ),
+  // Every typeface on every key surface.
+  ...APPEARANCE_SCREENS.flatMap((s) =>
+    FONTS.map((f) =>
+      withWaitFor(s, { id: `font-${f.key}-${s.key}`, label: `${s.label} (${f.label})`, query: `${s.query}&font=${f.key}` }),
+    ),
+  ),
+];
+
 /** @type {AuditState[]} */
 export const STATES = [
   // Auth flow (full-screen, centered layouts).
@@ -33,6 +95,8 @@ export const STATES = [
   { id: "files-open", label: "Fichiers ouvert (compact)", query: "stage=app&view=files&push=1" },
   { id: "settings-open", label: "Reglages ouvert (compact)", query: "stage=app&view=settings&push=1" },
   { id: "settings", label: "Reglages de l'espace", query: "stage=app&view=settings" },
+  { id: "prefs", label: "Preferences", query: "stage=app&view=prefs" },
+  { id: "prefs-open", label: "Preferences ouvert (compact)", query: "stage=app&view=prefs&push=1" },
   { id: "threads", label: "Fils", query: "stage=app&view=threads" },
   { id: "mentions", label: "Mentions", query: "stage=app&view=mentions" },
   { id: "saved", label: "Enregistres", query: "stage=app&view=saved" },
@@ -45,7 +109,9 @@ export const STATES = [
   { id: "modal-invite", label: "Inviter des personnes", query: "stage=app&modal=invite" },
   { id: "modal-newWorkspace", label: "Nouvel espace", query: "stage=app&modal=newWorkspace" },
   { id: "modal-help", label: "Aide", query: "stage=app&modal=help" },
-  { id: "modal-prefs", label: "Preferences", query: "stage=app&modal=prefs" },
+
+  // Appearance: every text size and every typeface across the key surfaces (generated above).
+  ...APPEARANCE_STATES,
 ];
 
 /** Filter helper used by the runner: keep states whose id is in the requested list. */

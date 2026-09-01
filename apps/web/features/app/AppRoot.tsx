@@ -17,7 +17,7 @@ import type { Channel, DirectMessage, Message, SpaceFile, Workspace } from "@/li
 import { Button, Dialog, Drawer, Textarea } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
-import { ChannelSettingsDialog } from "@/features/channel/ChannelDialogs";
+import { ChannelNotificationsDialog, ChannelSettingsDialog } from "@/features/channel/ChannelDialogs";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { SignupScreen } from "@/features/auth/SignupScreen";
 import { OnboardingFlow } from "@/features/auth/OnboardingFlow";
@@ -28,8 +28,14 @@ import { ActivityView } from "./ActivityView";
 import { collectMentions, collectSaved, collectThreads, flattenMessages, type MessageMap } from "./activity";
 import { HelpDialog, InviteDialog, NewChannelDialog, NewMessageDialog, NewWorkspaceDialog } from "./dialogs";
 import { GlobalSearchDialog } from "./GlobalSearchDialog";
-import { SettingsDialog } from "./SettingsDialog";
-import { SettingsProvider } from "./settings";
+import {
+  buildNotifications,
+  type ChannelNotifPref,
+  DEFAULT_CHANNEL_PREF,
+  passesPref,
+} from "./notifications";
+import { PreferencesScreen } from "./PreferencesScreen";
+import { SettingsProvider, useSettings } from "./settings";
 import { Sidebar } from "./Sidebar";
 import type { AppView, ChannelPanel, Toast } from "./types";
 import { WorkspaceRail } from "./WorkspaceRail";
@@ -47,7 +53,7 @@ export function AppRoot() {
   );
 }
 
-type Modal = "prefs" | "import" | "newChannel" | "newMessage" | "invite" | "newWorkspace" | "help" | "search" | null;
+type Modal = "import" | "newChannel" | "newMessage" | "invite" | "newWorkspace" | "help" | "search" | null;
 
 const toastStyle: Record<string, CSSProperties> = {
   wrap: { position: "fixed", right: 20, bottom: 20, zIndex: 60 },
@@ -89,6 +95,7 @@ function uniqueId(base: string, taken: string[]): string {
  */
 function AppShell() {
   const currentUser = getCurrentUser().name;
+  const settings = useSettings();
 
   const [authStage, setAuthStage] = useState<"login" | "signup" | "onboarding" | "app">("app");
   const [signupFirst, setSignupFirst] = useState("");
@@ -102,11 +109,29 @@ function AppShell() {
     for (const d of getDirectMessages()) map[d.id] = getChannelMessages(d.id);
     return map;
   });
+  // Notification inbox, derived once from the seed and then mutated in place (read state).
+  const [notifs, setNotifs] = useState(() => buildNotifications(messages, channels, dms, currentUser));
+  // Per-conversation notification preferences, keyed by channel/DM id. Absent = defaults (all, unmuted).
+  const [channelPrefs, setChannelPrefs] = useState<Record<string, ChannelNotifPref>>({});
+  const [channelNotifId, setChannelNotifId] = useState<string | null>(null);
 
   const [ws, setWs] = useState("atelier");
   const [view, setView] = useState<AppView>("channel");
+  // The view to restore when the full-screen preferences are closed (they are opened from menus, not the nav).
+  const [prevView, setPrevView] = useState<AppView>("channel");
+  // Dev/audit only: a click-only popover the deep-link asked to open on load (set post-mount, see below).
+  const [deepLinkPop, setDeepLinkPop] = useState<string | undefined>(undefined);
   const [channelId, setChannelId] = useState("compta");
-  const [panel, setPanel] = useState<ChannelPanel>(null);
+  // Desktop opens a conversation with its default panel: members for a channel, files for a DM (see
+  // openChannel). The landing conversation is a channel, so it starts on members. `compact` is false on
+  // the first render (SSR-safe, see useCompact), so this matches the server render; the compact shell
+  // shows the list first and openChannel resets the panel per navigation anyway.
+  const [panel, setPanel] = useState<ChannelPanel>(() =>
+    channels.some((c) => c.id === channelId) ? "members" : "files",
+  );
+  // True once the user closes the right panel by hand, so opening another conversation stops
+  // auto-opening its default panel. Reset when they open a panel again.
+  const [panelDismissed, setPanelDismissed] = useState(false);
   const [thread, setThread] = useState<number | null>(null);
   const [profile, setProfile] = useState<string | null>(null);
   const [profileEdit, setProfileEdit] = useState(false);
@@ -132,14 +157,37 @@ function AppShell() {
   useEffect(() => {
     const link = readDeepLink();
     if (!link) return;
+    // One-shot dev entry point: apply the URL deep-link to the app's state on mount. Reading it in the
+    // state initializers instead would diverge from the server render (readDeepLink is client-only), so
+    // the synchronous setStates here are intentional.
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (link.stage) setAuthStage(link.stage);
     if (link.view) setView(link.view);
     if (link.channel) setChannelId(link.channel);
     if (link.panel) setPanel(link.panel);
     if (link.modal) setModal(link.modal);
     if (link.push) setMobileContent(true); // compact: land on the pushed content, not the list
+    // Appearance is a persisted setting, not component state, so the audit forces it through the store.
+    // Write it to localStorage here (this child effect runs before the SettingsProvider's own load
+    // effect, so the provider picks the forced value up instead of clobbering it) and reset to the
+    // defaults when absent, so a value set by one audit state does not leak into the next (the runner
+    // reuses one page, so localStorage persists across navigations).
+    try {
+      const raw = localStorage.getItem("ruchoir.settings");
+      const stored = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(
+        "ruchoir.settings",
+        JSON.stringify({ ...stored, textSize: link.text ?? "m", font: link.font ?? "plex" }),
+      );
+    } catch {
+      // ignore storage failures (dev-only affordance)
+    }
+    // Dev-only: open a click-only popover on load (audit coverage). Set in the effect, NOT during
+    // render, so the server and first client render match (reading it at render time would open the
+    // popover only on the client -> hydration mismatch).
+    if (link.pop) setDeepLinkPop(link.pop);
+    /* eslint-enable react-hooks/set-state-in-effect */
     // Run once on mount; deep-link is an entry point, not a live binding.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dm = dms.find((d) => d.id === channelId) ?? null;
@@ -153,16 +201,53 @@ function AppShell() {
   const mentions = collectMentions(messages, channels, dms, currentUser);
   const threads = collectThreads(messages, channels, dms);
 
+  // Notifications the user should actually see, after applying the per-channel and global preferences.
+  const visibleNotifs = useMemo(
+    () => notifs.filter((n) => passesPref(n, channelPrefs[n.channelId], settings.notif)),
+    [notifs, channelPrefs, settings.notif],
+  );
+  const notifUnread = visibleNotifs.filter((n) => !n.read).length;
+
+  const setNotifRead = (id: string, read: boolean) =>
+    setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read } : n)));
+  const markAllNotifsRead = () => setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+  const saveChannelPref = (id: string, pref: ChannelNotifPref) =>
+    setChannelPrefs((prev) => ({ ...prev, [id]: pref }));
+
+  /** Mark a whole conversation read: clears its unread badge and any pending notifications from it. */
+  const markConversationRead = (id: string) => {
+    setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c)));
+    setDms((prev) => prev.map((d) => (d.id === id ? { ...d, unread: 0 } : d)));
+    setNotifs((prev) => prev.map((n) => (n.channelId === id ? { ...n, read: true } : n)));
+  };
+
   const showToast = (t: Toast) => {
     setToast(t);
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 4000);
   };
 
+  /** Open the full-screen preferences, remembering the current view so closing returns to it. */
+  const openPreferences = () => {
+    setModal(null);
+    if (view !== "prefs") setPrevView(view);
+    // Preferences are a full-screen overlay: leave the underlying view, panel and thread untouched so
+    // closing them returns to exactly where the user was (with the right panel still open).
+    setView("prefs");
+    // Compact shell: push the view full-screen over the tab list and close the rail drawer.
+    setMobileContent(true);
+    setRailOpen(false);
+  };
+
   const openChannel = (id: string) => {
     setView("channel");
     setChannelId(id);
-    setPanel(null); // the right panel is app-level state; close it so a new channel opens clean
+    // Right panel is app-level state, so reset it per conversation. On desktop a channel opens with its
+    // members panel and a DM with its files panel by default; the compact shell opens with no panel
+    // (there the panel is a full-screen overlay that would hide the conversation). Once the user has
+    // closed the panel by hand, respect that and keep it closed.
+    const isChannel = channels.some((c) => c.id === id);
+    setPanel(compact || panelDismissed ? null : isChannel ? "members" : "files");
     setThread(null);
     setProfile(null);
     setProfileEdit(false);
@@ -173,6 +258,8 @@ function AppShell() {
   /** Switch the right panel, closing the thread and profile views so it is visible. */
   const openPanel = (next: ChannelPanel) => {
     setPanel(next);
+    // Closing the panel (next === null) is a manual dismissal; opening one re-engages the auto-default.
+    setPanelDismissed(next === null);
     setThread(null);
     setProfile(null);
   };
@@ -202,6 +289,12 @@ function AppShell() {
     setModal(null);
     openChannel(targetChannel);
     setFocusMessageId(messageId);
+  };
+
+  /** Open a notification: mark it read, then jump to its source message. */
+  const openNotification = (targetChannel: string, messageId: number, id: string) => {
+    setNotifRead(id, true);
+    openMessage(targetChannel, messageId);
   };
 
   const messageActions = {
@@ -325,7 +418,7 @@ function AppShell() {
 
   if (authStage !== "app") {
     return (
-      <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "auto", background: "var(--surface-canvas)" }}>
+      <div style={{ height: "var(--ui-vh)", display: "flex", flexDirection: "column", overflow: "auto", background: "var(--surface-canvas)" }}>
         {authStage === "login" ? (
           <LoginScreen
             onSubmit={() => {
@@ -364,6 +457,7 @@ function AppShell() {
   const contentTitles: Record<string, string> = {
     files: "Fichiers de l'espace",
     settings: "Réglages de l'espace",
+    prefs: "Préférences",
     threads: "Fils de discussion",
     mentions: "Mentions",
     saved: "Enregistrés",
@@ -372,7 +466,7 @@ function AppShell() {
   const mobileTabs = [
     { id: "channels", label: "Canaux", icon: "hash" },
     { id: "messages", label: "Messages", icon: "message-square" },
-    { id: "activity", label: "Activité", icon: "bell", badge: mentions.length || undefined },
+    { id: "activity", label: "Activité", icon: "bell", badge: notifUnread || undefined },
     { id: "search", label: "Recherche", icon: "search" },
   ];
 
@@ -393,7 +487,7 @@ function AppShell() {
         setUserPresence(currentUser, p);
         setMyPresence(p);
       }}
-      onOpenSettings={() => setModal("prefs")}
+      onOpenSettings={() => openPreferences()}
       onOpenOwnProfile={() => {
         setView("channel");
         setThread(null);
@@ -417,6 +511,9 @@ function AppShell() {
         view={view}
         channel={channelId}
         mentionCount={mentions.length}
+        channelPrefs={channelPrefs}
+        notifications={visibleNotifs}
+        notifUnread={notifUnread}
         onView={setView}
         onChannel={openChannel}
         onNotify={showToast}
@@ -427,7 +524,14 @@ function AppShell() {
         onGlobalSearch={() => setModal("search")}
         onLeaveChannel={leaveChannel}
         onChannelSettings={setChannelSettingsId}
+        onChannelNotifications={setChannelNotifId}
+        onMarkRead={markConversationRead}
+        onOpenNotification={openNotification}
+        onToggleNotifRead={setNotifRead}
+        onMarkAllNotifsRead={markAllNotifsRead}
+        onOpenNotifPrefs={() => openPreferences()}
         onLogout={() => setAuthStage("login")}
+        openNotifications={deepLinkPop === "notifications"}
       />
   );
 
@@ -458,6 +562,8 @@ function AppShell() {
           onNotify={showToast}
           onUpdateChannel={(patch) => updateChannel(channelId, patch)}
           onLeaveChannel={() => leaveChannel(channelId)}
+          notifPref={channelPrefs[channelId] ?? DEFAULT_CHANNEL_PREF}
+          onSaveNotifPref={(pref) => saveChannelPref(channelId, pref)}
           actions={messageActions}
         />
       ) : null}
@@ -489,7 +595,14 @@ function AppShell() {
 
   const overlays = (
     <>
-      {modal === "prefs" ? <SettingsDialog onClose={() => setModal(null)} /> : null}
+      {/* Personal preferences take over the whole viewport (covering the rail and sidebar) so it is
+          clear they are account-wide, not scoped to the current workspace. Sits below toasts (z 60)
+          and dialogs (z 90) so the security sub-dialogs still layer on top. */}
+      {view === "prefs" ? (
+        <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)" }}>
+          <PreferencesScreen compact={compact} onClose={() => setView(prevView)} onNotify={showToast} />
+        </div>
+      ) : null}
       {modal === "import" ? (
         <ImportDialog
           onClose={() => setModal(null)}
@@ -544,6 +657,21 @@ function AppShell() {
         />
       ) : null}
 
+      {channelNotifId ? (
+        <ChannelNotificationsDialog
+          channelName={
+            channels.find((c) => c.id === channelNotifId)?.name ??
+            dms.find((d) => d.id === channelNotifId)?.name ??
+            channelNotifId
+          }
+          isDm={!channels.some((c) => c.id === channelNotifId) && dms.some((d) => d.id === channelNotifId)}
+          value={channelPrefs[channelNotifId] ?? DEFAULT_CHANNEL_PREF}
+          onClose={() => setChannelNotifId(null)}
+          onSave={(pref) => saveChannelPref(channelNotifId, pref)}
+          onNotify={showToast}
+        />
+      ) : null}
+
       {editing ? (
         <Dialog
           title="Modifier le message"
@@ -581,7 +709,7 @@ function AppShell() {
   if (compact) {
     return (
       <>
-        <div style={{ height: "100dvh", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--surface-canvas)" }}>
+        <div style={{ height: "var(--ui-vh)", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--surface-canvas)" }}>
           <MobileTopBar
             title={mobileContent ? contentTitle : wsName}
             workspaceName={wsName}
@@ -609,6 +737,9 @@ function AppShell() {
                 view={view}
                 channel={channelId}
                 mentionCount={mentions.length}
+                channelPrefs={channelPrefs}
+                notifications={visibleNotifs}
+                notifUnread={notifUnread}
                 compact
                 only={mobileTab}
                 onView={(v) => {
@@ -627,6 +758,12 @@ function AppShell() {
                 onGlobalSearch={() => setModal("search")}
                 onLeaveChannel={leaveChannel}
                 onChannelSettings={setChannelSettingsId}
+                onChannelNotifications={setChannelNotifId}
+                onMarkRead={markConversationRead}
+                onOpenNotification={openNotification}
+                onToggleNotifRead={setNotifRead}
+                onMarkAllNotifsRead={markAllNotifsRead}
+                onOpenNotifPrefs={() => openPreferences()}
                 onLogout={() => setAuthStage("login")}
                 />
               </main>
@@ -654,7 +791,7 @@ function AppShell() {
   }
 
   return (
-    <div style={{ height: "100vh", display: "flex", overflow: "hidden", background: "var(--surface-canvas)" }}>
+    <div style={{ height: "var(--ui-vh)", display: "flex", overflow: "hidden", background: "var(--surface-canvas)" }}>
       {rail}
       {desktopSidebar}
       {content}

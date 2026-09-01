@@ -17,10 +17,9 @@
  */
 
 const STAGES = ["login", "signup", "onboarding", "app"] as const;
-const VIEWS = ["channel", "files", "settings", "threads", "mentions", "saved"] as const;
+const VIEWS = ["channel", "files", "settings", "prefs", "threads", "mentions", "saved"] as const;
 const PANELS = ["files", "members", "pinned", "search"] as const;
 const MODALS = [
-  "prefs",
   "import",
   "newChannel",
   "newMessage",
@@ -29,6 +28,9 @@ const MODALS = [
   "help",
   "search",
 ] as const;
+const TEXT_SIZES = ["s", "m", "l", "xl"] as const;
+const FONTS = ["plex", "system", "dyslexic"] as const;
+const POPOVERS = ["notifications"] as const;
 
 export type DeepLink = {
   stage?: (typeof STAGES)[number];
@@ -36,6 +38,12 @@ export type DeepLink = {
   channel?: string;
   panel?: (typeof PANELS)[number];
   modal?: (typeof MODALS)[number];
+  /** Force a text size (appearance setting) so the audit can exercise the zoomed layout. */
+  text?: (typeof TEXT_SIZES)[number];
+  /** Force a typeface (appearance setting). */
+  font?: (typeof FONTS)[number];
+  /** Open a click-only popover on load so the audit can probe it (e.g. the notification center). */
+  pop?: (typeof POPOVERS)[number];
   /** Compact shell only: push the content view full-screen (instead of showing the list). */
   push?: boolean;
 };
@@ -60,6 +68,9 @@ export function readDeepLink(): DeepLink | null {
     channel: q.get("channel") || undefined,
     panel: pick("panel", PANELS),
     modal: pick("modal", MODALS),
+    text: pick("text", TEXT_SIZES),
+    font: pick("font", FONTS),
+    pop: pick("pop", POPOVERS),
     push: q.get("push") === "1" || q.get("push") === "true" ? true : undefined,
   };
 
