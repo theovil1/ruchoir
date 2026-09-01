@@ -128,7 +128,7 @@ export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify, 
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
       <h1 style={st.top}>
         <Icon name="settings" size={15} style={{ color: "var(--text-muted)" }} />
-        Réglages de l'espace
+        Réglages de l&apos;espace
       </h1>
       <div style={compact ? { ...st.body, flexDirection: "column" } : st.body}>
         <div
@@ -156,13 +156,13 @@ export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify, 
           {tab === "general" ? (
             <>
               <h2 style={st.h}>Général</h2>
-              <p style={st.sub}>Identité et langue de l'espace {workspaceName}.</p>
+              <p style={st.sub}>Identité et langue de l&apos;espace {workspaceName}.</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 420 }}>
                 <Field label="Icône de l'espace">
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <Avatar name={workspaceName} src={icon} kind="workspace" size={48} />
                     <Button size="sm" variant="secondary" iconLeft="image" onClick={() => iconRef.current?.click()}>
-                      Changer l'icône
+                      Changer l&apos;icône
                     </Button>
                     {icon ? (
                       <Button size="sm" variant="link" onClick={() => setIcon(undefined)}>
@@ -382,7 +382,7 @@ export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify, 
                 }}
               >
                 <span style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--status-danger-fg)" }}>Supprimer l'espace</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--status-danger-fg)" }}>Supprimer l&apos;espace</div>
                   <div style={{ fontSize: 12, color: "var(--status-danger-fg)", opacity: 0.85 }}>
                     Les 8 912 messages et 143 fichiers seront effacés après 30 jours.
                   </div>
@@ -412,14 +412,14 @@ export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify, 
                 onNotify({ tone: "warning", title: "Suppression programmée", description: `L'espace ${workspaceName} sera effacé dans 30 jours.` });
               }}
             >
-              Supprimer l'espace
+              Supprimer l&apos;espace
             </Button>
           </>
         }
       >
         <p style={{ fontSize: 13, color: "var(--text-body)" }}>
-          Cette action programme l'effacement de {workspaceName} et de tous ses contenus après un délai de 30 jours.
-          Vous pouvez l'annuler pendant ce délai.
+          Cette action programme l&apos;effacement de {workspaceName} et de tous ses contenus après un délai de 30 jours.
+          Vous pouvez l&apos;annuler pendant ce délai.
         </p>
       </Dialog>
     </div>

@@ -83,7 +83,7 @@ export function OnboardingFlow({
             </span>
             <h1 style={styles.heading}>Tout est prêt{firstName ? `, ${firstName}` : ""}</h1>
             <p style={{ fontSize: 14, color: "var(--text-muted)", maxWidth: 340 }}>
-              L'espace <strong>{name}</strong> est créé{invited > 0 ? `, ${invited} invitation${invited > 1 ? "s" : ""} envoyée${invited > 1 ? "s" : ""}` : ""}. Vous pouvez importer vos
+              L&apos;espace <strong>{name}</strong> est créé{invited > 0 ? `, ${invited} invitation${invited > 1 ? "s" : ""} envoyée${invited > 1 ? "s" : ""}` : ""}. Vous pouvez importer vos
               historiques Slack, Mattermost ou Nextcloud à tout moment depuis la barre latérale.
             </p>
             <Button variant="primary" size="lg" fullWidth onClick={() => onFinish({ workspaceName: name })}>

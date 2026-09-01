@@ -11,6 +11,10 @@ export function useMountAnimation(open: boolean, durationMs: number) {
   const [closing, setClosing] = useState(false);
 
   useEffect(() => {
+    // `mounted` must persist as state through the exit window (so the element stays rendered while it
+    // animates out), which requires setting it synchronously here. This is the canonical enter/exit
+    // pattern, not derivable state, so the set-state-in-effect heuristic does not apply.
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (open) {
       setMounted(true);
       setClosing(false);
@@ -23,6 +27,7 @@ export function useMountAnimation(open: boolean, durationMs: number) {
       setClosing(false);
     }, durationMs);
     return () => clearTimeout(t);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [open, mounted, durationMs]);
 
   return { mounted, closing };

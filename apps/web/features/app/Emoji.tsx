@@ -34,6 +34,9 @@ export function Emoji({ emoji, size = 18, style, animated = false }: EmojiProps)
   if (emojiPack && manifest) {
     if (animated && emojiAnimated && manifest.animated.has(code)) {
       return (
+        // Static export (no Next image server) + same-origin self-hosted emoji: next/image adds
+        // nothing here, so a plain img is correct.
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           className="wc-emoji"
           src={`/emoji/animated/${code}.png`}

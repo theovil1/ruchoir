@@ -193,7 +193,7 @@ export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void;
         <>
           <Button onClick={onClose}>Annuler</Button>
           <Button variant="primary" onClick={submit}>
-            Créer l'espace
+            Créer l&apos;espace
           </Button>
         </>
       }

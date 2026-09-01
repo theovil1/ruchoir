@@ -28,7 +28,6 @@ const BACKGROUND: Record<AvatarKind, string[]> = {
   workspace: ["ffb3ba", "ffdfba", "ffe680", "8fe6a3", "8fd0ff", "c9a8ff", "f5b0f0"],
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const STYLES: Record<AvatarKind, Style<any>> = {
   person: new Style(cameoDef as never),
   bot: new Style(gazeDef as never),

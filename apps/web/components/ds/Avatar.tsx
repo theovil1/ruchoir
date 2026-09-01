@@ -34,6 +34,9 @@ export function Avatar({
         className={`wc-av${shape === "round" ? " wc-av--round" : ""}`}
         style={{ width: size, height: size }}
       >
+        {/* Static export (no Next image server at runtime) + self-hosted sources (data-URI avatars):
+            next/image does not apply here, so a plain img is correct. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={imgSrc} alt={name} />
       </span>
       {presence ? (

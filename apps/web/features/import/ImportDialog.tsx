@@ -64,7 +64,7 @@ export function ImportDialog({ onClose, onDone }: ImportDialogProps) {
             </Button>
           ) : (
             <Button variant="primary" iconLeft="play" onClick={() => onDone(LABELS[src])}>
-              Lancer l'import
+              Lancer l&apos;import
             </Button>
           )}
         </>
@@ -73,7 +73,7 @@ export function ImportDialog({ onClose, onDone }: ImportDialogProps) {
       {step === 1 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 4 }}>
-            Choisissez la source. L'export de l'outil d'origine est nécessaire.
+            Choisissez la source. L&apos;export de l&apos;outil d&apos;origine est nécessaire.
           </p>
           {SOURCES.map(([v, n, d]) => (
             <label
@@ -148,7 +148,7 @@ export function ImportDialog({ onClose, onDone }: ImportDialogProps) {
           <div style={styles.callout}>
             <Icon name="info" size={16} style={{ color: "var(--status-info-fg)", marginTop: 1 }} />
             <p style={{ fontSize: 12, color: "var(--status-info-fg)", lineHeight: 1.5 }}>
-              L'import se poursuit en arrière-plan. Les canaux apparaissent au fur et à mesure et portent l'étiquette
+              L&apos;import se poursuit en arrière-plan. Les canaux apparaissent au fur et à mesure et portent l&apos;étiquette
               « Importé de {LABELS[src]} » pendant sept jours.
             </p>
           </div>

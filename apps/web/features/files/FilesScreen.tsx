@@ -205,7 +205,7 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
             </button>
           ) : (
             <>
-              Fichiers de l'espace
+              Fichiers de l&apos;espace
               <Icon name="chevron-right" size={13} style={{ color: "var(--text-subtle)" }} />
               <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>{workspaceName}</span>
             </>
@@ -375,8 +375,8 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
           </p>
         ) : null}
         <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 12 }}>
-          La colonne « Source » indique l'outil d'origine des fichiers repris lors d'un import (Slack, Mattermost,
-          Nextcloud). Les fichiers créés dans Ruchoir n'affichent pas de badge.
+          La colonne « Source » indique l&apos;outil d&apos;origine des fichiers repris lors d&apos;un import (Slack, Mattermost,
+          Nextcloud). Les fichiers créés dans Ruchoir n&apos;affichent pas de badge.
         </p>
       </div>
 

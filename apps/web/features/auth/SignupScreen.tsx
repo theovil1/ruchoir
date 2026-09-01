@@ -91,7 +91,7 @@ export function SignupScreen({
         <Checkbox
           checked={agreed}
           onChange={() => setAgreed((a) => !a)}
-          label={<span style={{ fontSize: 13 }}>J'accepte les conditions d'utilisation et la politique de confidentialité.</span>}
+          label={<span style={{ fontSize: 13 }}>J&apos;accepte les conditions d&apos;utilisation et la politique de confidentialité.</span>}
         />
         <Button variant="primary" size="lg" fullWidth type="submit" disabled={!canSubmit}>
           Créer le compte

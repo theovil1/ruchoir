@@ -1,6 +1,6 @@
 "use client";
 
-import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type Ref, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Avatar, Popover } from "@/components/ds";
 import { getChannelMembers } from "@/lib/data";
 import { searchShortcodes } from "@/lib/shortcodes";
@@ -85,8 +85,12 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
   const [empty, setEmpty] = useState(true);
 
   const manifest = useEmojiManifest();
+  // Keep a ref to the latest manifest so event handlers read the current value without re-subscribing.
+  // Assigned in an effect (not during render) per the React "latest ref" guidance.
   const manifestRef = useRef(manifest);
-  manifestRef.current = manifest;
+  useEffect(() => {
+    manifestRef.current = manifest;
+  });
 
   const uid = useId();
   const listId = `ac-${uid}`;

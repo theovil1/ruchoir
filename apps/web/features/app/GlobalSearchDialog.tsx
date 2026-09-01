@@ -103,7 +103,7 @@ export function GlobalSearchDialog({
 
       <div style={{ maxHeight: 360, overflow: "auto" }}>
         {!q ? (
-          <div style={styles.empty}>Tapez pour chercher dans les canaux, les fichiers et l'annuaire.</div>
+          <div style={styles.empty}>Tapez pour chercher dans les canaux, les fichiers et l&apos;annuaire.</div>
         ) : total === 0 ? (
           <div style={styles.empty}>Aucun résultat pour « {query} ».</div>
         ) : (
