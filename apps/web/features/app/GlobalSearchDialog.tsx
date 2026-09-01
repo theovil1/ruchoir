@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, useMemo, useRef, useState } from "react";
-import { Avatar, Dialog, Icon } from "@/components/ds";
+import { Avatar, Dialog, EmptyState, Icon } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import type { ActivityItem } from "./activity";
@@ -27,7 +27,6 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
     textAlign: "left",
   },
-  empty: { padding: "24px 4px", textAlign: "center", fontSize: 13, color: "var(--text-subtle)" },
 };
 
 export type GlobalSearchDialogProps = {
@@ -146,9 +145,13 @@ export function GlobalSearchDialog({
 
       <div ref={listRef} style={{ maxHeight: 360, overflow: "auto" }}>
         {!q ? (
-          <div style={styles.empty}>Tapez pour chercher dans les canaux, les fichiers et l&apos;annuaire.</div>
+          <EmptyState
+            size="compact"
+            icon="search"
+            description="Tapez pour chercher dans les canaux, les fichiers et l'annuaire."
+          />
         ) : total === 0 ? (
-          <div style={styles.empty}>Aucun résultat pour « {query} ».</div>
+          <EmptyState size="compact" icon="search" title="Aucun résultat" description={`Rien ne correspond à « ${query} ».`} />
         ) : (
           <>
             {msgHits.length > 0 ? (

@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type RefObject, useState } from "react";
-import { Avatar, Icon, IconButton, Popover, Tabs } from "@/components/ds";
+import { Avatar, EmptyState, Icon, IconButton, Popover, Tabs } from "@/components/ds";
 import { getPresence } from "@/lib/data";
 import { type AppNotification, type NotifKind, notifSummary } from "./notifications";
 
@@ -44,15 +44,6 @@ const styles: Record<string, CSSProperties> = {
     background: "transparent",
     cursor: "pointer",
     textAlign: "left",
-  },
-  empty: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    padding: "40px 24px",
-    textAlign: "center",
   },
   foot: {
     flex: "none",
@@ -135,11 +126,12 @@ export function NotificationCenter({
         </div>
 
         {rows.length === 0 ? (
-          <div style={styles.empty}>
-            <Icon name="bell" size={24} style={{ color: "var(--grey-300)" }} />
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{EMPTY[filter].title}</div>
-            <p style={{ fontSize: 12, color: "var(--text-muted)", maxWidth: 260 }}>{EMPTY[filter].text}</p>
-          </div>
+          <EmptyState
+            size="compact"
+            icon={filter === "mentions" ? "at-sign" : filter === "unread" ? "check-check" : "bell"}
+            title={EMPTY[filter].title}
+            description={EMPTY[filter].text}
+          />
         ) : (
           <div style={styles.scroll}>
             {rows.map((n) => (

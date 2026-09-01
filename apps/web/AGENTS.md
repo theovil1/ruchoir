@@ -193,6 +193,10 @@ prototype internals when they do not fit. Enforce token usage with the design-sy
   from the handoff into typed React with their CSS appended to `app/components.css` (the handoff
   injected it at runtime; we do not). `Dialog` is the shared modal base (scrim + head + body + footer,
   closes on scrim/Escape); reuse it rather than hand-rolling a scrim.
+- **Empty / no-results states** all go through `components/ds/EmptyState.tsx` (icon, title,
+  description, optional action). `size="hero"` fills a whole view (icon in a soft badge); `size="compact"`
+  suits popovers, side panels and search dropdowns. Do not hand-roll empty placeholders; reuse this so
+  they stay consistent.
 - **Composer autocomplete** (inside `MessageEditor`): one keyboard-navigable suggestion popup serves
   both triggers, `@mention` (members) and `:shortcode:` (emoji, via `searchShortcodes` in
   `lib/shortcodes.ts`, backed by node-emoji `search`, prefix matches ranked first). A single `trigger`

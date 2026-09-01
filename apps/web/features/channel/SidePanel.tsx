@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useEffect, useRef } from "react";
-import { Avatar, Icon, IconButton, Tag } from "@/components/ds";
+import { Avatar, EmptyState, Icon, IconButton, Tag } from "@/components/ds";
 import { getPresence } from "@/lib/data";
 import type { DirectMessage, Message, SpaceFile } from "@/lib/data";
 
@@ -141,9 +141,12 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
         {kind === "pinned"
           ? pinned.length === 0
             ? (
-                <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: "var(--text-subtle)" }}>
-                  Aucun message épinglé. Épinglez un message depuis son menu pour le retrouver ici.
-                </div>
+                <EmptyState
+                  size="compact"
+                  icon="pin"
+                  title="Aucun message épinglé"
+                  description="Épinglez un message depuis son menu pour le retrouver ici."
+                />
               )
             : pinned.map((m) => (
                 <div

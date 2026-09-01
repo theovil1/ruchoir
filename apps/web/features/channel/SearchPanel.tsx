@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useMemo, useState } from "react";
-import { Avatar, Icon, IconButton, Input } from "@/components/ds";
+import { Avatar, EmptyState, Icon, IconButton, Input } from "@/components/ds";
 import { getPresence } from "@/lib/data";
 import type { Message, SpaceFile } from "@/lib/data";
 
@@ -47,7 +47,6 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "left",
     fontFamily: "var(--font-sans)",
   },
-  empty: { padding: 24, textAlign: "center", fontSize: 13, color: "var(--text-subtle)" },
 };
 
 export type SearchPanelProps = {
@@ -92,9 +91,9 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
       </div>
       <div style={styles.scroll}>
         {!q ? (
-          <div style={styles.empty}>Tapez pour rechercher dans ce canal.</div>
+          <EmptyState size="compact" icon="search" description="Tapez pour rechercher dans ce canal." />
         ) : total === 0 ? (
-          <div style={styles.empty}>Aucun résultat pour « {query} ».</div>
+          <EmptyState size="compact" icon="search" title="Aucun résultat" description={`Aucun message ou fichier pour « ${query} ».`} />
         ) : (
           <>
             {msgHits.length > 0 ? (

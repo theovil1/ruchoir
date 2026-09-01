@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useState } from "react";
-import { Input } from "@/components/ds";
+import { EmptyState, Input } from "@/components/ds";
 import { EMOJI_CATEGORIES, QUICK_REACTIONS, searchEmojis } from "@/lib/emoji";
 import { Emoji } from "../app/Emoji";
 
@@ -132,8 +132,8 @@ export function EmojiPicker({
 
       <div style={grid}>
         {shown.length === 0 ? (
-          <div style={{ gridColumn: "1 / -1", padding: 16, textAlign: "center", fontSize: 13, color: "var(--text-subtle)" }}>
-            Aucun emoji pour « {query} »
+          <div style={{ gridColumn: "1 / -1" }}>
+            <EmptyState size="compact" icon="smile" title="Aucun emoji" description={`Rien ne correspond à « ${query} ».`} />
           </div>
         ) : (
           shown.map((em) => (

@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { Avatar, Icon, Tag } from "@/components/ds";
+import { Avatar, EmptyState, Icon, Tag } from "@/components/ds";
 import { getPresence } from "@/lib/data";
 import type { ActivityItem } from "./activity";
 
@@ -57,15 +57,7 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
     textAlign: "left",
   },
-  empty: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    padding: 40,
-  },
+  empty: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center" },
 };
 
 export type ActivityViewProps = {
@@ -90,9 +82,7 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
 
       {items.length === 0 ? (
         <div style={styles.empty}>
-          <Icon name={meta.icon} size={26} style={{ color: "var(--grey-300)" }} />
-          <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-strong)" }}>{meta.emptyTitle}</div>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", maxWidth: 340, textAlign: "center" }}>{meta.emptyText}</p>
+          <EmptyState icon={meta.icon} title={meta.emptyTitle} description={meta.emptyText} />
         </div>
       ) : (
         <div style={styles.scroll}>

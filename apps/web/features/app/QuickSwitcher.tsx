@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, useMemo, useRef, useState } from "react";
-import { Avatar, Badge, Dialog, Icon } from "@/components/ds";
+import { Avatar, Badge, Dialog, EmptyState, Icon } from "@/components/ds";
 import type { Channel, DirectMessage } from "@/lib/data";
 
 const styles: Record<string, CSSProperties> = {
@@ -37,7 +37,6 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "left",
   },
   name: { flex: 1, minWidth: 0, fontSize: 13, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  empty: { padding: "24px 4px", textAlign: "center", fontSize: 13, color: "var(--text-subtle)" },
   foot: { display: "flex", gap: 14, padding: "8px 2px 0", fontSize: 11, color: "var(--text-subtle)" },
 };
 
@@ -121,7 +120,7 @@ export function QuickSwitcher({ channels, dms, onOpen, onClose }: QuickSwitcherP
 
       <div ref={listRef} style={styles.list} role="listbox" aria-label="Conversations">
         {results.length === 0 ? (
-          <div style={styles.empty}>Aucune conversation pour « {query} ».</div>
+          <EmptyState size="compact" icon="search" title="Aucune conversation" description={`Rien ne correspond à « ${query} ».`} />
         ) : (
           results.map((e, i) => {
             const selected = i === active;

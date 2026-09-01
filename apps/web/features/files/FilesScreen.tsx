@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useRef, useState } from "react";
-import { Avatar, Button, Card, Checkbox, Dialog, Field, Icon, IconButton, Input, Tabs, Tag } from "@/components/ds";
+import { Avatar, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, IconButton, Input, Tabs, Tag } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import type { Toast } from "../app/types";
 
@@ -366,18 +366,31 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
         )}
 
         {rows.length === 0 ? (
-          <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "24px 4px" }}>
-            {q
-              ? "Aucun fichier ne correspond au filtre."
-              : currentFolder
-                ? "Ce dossier est vide."
-                : "Aucun fichier pour le moment."}
+          <EmptyState
+            icon={q ? "search" : currentFolder ? "folder-open" : "folder"}
+            title={q ? "Aucun résultat" : currentFolder ? "Dossier vide" : "Aucun fichier"}
+            description={
+              q
+                ? `Aucun fichier ne correspond à « ${q} ».`
+                : currentFolder
+                  ? "Ce dossier ne contient aucun fichier pour l'instant."
+                  : "Déposez vos premiers fichiers, ou reprenez-les depuis Slack, Mattermost ou Nextcloud lors d'un import."
+            }
+            action={
+              !q ? (
+                <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()}>
+                  Déposer un fichier
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : null}
+        {rows.length > 0 ? (
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 12 }}>
+            La colonne « Source » indique l&apos;outil d&apos;origine des fichiers repris lors d&apos;un import (Slack, Mattermost,
+            Nextcloud). Les fichiers créés dans Ruchoir n&apos;affichent pas de badge.
           </p>
         ) : null}
-        <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 12 }}>
-          La colonne « Source » indique l&apos;outil d&apos;origine des fichiers repris lors d&apos;un import (Slack, Mattermost,
-          Nextcloud). Les fichiers créés dans Ruchoir n&apos;affichent pas de badge.
-        </p>
       </div>
 
       <Dialog

@@ -16,6 +16,8 @@ export { Dialog } from "./Dialog";
 export type { DialogProps, DialogSize } from "./Dialog";
 export { Drawer } from "./Drawer";
 export type { DrawerProps } from "./Drawer";
+export { EmptyState } from "./EmptyState";
+export type { EmptyStateProps, EmptyStateSize } from "./EmptyState";
 export { Field } from "./Field";
 export type { FieldProps } from "./Field";
 export { Icon } from "./Icon";
