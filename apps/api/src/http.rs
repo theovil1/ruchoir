@@ -12,6 +12,13 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 use utoipa::ToSchema;
 
+use std::sync::Arc;
+use std::time::Duration;
+
+use tower_governor::governor::GovernorConfigBuilder;
+use tower_governor::key_extractor::SmartIpKeyExtractor;
+use tower_governor::GovernorLayer;
+
 use crate::state::AppState;
 
 /// Liveness payload returned by `/healthz`. This never touches dependencies, so it stays a pure
@@ -123,11 +130,24 @@ pub fn router(state: AppState) -> Router {
                style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; \
                connect-src 'self'";
 
+    // Coarse per-IP rate limit on the auth surface: a backstop above the per-account lockout.
+    // `SmartIpKeyExtractor` reads a forwarded client IP behind a proxy and falls back to the
+    // connection peer (see the connect-info make-service in `main`).
+    let governor = Arc::new(
+        GovernorConfigBuilder::default()
+            .key_extractor(SmartIpKeyExtractor)
+            .period(Duration::from_millis(state.config.auth_rate_period_ms))
+            .burst_size(state.config.auth_rate_burst)
+            .finish()
+            .expect("valid rate-limit configuration"),
+    );
+    let auth_routes = crate::auth::routes::router().layer(GovernorLayer::new(governor));
+
     let mut router = Router::new()
         .route("/healthz", get(healthz))
         .route("/api/v1/health", get(api_health))
         .route("/api/openapi.json", get(crate::openapi::openapi_json))
-        .nest("/api/v1/auth", crate::auth::routes::router());
+        .nest("/api/v1/auth", auth_routes);
 
     // Optional self-hosted emoji pack. `ServeDir` handles path traversal safely and returns 404
     // for missing files, which the client treats as "no asset" and renders the native glyph. The

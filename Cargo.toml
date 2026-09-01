@@ -65,6 +65,9 @@ getrandom = "0.4"
 uuid = { version = "1.26", features = ["v4", "serde"] }
 time = "0.3.55"
 axum-extra = { version = "0.12.6", features = ["cookie"] }
+# Coarse per-IP rate limiting layer for the auth routes (community; wraps `governor`). Default
+# features pull `tonic` (gRPC), which we do not use: keep only the axum integration.
+tower_governor = { version = "0.8", default-features = false, features = ["axum"] }
 
 [profile.release]
 # Lean, fast production binary.

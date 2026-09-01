@@ -21,6 +21,8 @@ pub enum AuthError {
     WeakPassword,
     /// The account is locked.
     AccountLocked,
+    /// Too many failed attempts: the account is in an anti-bruteforce cooldown.
+    TooManyAttempts,
     /// Any unexpected server-side failure. Never leaks internals to the client.
     Internal,
 }
@@ -58,6 +60,11 @@ impl IntoResponse for AuthError {
                 StatusCode::FORBIDDEN,
                 "account_locked",
                 "This account is locked.",
+            ),
+            AuthError::TooManyAttempts => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "too_many_attempts",
+                "Too many attempts. Try again later.",
             ),
             AuthError::Internal => (
                 StatusCode::INTERNAL_SERVER_ERROR,

@@ -44,6 +44,18 @@ pub struct Config {
     pub session_idle_ttl_secs: i64,
     /// Absolute session lifetime cap, in seconds, regardless of activity.
     pub session_absolute_ttl_secs: i64,
+    /// Failed logins for one account within the window before it enters a cooldown.
+    pub login_max_failures: u32,
+    /// Rolling window, in seconds, over which failed logins are counted.
+    pub login_failure_window_secs: i64,
+    /// Base cooldown, in seconds, applied on the first lockout. Doubles on repeat lockouts.
+    pub login_lock_base_secs: i64,
+    /// Maximum cooldown, in seconds, the progressive backoff can reach.
+    pub login_lock_max_secs: i64,
+    /// Per-IP rate limit on the auth routes: burst capacity (requests allowed to arrive at once).
+    pub auth_rate_burst: u32,
+    /// Per-IP rate limit on the auth routes: interval, in ms, after which one request is replenished.
+    pub auth_rate_period_ms: u64,
 }
 
 impl Config {
@@ -97,6 +109,29 @@ impl Config {
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_SESSION_ABSOLUTE_TTL_SECS"))?;
 
+        // Anti-bruteforce: lock an account after too many failed logins in a rolling window, with
+        // a progressive (doubling) cooldown capped at a maximum.
+        let login_max_failures: u32 = env_or("RUCHOIR_LOGIN_MAX_FAILURES", "5")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_LOGIN_MAX_FAILURES"))?;
+        let login_failure_window_secs: i64 = env_or("RUCHOIR_LOGIN_FAILURE_WINDOW_SECS", "900")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_LOGIN_FAILURE_WINDOW_SECS"))?;
+        let login_lock_base_secs: i64 = env_or("RUCHOIR_LOGIN_LOCK_BASE_SECS", "900")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_LOGIN_LOCK_BASE_SECS"))?;
+        let login_lock_max_secs: i64 = env_or("RUCHOIR_LOGIN_LOCK_MAX_SECS", "86400")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_LOGIN_LOCK_MAX_SECS"))?;
+
+        // Coarse per-IP rate limit on the auth surface (backstop above the per-account lockout).
+        let auth_rate_burst: u32 = env_or("RUCHOIR_AUTH_RATE_BURST", "20")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_AUTH_RATE_BURST"))?;
+        let auth_rate_period_ms: u64 = env_or("RUCHOIR_AUTH_RATE_PERIOD_MS", "500")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_AUTH_RATE_PERIOD_MS"))?;
+
         Ok(Self {
             addr: SocketAddr::new(host, port),
             web_dist,
@@ -113,6 +148,12 @@ impl Config {
             argon2_parallelism,
             session_idle_ttl_secs,
             session_absolute_ttl_secs,
+            login_max_failures,
+            login_failure_window_secs,
+            login_lock_base_secs,
+            login_lock_max_secs,
+            auth_rate_burst,
+            auth_rate_period_ms,
         })
     }
 

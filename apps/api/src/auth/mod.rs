@@ -10,5 +10,6 @@ pub mod error;
 pub mod extract;
 pub mod routes;
 pub mod session;
+pub mod throttle;
 
 mod password;

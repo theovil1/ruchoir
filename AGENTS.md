@@ -73,6 +73,7 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | argon2 / getrandom | 0.6 / 0.4 | `Cargo.toml` |
 | uuid / time | 1.26 / 0.3 | `Cargo.toml` |
 | axum-extra (cookie) | 0.12.6 | `Cargo.toml` |
+| tower_governor | 0.8 | `Cargo.toml` |
 | Node (build only) | 24 (LTS) | `.nvmrc` |
 | pnpm | 11.24.0 | root `package.json` (`packageManager`) |
 | Next.js / React | 16.3.3 / 19.2 | `apps/web/package.json` |

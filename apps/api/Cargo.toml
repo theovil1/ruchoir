@@ -43,3 +43,4 @@ getrandom = { workspace = true }
 uuid = { workspace = true }
 time = { workspace = true }
 axum-extra = { workspace = true }
+tower_governor = { workspace = true }

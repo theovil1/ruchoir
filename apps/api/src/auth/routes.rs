@@ -17,7 +17,7 @@ use uuid::Uuid;
 use super::cookie::{clear_session_cookie, session_cookie, SESSION_COOKIE};
 use super::error::AuthError;
 use super::extract::AuthSession;
-use super::{password, session};
+use super::{password, session, throttle};
 use crate::entities::users;
 use crate::state::AppState;
 
@@ -140,7 +140,8 @@ pub async fn register(
     responses(
         (status = 200, description = "Authenticated", body = UserSummary),
         (status = 401, description = "Invalid credentials"),
-        (status = 403, description = "Account locked")
+        (status = 403, description = "Account locked"),
+        (status = 429, description = "Too many attempts")
     )
 )]
 pub async fn login(
@@ -149,33 +150,46 @@ pub async fn login(
     Json(body): Json<LoginRequest>,
 ) -> Result<(CookieJar, Json<UserSummary>), AuthError> {
     let email = body.email.trim().to_lowercase();
+
+    // Refuse early if this account is in an anti-bruteforce cooldown. Keyed by the submitted email
+    // whether or not it exists, so the response never reveals account existence.
+    if throttle::is_locked(&state.valkey, &email).await? {
+        return Err(AuthError::TooManyAttempts);
+    }
+
     let user = users::Entity::find()
-        .filter(users::Column::Email.eq(email))
+        .filter(users::Column::Email.eq(email.clone()))
         .one(&state.db)
         .await
         .map_err(|_| AuthError::Internal)?;
 
-    // Uniform failure whether or not the account exists. (Anti-bruteforce and timing hardening
-    // land in a later step.)
-    let Some(user) = user else {
-        return Err(AuthError::InvalidCredentials);
-    };
-    if user.status == "locked" {
-        return Err(AuthError::AccountLocked);
+    // Admin-locked accounts are refused outright (distinct from a bruteforce cooldown).
+    if let Some(ref u) = user {
+        if u.status == "locked" {
+            return Err(AuthError::AccountLocked);
+        }
     }
-    let Some(ref phc) = user.password_hash else {
-        return Err(AuthError::InvalidCredentials);
+
+    // Verify uniformly whether or not the account exists.
+    let authenticated = match &user {
+        Some(u) => u
+            .password_hash
+            .as_deref()
+            .is_some_and(|phc| password::verify_password(&state.config, &body.password, phc)),
+        None => false,
     };
-    if !password::verify_password(&state.config, &body.password, phc) {
+
+    if !authenticated {
+        throttle::record_failure(&state.valkey, &state.config, &email).await?;
         return Err(AuthError::InvalidCredentials);
     }
+    throttle::record_success(&state.valkey, &email).await?;
+
+    let user = user.expect("authenticated implies a present user");
 
     // A full session is issued directly; the MFA step-up branch arrives with MFA.
     let session_id = session::create(&state.valkey, &state.config, user.id).await?;
-    let jar = jar.add(session_cookie(
-        session_id,
-        state.config.session_idle_ttl_secs,
-    ));
+    let jar = jar.add(session_cookie(session_id, state.config.session_idle_ttl_secs));
 
     Ok((jar, Json(user.into())))
 }

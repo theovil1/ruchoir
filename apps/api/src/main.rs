@@ -14,6 +14,7 @@ mod http;
 mod openapi;
 mod state;
 
+use std::net::SocketAddr;
 use std::process::ExitCode;
 use std::sync::Arc;
 
@@ -117,9 +118,14 @@ async fn serve(state: AppState) -> Result<(), Box<dyn std::error::Error>> {
     // Report the actual bound address: with RUCHOIR_API_PORT=0 the OS picks a free port.
     let local_addr = listener.local_addr().unwrap_or(addr);
     tracing::info!("listening on http://{}", local_addr);
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    // Connect-info is required so the rate limiter can fall back to the connection peer IP when
+    // no forwarded-for header is present (direct dev connections).
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await?;
     Ok(())
 }
 
@@ -140,7 +146,7 @@ async fn serve_tls(state: AppState, app: axum::Router) -> Result<(), Box<dyn std
 
     tracing::info!("listening on https://{}", state.config.addr);
     axum_server::bind_rustls(state.config.addr, tls)
-        .serve(app.into_make_service())
+        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
         .await?;
     Ok(())
 }
