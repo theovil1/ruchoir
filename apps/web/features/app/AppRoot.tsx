@@ -30,6 +30,7 @@ import { HelpDialog, InviteDialog, NewChannelDialog, NewMessageDialog, NewWorksp
 import { GlobalSearchDialog } from "./GlobalSearchDialog";
 import { QuickSwitcher } from "./QuickSwitcher";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
+import { useMountAnimation } from "./useMountAnimation";
 import {
   buildNotifications,
   type ChannelNotifPref,
@@ -145,7 +146,14 @@ function AppShell() {
   const [modal, setModal] = useState<Modal>(null);
   const [channelSettingsId, setChannelSettingsId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: number; body: string } | null>(null);
+  // Toast: `toast` holds the content (kept through the exit so it stays rendered while animating out),
+  // `toastVisible` drives the enter/exit, and useMountAnimation keeps it mounted for the exit window.
   const [toast, setToast] = useState<Toast | null>(null);
+  const [toastVisible, setToastVisible] = useState(false);
+  // Bumped on every toast so React remounts the element and replays the enter animation, even when a
+  // toast is already on screen.
+  const [toastKey, setToastKey] = useState(0);
+  const { mounted: toastMounted, closing: toastClosing } = useMountAnimation(toastVisible, 280);
 
   // Compact (mobile/narrow) shell state. `mobileTab` picks the bottom-tab list; `mobileContent`
   // is true when a conversation or view is pushed full-screen over that list; `railOpen` toggles
@@ -240,8 +248,10 @@ function AppShell() {
 
   const showToast = (t: Toast) => {
     setToast(t);
+    setToastVisible(true);
+    setToastKey((k) => k + 1);
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 4000);
+    toastTimer.current = setTimeout(() => setToastVisible(false), 4000);
   };
 
   /** Open the full-screen preferences on a given section, remembering the current view so closing returns to it. */
@@ -751,8 +761,14 @@ function AppShell() {
         </Dialog>
       ) : null}
 
-      {toast ? (
-        <div style={toastStyle.wrap} role="status" aria-live="polite">
+      {toastMounted && toast ? (
+        <div
+          key={toastKey}
+          className={toastClosing ? "wc-toast--out" : "wc-toast--in"}
+          style={toastStyle.wrap}
+          role="status"
+          aria-live="polite"
+        >
           <div style={toastStyle.card}>
             <span style={toastStyle.title}>{toast.title}</span>
             {toast.description ? <span style={toastStyle.desc}>{toast.description}</span> : null}

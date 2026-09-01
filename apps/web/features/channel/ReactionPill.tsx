@@ -79,6 +79,7 @@ export function ReactionPill({
     <button
       ref={buttonRef}
       type="button"
+      className="wc-react"
       style={style}
       onClick={onClick}
       onMouseEnter={onEnter}

@@ -86,7 +86,8 @@ function reactionPill(mine?: boolean): CSSProperties {
     color: mine ? "var(--text-accent)" : "var(--text-muted)",
     cursor: "pointer",
     fontVariantNumeric: "tabular-nums",
-    transition: "background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out)",
+    transition:
+      "background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-instant) var(--ease-out)",
   };
 }
 
