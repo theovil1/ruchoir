@@ -1,17 +1,25 @@
 {
-  "name": "@workchat/web",
+  "name": "@ruchoir/web",
   "version": "0.0.0",
   "private": true,
-  "description": "Workchat web client: Next.js static export served by the Rust API.",
+  "description": "Ruchoir web client: Next.js static export served by the Rust API.",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "audit:responsive": "node tools/responsive-audit/run.mjs",
+    "audit:a11y": "node tools/responsive-audit/run.mjs --all-themes"
   },
   "dependencies": {
+    "@dicebear/core": "^10.7.0",
+    "@dicebear/styles": "^10.6.0",
+    "emoji-regex": "^10.6.0",
+    "highlight.js": "^11.12.0",
+    "lucide-react": "^1.37.0",
     "next": "16.3.3",
+    "node-emoji": "^2.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
@@ -22,6 +30,7 @@
     "@types/react-dom": "^19.2.5",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.3",
+    "playwright": "^1.62.1",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3"

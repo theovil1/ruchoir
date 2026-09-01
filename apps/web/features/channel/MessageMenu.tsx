@@ -1,0 +1,117 @@
+"use client";
+
+import { type CSSProperties, useRef, useState } from "react";
+import { Icon, IconButton, Popover } from "@/components/ds";
+
+const menu: CSSProperties = {
+  minWidth: 208,
+  padding: 4,
+  background: "var(--surface-canvas)",
+  border: "1px solid var(--border-subtle)",
+  borderRadius: "var(--radius-md)",
+  boxShadow: "var(--shadow-popover)",
+};
+
+const itemStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  width: "100%",
+  padding: "6px 8px",
+  border: 0,
+  borderRadius: "var(--radius-sm)",
+  background: "transparent",
+  color: "var(--text-body)",
+  fontFamily: "var(--font-sans)",
+  fontSize: 13,
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+type Item = { icon: string; label: string; onClick: () => void; danger?: boolean };
+
+export type MessageMenuProps = {
+  pinned?: boolean;
+  own?: boolean;
+  sentAt: string;
+  onEdit: () => void;
+  onCopyMessage: () => void;
+  onCopyLink: () => void;
+  onTogglePin: () => void;
+  onMarkUnread: () => void;
+  onDelete: () => void;
+  /** Notified when the menu opens/closes, so a hover-gated container can stay mounted. */
+  onOpenChange?: (open: boolean) => void;
+};
+
+/** The three-dots message context menu, positioned with a viewport-aware popover. */
+export function MessageMenu({
+  pinned,
+  own,
+  sentAt,
+  onEdit,
+  onCopyMessage,
+  onCopyLink,
+  onTogglePin,
+  onMarkUnread,
+  onDelete,
+  onOpenChange,
+}: MessageMenuProps) {
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+
+  const set = (next: boolean) => {
+    setOpen(next);
+    onOpenChange?.(next);
+  };
+
+  const run = (fn: () => void) => {
+    fn();
+    set(false);
+  };
+
+  const items: Item[] = [
+    ...(own ? [{ icon: "square-pen", label: "Modifier le message", onClick: onEdit }] : []),
+    { icon: "copy", label: "Copier le message", onClick: onCopyMessage },
+    { icon: "paperclip", label: "Copier le lien", onClick: onCopyLink },
+    { icon: "inbox", label: "Marquer comme non lu", onClick: onMarkUnread },
+    { icon: "pin", label: pinned ? "Désépingler" : "Épingler", onClick: onTogglePin },
+    ...(own ? [{ icon: "trash-2", label: "Supprimer le message", onClick: onDelete, danger: true }] : []),
+  ];
+
+  return (
+    <>
+      <IconButton
+        ref={anchorRef}
+        icon="more-horizontal"
+        label="Plus d'actions"
+        size="sm"
+        aria-expanded={open}
+        onClick={() => set(!open)}
+      />
+      <Popover anchorRef={anchorRef} open={open} onClose={() => set(false)} placement="bottom" align="end">
+        <div style={menu} role="menu">
+          {items.map((it) => (
+            <button
+              key={it.label}
+              type="button"
+              role="menuitem"
+              onClick={() => run(it.onClick)}
+              style={{ ...itemStyle, color: it.danger ? "var(--status-danger-fg)" : "var(--text-body)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <Icon name={it.icon} size={14} />
+              {it.label}
+            </button>
+          ))}
+          <div style={{ height: 1, background: "var(--border-subtle)", margin: "4px 0" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", fontSize: 12, color: "var(--text-subtle)" }}>
+            <Icon name="clock" size={14} />
+            Envoyé {sentAt}
+          </div>
+        </div>
+      </Popover>
+    </>
+  );
+}

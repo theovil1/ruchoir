@@ -32,12 +32,18 @@ context and takes precedence here.
 ## Dev TLS (optional)
 
 Plain HTTP by default. For the HTTPS path: `scripts/dev-tls.sh`, then set
-`WORKCHAT_TLS_CERT` / `WORKCHAT_TLS_KEY` and build with `--features tls`. TLS uses rustls
+`RUCHOIR_TLS_CERT` / `RUCHOIR_TLS_KEY` and build with `--features tls`. TLS uses rustls
 with the community `ring` provider (never AWS `aws-lc-rs`), per the no-US-dependency rule.
 
 ## Commands
 
-- Run: `cargo run -p workchat-api`
+- Run: `cargo run -p ruchoir-api` (loads a local `.env` via dotenvy; real env vars win). Set
+  `RUCHOIR_API_PORT=0` for a random free port when 8080 is taken; the bound port is logged.
 - Test: `cargo test --all-features`
-- Serves `WORKCHAT_WEB_DIST` (defaults to `./apps/web/out`), so build the web app first to
+- Serves `RUCHOIR_WEB_DIST` (defaults to `./apps/web/out`), so build the web app first to
   see the full app locally.
+- Optionally serves a self-hosted emoji pack under `/emoji` when `RUCHOIR_EMOJI_DIR` is set
+  (layout: `sprite.svg`, `animated/*.png`, `manifest.json`). Kept out of the web bundle because it
+  can be large; missing files 404 and the client falls back to native emoji. `ServeDir` guards path
+  traversal, and a `Cache-Control: public, max-age=604800` layer caps the pack at a couple of
+  requests per client per week (not `immutable`, so a rebuilt pack still propagates).

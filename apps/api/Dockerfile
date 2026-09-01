@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# Multi-stage build for the single Workchat production service.
+# Multi-stage build for the single Ruchoir production service.
 #
 # The Rust API also serves the static web bundle, so this image bundles both:
 #   1. `web`  - builds the Next.js static export (Node, build-time only).
@@ -22,7 +22,7 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 COPY apps/web ./apps/web
 RUN --mount=type=cache,target=/build/apps/web/.next/cache \
-    pnpm --filter @workchat/web build
+    pnpm --filter @ruchoir/web build
 
 # ---------------------------------------------------------------------------
 # Stage 2: build the Rust API (release).
@@ -37,8 +37,8 @@ COPY apps/api ./apps/api
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/build/target \
-    cargo build --release -p workchat-api \
-    && cp target/release/workchat-api /usr/local/bin/workchat-api
+    cargo build --release -p ruchoir-api \
+    && cp target/release/ruchoir-api /usr/local/bin/ruchoir-api
 
 # ---------------------------------------------------------------------------
 # Stage 3: minimal runtime.
@@ -47,14 +47,14 @@ FROM debian:bookworm-slim AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --uid 10001 --user-group workchat
-WORKDIR /srv/workchat
-COPY --from=api /usr/local/bin/workchat-api /usr/local/bin/workchat-api
-COPY --from=web /build/apps/web/out /srv/workchat/web
-ENV WORKCHAT_API_HOST=0.0.0.0 \
-    WORKCHAT_API_PORT=8080 \
-    WORKCHAT_WEB_DIST=/srv/workchat/web \
+    && useradd --system --uid 10001 --user-group ruchoir
+WORKDIR /srv/ruchoir
+COPY --from=api /usr/local/bin/ruchoir-api /usr/local/bin/ruchoir-api
+COPY --from=web /build/apps/web/out /srv/ruchoir/web
+ENV RUCHOIR_API_HOST=0.0.0.0 \
+    RUCHOIR_API_PORT=8080 \
+    RUCHOIR_WEB_DIST=/srv/ruchoir/web \
     RUST_LOG=info
-USER workchat
+USER ruchoir
 EXPOSE 8080
-CMD ["workchat-api"]
+CMD ["ruchoir-api"]

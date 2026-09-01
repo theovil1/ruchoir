@@ -1,0 +1,85 @@
+import type { CSSProperties } from "react";
+import { Avatar, Button, Icon } from "@/components/ds";
+import { getCurrentUser, getProfile } from "@/lib/data";
+import { presenceLabel } from "./presence";
+
+const card: CSSProperties = {
+  width: 280,
+  background: "var(--surface-canvas)",
+  border: "1px solid var(--border-subtle)",
+  borderRadius: "var(--radius-lg)",
+  boxShadow: "var(--shadow-popover)",
+  overflow: "hidden",
+};
+
+const row: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  fontSize: 13,
+  color: "var(--text-muted)",
+};
+
+export type UserProfileCardProps = {
+  name: string;
+  onViewFull: () => void;
+  onEditProfile: () => void;
+  onMessage: () => void;
+};
+
+/** Compact profile shown in a popover when a user is clicked in the feed. */
+export function UserProfileCard({ name, onViewFull, onEditProfile, onMessage }: UserProfileCardProps) {
+  const p = getProfile(name);
+  const isOwn = name === getCurrentUser().name;
+  return (
+    <div style={card}>
+      <div style={{ height: 44, background: "var(--surface-sunken)", borderBottom: "1px solid var(--border-subtle)" }} />
+      <div style={{ padding: "0 16px 14px", marginTop: -22 }}>
+        <Avatar name={p.name} size={56} presence={p.presence} kind={p.bot ? "bot" : "person"} />
+        <div style={{ marginTop: 8, fontSize: 17, fontWeight: 600, color: "var(--text-strong)" }}>
+          {p.name}
+          {p.pronouns ? (
+            <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-subtle)", marginLeft: 6 }}>
+              ({p.pronouns})
+            </span>
+          ) : null}
+        </div>
+        <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 1 }}>{p.role}</div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
+          <div style={row}>
+            <span style={{ width: 8, height: 8, borderRadius: "var(--radius-full)", background: `var(--presence-${p.presence})` }} />
+            {presenceLabel(p.presence)}
+          </div>
+          <div style={row}>
+            <Icon name="clock" size={14} />
+            {p.localTime} heure locale
+          </div>
+          {p.email ? (
+            <div style={{ ...row, minWidth: 0 }}>
+              <Icon name="at-sign" size={14} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span>
+            </div>
+          ) : null}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+          {isOwn ? (
+            <Button variant="secondary" size="sm" iconLeft="square-pen" onClick={onEditProfile} fullWidth>
+              Modifier le profil
+            </Button>
+          ) : (
+            <>
+              <Button variant="primary" size="sm" iconLeft="message-square" onClick={onMessage} fullWidth>
+                Message
+              </Button>
+              <Button variant="secondary" size="sm" onClick={onViewFull}>
+                Profil
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

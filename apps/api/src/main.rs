@@ -1,4 +1,4 @@
-//! Workchat API entrypoint.
+//! Ruchoir API entrypoint.
 //!
 //! For now this is a minimal but real service: it initializes structured logging,
 //! loads configuration from the environment, and serves an HTTP surface consisting of
@@ -17,6 +17,9 @@ use crate::config::Config;
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    // Load a local `.env` for `cargo run` convenience. Real environment variables always win, so
+    // this never overrides values injected by Docker / production.
+    let _ = dotenvy::dotenv();
     init_tracing();
 
     let config = match Config::from_env() {
@@ -30,7 +33,7 @@ async fn main() -> ExitCode {
     tracing::info!(
         addr = %config.addr,
         web_dist = %config.web_dist.display(),
-        "starting workchat-api"
+        "starting ruchoir-api"
     );
 
     match serve(config).await {
@@ -51,7 +54,7 @@ fn init_tracing() {
 /// Serve the application, selecting HTTPS when TLS material is configured and the
 /// `tls` feature is built in, otherwise plain HTTP for local development.
 async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
-    let app = http::router(&config.web_dist);
+    let app = http::router(&config.web_dist, config.emoji_dir.as_deref());
 
     #[cfg(feature = "tls")]
     if config.tls_enabled() {
@@ -67,7 +70,9 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let listener = tokio::net::TcpListener::bind(config.addr).await?;
-    tracing::info!("listening on http://{}", config.addr);
+    // Report the actual bound address: with RUCHOIR_API_PORT=0 the OS picks a free port.
+    let local_addr = listener.local_addr().unwrap_or(config.addr);
+    tracing::info!("listening on http://{}", local_addr);
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await?;

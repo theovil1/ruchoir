@@ -1,4 +1,4 @@
-# Cargo workspace root for the Workchat backend.
+# Cargo workspace root for the Ruchoir backend.
 # The Rust API is the single production service (it also serves the static web bundle).
 [workspace]
 resolver = "2"
@@ -8,7 +8,7 @@ members = ["apps/api"]
 edition = "2021"
 rust-version = "1.96"
 license = "AGPL-3.0-only"
-repository = "https://github.com/theovil1/workchat"
+repository = "https://github.com/theovil1/ruchoir"
 
 # Shared dependency versions. Pin exact minor versions here; keep AGENTS.md in sync.
 [workspace.dependencies]
@@ -20,6 +20,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Loads a local `.env` for `cargo run` (dev convenience). Community, MIT: compliant with the
+# no-US-dependency rule. Never overrides variables already set in the real environment.
+dotenvy = "0.15"
 # OpenAPI generation from code (dynamic, always in sync). `utoipa` is community,
 # EU-authored: compliant with the no-US-dependency rule.
 utoipa = { version = "5", features = ["axum_extras"] }

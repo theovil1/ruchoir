@@ -6,10 +6,10 @@ making changes. The nearest `AGENTS.md` to the file you are editing takes preced
 
 ## Project overview
 
-Workchat (working codename - final name TBD) is a French, sovereign, open-core alternative
+Ruchoir (working codename - final name TBD) is a French, sovereign, open-core alternative
 to Slack, Mattermost and Nextcloud: a single professional workspace combining real-time team
 messaging and file sharing. Its signature feature is a zero-loss import tool that migrates an
-existing Nextcloud or Mattermost instance into Workchat in under two minutes.
+existing Nextcloud or Mattermost instance into Ruchoir in under two minutes.
 
 Web interface only for now. The core is open source under **AGPLv3**.
 
@@ -93,16 +93,16 @@ docker-compose.yml   Full stack (api, web, PostgreSQL, Valkey, Garage)
 See `docs/development.md` for the full workflow. Quick reference:
 
 - Configure env: `cp .env.example .env` (never commit `.env`).
-- Build the web export: `pnpm install && pnpm --filter @workchat/web build`.
-- Run the API (serves the export at http://localhost:8080): `cargo run -p workchat-api`.
+- Build the web export: `pnpm install && pnpm --filter @ruchoir/web build`.
+- Run the API (serves the export at http://localhost:8080): `cargo run -p ruchoir-api`.
 - Full stack: `docker compose up --build`.
-- Optional dev TLS: `scripts/dev-tls.sh`, then `cargo run -p workchat-api --features tls`.
+- Optional dev TLS: `scripts/dev-tls.sh`, then `cargo run -p ruchoir-api --features tls`.
 
 ## Build, test & lint
 
 - **Rust:** `cargo fmt --all --check`, `cargo clippy --all-targets --all-features -- -D warnings`,
   `cargo test --all-features` (run before every PR; CI enforces them).
-- **Web:** package manager `pnpm`; `pnpm --filter @workchat/web lint` and `... build`.
+- **Web:** package manager `pnpm`; `pnpm --filter @ruchoir/web lint` and `... build`.
 - **Dependencies:** `scripts/check-deps.sh` for an outdated + security-audit sweep.
 - **Design adherence:** the design system ships an oxlint config
   (`packages/design-system/_adherence.oxlintrc.json`) - run it to enforce design-token usage.
@@ -125,9 +125,10 @@ See `docs/development.md` for the full workflow. Quick reference:
 A design system handoff already exists (design tokens + React components + screen mockups).
 Follow it strictly:
 
-- **One saturated color only** across the product: Terracotta `#E0533D` (`--terracotta-500`),
-  used sparingly as an accent. Everything else is olive-tinted neutral grey and desaturated
-  semantic colors.
+- **Two brand colors** (updated 2026-08-31): terracotta `#c65d45` (`--terracotta-500`), the accent,
+  used sparingly; and deep teal `#18383d` (`--teal-500`), reserved for dark surfaces (toasts, dark
+  chrome, future dark theme). Everything else is warm cream/sand neutral (`#f7f3ed` .. ink `#171716`)
+  and desaturated semantic colors.
 - Typography: IBM Plex Sans (UI, 14px body) and IBM Plex Mono (code), per the token scale.
 - Screen mockups are HTML/CSS/JS prototypes: recreate them faithfully in React; do not copy the
   prototype's internal structure when it does not fit.

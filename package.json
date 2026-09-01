@@ -1,17 +1,17 @@
 {
-  "name": "workchat",
+  "name": "ruchoir",
   "version": "0.0.0",
   "private": true,
-  "description": "Workchat: a sovereign, open-core workspace combining real-time messaging and file sharing.",
+  "description": "Ruchoir: a sovereign, open-core workspace combining real-time messaging and file sharing.",
   "license": "AGPL-3.0-only",
   "packageManager": "pnpm@11.24.0+sha512.bd27e345e976dcb0be0b7a1228217b049a817e21b1f355c90dbe7dc46671895a8bc1e6d06c24554505ea93ea0b45f489a27ec1bfbc8de6a9659fca0f16fa0000",
   "engines": {
     "node": ">=22 <25"
   },
   "scripts": {
-    "web:dev": "pnpm --filter @workchat/web dev",
-    "web:build": "pnpm --filter @workchat/web build",
-    "web:lint": "pnpm --filter @workchat/web lint",
+    "web:dev": "pnpm --filter @ruchoir/web dev",
+    "web:build": "pnpm --filter @ruchoir/web build",
+    "web:lint": "pnpm --filter @ruchoir/web lint",
     "lint": "pnpm -r lint",
     "build": "pnpm -r build"
   }

@@ -1,7 +1,7 @@
 // @ts-check
 
 /**
- * Next.js configuration for Workchat.
+ * Next.js configuration for Ruchoir.
  *
  * The web client is compiled to a fully static bundle (`output: "export"`) and served
  * by the Rust API. This rules out SSR, Server Actions, Next API routes and server-side

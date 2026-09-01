@@ -1,0 +1,421 @@
+/*
+ * Ruchoir design tokens, ported from the design-system handoff.
+ *
+ * These are the raw CSS custom properties the design-system component styles resolve
+ * against (see components.css). The Tailwind `@theme` block in globals.css mirrors the
+ * brand subset so Tailwind utilities exist too; this file is the full source of truth
+ * for the component layer. Two brand colours: terracotta (the accent) and a deep teal (dark surfaces).
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Neutrals: warm sand/cream, ramped from the brand cream #f7f3ed to the brand ink #171716. */
+  --grey-0: #f7f3ed;
+  --grey-25: #f3eee6;
+  --grey-50: #f0e8e0;
+  --grey-100: #e8ded2;
+  --grey-200: #cec5ba;
+  --grey-300: #b4aca3;
+  --grey-400: #9a938c;
+  --grey-500: #807a74;
+  --grey-600: #65625c;
+  --grey-700: #4b4945;
+  --grey-800: #31302e;
+  --grey-900: #171716;
+
+  /* Terracotta: primary brand colour (palette #c65d45). */
+  --terracotta-50: #f8ece9;
+  --terracotta-100: #f0d5cf;
+  --terracotta-200: #e5b4a9;
+  --terracotta-300: #db9788;
+  --terracotta-400: #d07a66;
+  --terracotta-500: #c65d45;
+  --terracotta-600: #aa513d;
+  --terracotta-700: #894433;
+  --terracotta-800: #69362a;
+  --terracotta-900: #492821;
+
+  /* Teal: second brand colour, reserved for dark surfaces (toasts, dark chrome, future dark theme).
+     Holds white/cream text (white on -500 = 12.6:1). Terracotta stays the only accent. */
+  --teal-500: #18383d;
+  --teal-600: #122c30;
+  --teal-700: #0d2124;
+
+  /* Semantic scales: desaturated, never competing with terracotta. */
+  --green-50: #eef6f1;
+  --green-100: #d3e8dc;
+  --green-500: #1f7a4d;
+  --green-600: #186340;
+  --green-700: #124b31;
+
+  --amber-50: #fbf4e6;
+  --amber-100: #f3e3bf;
+  --amber-500: #a9750c;
+  --amber-600: #8a5f09;
+  --amber-700: #6b4a07;
+
+  --crimson-50: #fceff1;
+  --crimson-100: #f6d6db;
+  --crimson-500: #b7243a;
+  --crimson-600: #971c2f;
+  --crimson-700: #761624;
+
+  --blue-50: #eef2f9;
+  --blue-100: #d5dff1;
+  --blue-500: #2c5fa8;
+  --blue-600: #234c88;
+  --blue-700: #1b3a68;
+
+  /* Alpha veils: laid over unknown backgrounds (images, video, hovers). */
+  --alpha-ink-4: rgb(23 23 22 / 0.04);
+  --alpha-ink-8: rgb(23 23 22 / 0.08);
+  --alpha-ink-16: rgb(23 23 22 / 0.16);
+  --alpha-ink-60: rgb(23 23 22 / 0.6);
+  --alpha-paper-70: rgb(247 243 237 / 0.7);
+  --alpha-paper-90: rgb(247 243 237 / 0.9);
+
+  /*
+   * Type scale. L5a reframing (see docs/specs/L5a-reframing-log.md): bumped one notch to a
+   * "comfort" density (PM found the DS 1440-calibrated scale too small on wider screens).
+   * DS originals were 11/12/13/14/16/18/22. Restore those to return to the dense DS scale.
+   */
+  --text-2xs: 12px;
+  --text-xs: 13px;
+  --text-sm: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 38px;
+  --text-5xl: 50px;
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-loose: 1.65;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --tracking-display: -0.02em;
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --tracking-caps: 0.06em;
+
+  /* Spacing: 4px grid, 2px half-steps for optical adjustments. */
+  --space-0: 0;
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* Fixed layout templates for the web app. Bumped with the L5a comfort density (see above);
+   * DS originals: rail 56, sidebar 248, panel 320, topbar 48, composer 44, hit-target 32. */
+  --rail-width: 60px;
+  --sidebar-width: 264px;
+  --panel-width: 340px;
+  /* Thread panel is wider than the files/members panel: it holds a conversation. */
+  --thread-width: 420px;
+  /* Drives every top bar (wordmark, channel header, panel heads) so they align. */
+  --topbar-height: 48px;
+  --composer-min-height: 48px;
+  --content-max-width: 720px;
+  --hit-target: 36px;
+
+  /*
+   * L5a reframing (see docs/specs/L5a-reframing-log.md): the channel feed uses a wider
+   * reading measure than the DS document measure (--content-max-width, 720px). A chat feed
+   * is not a document; 720px left too much idle horizontal space. Kept centered.
+   */
+  --channel-measure: 960px;
+
+  /* Radii: short. The brand is angular, not rounded. */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-full: 999px;
+
+  --border-width: 1px;
+  --border-width-strong: 2px;
+
+  /* Elevation: read the hairline first, the shadow second. Two shadows, not ten. */
+  --shadow-none: none;
+  --shadow-popover: 0 1px 2px rgb(23 23 22 / 0.06), 0 8px 20px -6px rgb(23 23 22 / 0.14);
+  --shadow-dialog: 0 2px 4px rgb(23 23 22 / 0.06), 0 24px 48px -12px rgb(23 23 22 / 0.22);
+  --shadow-inset-top: inset 0 1px 0 rgb(247 243 237 / 0.12);
+
+  --ring-width: 2px;
+  --ring-offset: 1px;
+  --focus-ring: 0 0 0 var(--ring-offset) var(--grey-0),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--terracotta-500);
+
+  /* Motion: short, dry, no bounce. Nothing draws attention to itself. */
+  --duration-instant: 80ms;
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 260ms;
+
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  --ease-entrance: cubic-bezier(0.16, 0.84, 0.44, 1);
+
+  /* Surfaces */
+  --surface-canvas: var(--grey-0);
+  --surface-sunken: var(--grey-50);
+  --surface-card: var(--grey-0);
+  --surface-raised: var(--grey-0);
+  --surface-chrome: var(--grey-25);
+  --surface-inverse: var(--teal-500);
+  --surface-hover: var(--alpha-ink-4);
+  --surface-active: var(--alpha-ink-8);
+  --surface-selected: var(--terracotta-50);
+  --surface-disabled: var(--grey-50);
+  --scrim: var(--alpha-ink-60);
+
+  /* Text */
+  --text-strong: var(--grey-900);
+  --text-body: var(--grey-800);
+  --text-muted: var(--grey-600);
+  /* Warm subtle grey: clears WCAG AA on every light surface including the sunken cream
+     (5.2:1 canvas / 4.8:1 sunken) while staying lighter than --text-muted, so the hierarchy holds. */
+  --text-subtle: #6b655c;
+  --text-disabled: var(--grey-400);
+  --text-inverse: var(--grey-0);
+  --text-accent: var(--terracotta-700);
+  --text-link: var(--terracotta-700);
+  --text-link-hover: var(--terracotta-800);
+
+  /* Hairlines */
+  --border-subtle: var(--grey-100);
+  --border-default: var(--grey-200);
+  --border-strong: var(--grey-300);
+  --border-inverse: rgb(247 243 237 / 0.18);
+  --border-accent: var(--terracotta-500);
+
+  /* Primary action */
+  /* terracotta-600 (not -500) so white text clears WCAG AA (~5.3:1); -500 stays the brand accent. */
+  --action-primary-bg: var(--terracotta-600);
+  --action-primary-bg-hover: var(--terracotta-700);
+  --action-primary-bg-active: var(--terracotta-800);
+  --action-primary-fg: var(--grey-0);
+
+  /* Secondary action (outlined) */
+  --action-secondary-bg: var(--grey-0);
+  --action-secondary-bg-hover: var(--grey-50);
+  --action-secondary-bg-active: var(--grey-100);
+  --action-secondary-fg: var(--grey-800);
+  --action-secondary-border: var(--grey-200);
+
+  /* Ghost action */
+  --action-ghost-bg-hover: var(--alpha-ink-4);
+  --action-ghost-bg-active: var(--alpha-ink-8);
+  --action-ghost-fg: var(--grey-700);
+
+  /* Destructive action */
+  --action-danger-bg: var(--crimson-500);
+  --action-danger-bg-hover: var(--crimson-600);
+  --action-danger-fg: var(--grey-0);
+
+  /* Feedback states */
+  --status-success-fg: var(--green-700);
+  --status-success-bg: var(--green-50);
+  --status-success-border: var(--green-100);
+  --status-warning-fg: var(--amber-700);
+  --status-warning-bg: var(--amber-50);
+  --status-warning-border: var(--amber-100);
+  --status-danger-fg: var(--crimson-700);
+  --status-danger-bg: var(--crimson-50);
+  --status-danger-border: var(--crimson-100);
+  --status-info-fg: var(--blue-700);
+  --status-info-bg: var(--blue-50);
+  --status-info-border: var(--blue-100);
+
+  /* Presence: avatar dots */
+  --presence-online: var(--green-500);
+  --presence-away: var(--amber-500);
+  --presence-busy: var(--crimson-500);
+  --presence-offline: var(--grey-300);
+
+  /* Import provenance (Nextcloud, Slack, Mattermost): grey, never coloured. */
+  --import-source-fg: var(--grey-600);
+  --import-source-bg: var(--grey-50);
+}
+
+/* Base reset, ported from the handoff's base tokens. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+::selection {
+  background: var(--terracotta-100);
+  color: var(--terracotta-900);
+}
+::placeholder {
+  color: var(--text-subtle);
+}
+
+/* ============================================================================
+ * Themes
+ *
+ * The :root block above IS the default "RuchUI" theme (warm cream + terracotta).
+ * The three alternates below override only the raw neutral ramp plus the handful
+ * of semantic tokens that cannot follow from a ramp swap alone (veils, elevation,
+ * inverse/accent text, status fills). Because the semantic layer resolves against
+ * the ramp via var(), swapping the ramp flips surfaces and text automatically.
+ *
+ * A theme is selected by setting data-theme on <html> (see SettingsProvider and
+ * the pre-paint script in layout.tsx); absent, RuchUI applies. These blocks come
+ * after :root so, at equal specificity, source order lets them win.
+ * ========================================================================== */
+
+/* --- Clair: neutral white/grey canvas, terracotta accent kept -------------- */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --grey-0: #ffffff;
+  --grey-25: #fafafb;
+  --grey-50: #f4f5f6;
+  --grey-100: #e8eaed;
+  --grey-200: #d7dade;
+  --grey-300: #c0c4ca;
+  --grey-400: #9a9ea6;
+  --grey-500: #767a82;
+  --grey-600: #5b5f67;
+  --grey-700: #42454c;
+  --grey-800: #2a2c30;
+  --grey-900: #17181b;
+
+  /* Rail/sidebar sit a touch greyer than the pure-white canvas. */
+  --surface-chrome: var(--grey-50);
+  /* grey-500 (#767a82) is only 4.31:1 on white: darkened so subtle text clears WCAG AA. */
+  --text-subtle: #676b73;
+  /* Frosted sticky headers: tint the veil to the canvas, not the brand cream. */
+  --alpha-paper-70: rgb(255 255 255 / 0.7);
+  --alpha-paper-90: rgb(255 255 255 / 0.9);
+}
+
+/* --- Shared dark scaffolding (RuchUI-Dark + Sombre) ------------------------- */
+[data-theme="ruchui-dark"],
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --text-subtle: var(--grey-500);
+
+  /* Veils flip: light films over dark surfaces for hover/press. */
+  --alpha-ink-4: rgb(255 255 255 / 0.05);
+  --alpha-ink-8: rgb(255 255 255 / 0.1);
+  --alpha-ink-16: rgb(255 255 255 / 0.16);
+  --surface-hover: rgb(255 255 255 / 0.05);
+  --surface-active: rgb(255 255 255 / 0.1);
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.05);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.1);
+
+  /* Scrim reads stronger over an already-dark page. */
+  --scrim: rgb(0 0 0 / 0.66);
+
+  /* Elevation reads as black, not warm ink, on dark. */
+  --shadow-popover: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 20px -6px rgb(0 0 0 / 0.55);
+  --shadow-dialog: 0 2px 4px rgb(0 0 0 / 0.4), 0 24px 48px -12px rgb(0 0 0 / 0.62);
+  --shadow-inset-top: inset 0 1px 0 rgb(255 255 255 / 0.06);
+
+  /* Toasts/tooltips keep a light label on their dark chip. */
+  --text-inverse: #f4f3ed;
+
+  /* Primary button keeps the terracotta-600 fill; its label stays light. */
+  --action-primary-fg: #fbf3ee;
+
+  /* Links and accent text lighten so they clear contrast on a dark canvas. */
+  --text-accent: var(--terracotta-300);
+  --text-link: var(--terracotta-300);
+  --text-link-hover: var(--terracotta-200);
+
+  /* Selected rows: a terracotta wash instead of the pale light tint. */
+  --surface-selected: rgb(198 93 69 / 0.2);
+
+  /* Status: dark-tinted fills with lightened text (the pale light tints would glare). */
+  --status-success-fg: #7fd3a1;
+  --status-success-bg: rgb(31 122 77 / 0.16);
+  --status-success-border: rgb(31 122 77 / 0.34);
+  --status-warning-fg: #e6bd63;
+  --status-warning-bg: rgb(169 117 12 / 0.18);
+  --status-warning-border: rgb(169 117 12 / 0.36);
+  --status-danger-fg: #f0909e;
+  --status-danger-bg: rgb(183 36 58 / 0.18);
+  --status-danger-border: rgb(183 36 58 / 0.36);
+  --status-info-fg: #8fb2e6;
+  --status-info-bg: rgb(44 95 168 / 0.18);
+  --status-info-border: rgb(44 95 168 / 0.36);
+
+  --border-inverse: rgb(255 255 255 / 0.16);
+}
+
+[data-theme="ruchui-dark"] ::selection,
+[data-theme="dark"] ::selection {
+  background: var(--terracotta-500);
+  color: #fff;
+}
+
+/* --- RuchUI-Dark: deep-teal surfaces, cream text, terracotta accent -------- */
+[data-theme="ruchui-dark"] {
+  --grey-0: #143336;
+  --grey-25: #0f2629;
+  --grey-50: #102c2f;
+  --grey-100: #244b4e;
+  --grey-200: #315a5d;
+  --grey-300: #416d70;
+  --grey-400: #5f898b;
+  --grey-500: #83a7a7;
+  --grey-600: #a6c4c3;
+  --grey-700: #c2d8d6;
+  --grey-800: #e0ece9;
+  --grey-900: #f5f3ec;
+
+  /* Cards lift a hair above the canvas so panels read without a heavy border. */
+  --surface-card: #183a3c;
+  --surface-raised: #183a3c;
+  --surface-inverse: var(--teal-500);
+  /* Frosted sticky headers tint to the teal canvas. */
+  --alpha-paper-70: rgb(20 51 54 / 0.72);
+  --alpha-paper-90: rgb(20 51 54 / 0.92);
+}
+
+/* --- Sombre: neutral slate dark, terracotta accent kept -------------------- */
+[data-theme="dark"] {
+  --grey-0: #1a1a1c;
+  --grey-25: #141416;
+  --grey-50: #202023;
+  --grey-100: #2c2c30;
+  --grey-200: #3a3a40;
+  --grey-300: #4a4a51;
+  --grey-400: #6d6d75;
+  --grey-500: #8a8a92;
+  --grey-600: #a7a7ae;
+  --grey-700: #c3c3c9;
+  --grey-800: #dedee2;
+  --grey-900: #f4f4f6;
+
+  --surface-card: #202023;
+  --surface-raised: #202023;
+  --surface-inverse: #2f2f34;
+  /* Frosted sticky headers tint to the neutral dark canvas. */
+  --alpha-paper-70: rgb(26 26 28 / 0.72);
+  --alpha-paper-90: rgb(26 26 28 / 0.92);
+}

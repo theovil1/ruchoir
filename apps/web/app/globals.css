@@ -1,54 +1,165 @@
 @import "tailwindcss";
+@import "./tokens.css";
+@import "./components.css";
 
 /*
  * Design tokens (Tailwind v4 is CSS-first: theme values live here, not in a JS config).
- * This is the baseline encoding the two hard brand rules: Terracotta is the single
- * saturated accent, and IBM Plex Sans/Mono are the type families. The full design system
- * (olive-tinted neutrals, semantic scales, elevation, motion) is wired in later.
+ * The full token set lives in tokens.css; this @theme block mirrors the brand subset so
+ * Tailwind utilities (bg-terracotta-500, font-sans, ...) exist alongside the raw vars.
+ * Two brand colours: terracotta (accent) and teal (dark surfaces); IBM Plex Sans/Mono are the type.
  */
 @theme {
   --font-sans: "IBM Plex Sans", "Helvetica Neue", Helvetica, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* The only saturated color in the product. Use sparingly, as an accent. */
-  --color-terracotta-50: #fdf3f0;
-  --color-terracotta-100: #fbe0d9;
-  --color-terracotta-200: #f5beb1;
-  --color-terracotta-300: #ee9484;
-  --color-terracotta-400: #e76f5b;
-  --color-terracotta-500: #e0533d;
-  --color-terracotta-600: #c43f2b;
-  --color-terracotta-700: #9e3222;
-  --color-terracotta-800: #75261a;
-  --color-terracotta-900: #48170f;
+  /* Primary brand accent (palette #c65d45). Use sparingly. */
+  --color-terracotta-50: #f8ece9;
+  --color-terracotta-100: #f0d5cf;
+  --color-terracotta-200: #e5b4a9;
+  --color-terracotta-300: #db9788;
+  --color-terracotta-400: #d07a66;
+  --color-terracotta-500: #c65d45;
+  --color-terracotta-600: #aa513d;
+  --color-terracotta-700: #894433;
+  --color-terracotta-800: #69362a;
+  --color-terracotta-900: #492821;
+
+  /* Second brand colour: deep teal, for dark surfaces. */
+  --color-teal-500: #18383d;
+  --color-teal-600: #122c30;
+  --color-teal-700: #0d2124;
 }
 
 /*
- * Self-hosted IBM Plex fonts (OFL). Sovereignty rule: never load fonts from Google Fonts
- * or any external CDN. Drop the woff2 files into `public/fonts/` (see the README there).
- * Until they are present the stack falls back to system fonts; the build still succeeds.
+ * Self-hosted IBM Plex fonts (OFL, latin subset). Sovereignty rule: never load fonts from
+ * Google Fonts or any external CDN. The woff2 binaries live in `public/fonts/` (see the README
+ * and OFL.txt there). The latin subset covers French fully (all accents are in Latin-1). Only the
+ * weights the UI uses are shipped: Sans 400/500/600/700, Mono 400/500/600.
  */
 @font-face {
   font-family: "IBM Plex Sans";
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 400;
   font-display: swap;
-  src: url("/fonts/ibm-plex-sans-var.woff2") format("woff2");
+  src: url("/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
 }
-
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-sans-latin-700-normal.woff2") format("woff2");
+}
 @font-face {
   font-family: "IBM Plex Mono";
   font-style: normal;
-  font-weight: 400 600;
+  font-weight: 400;
   font-display: swap;
-  src: url("/fonts/ibm-plex-mono-var.woff2") format("woff2");
+  src: url("/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2");
 }
 
+/*
+ * OpenDyslexic (OFL, self-hosted like IBM Plex): a dyslexia-friendly typeface offered as an
+ * accessibility option. Weighted bottoms and distinct letter shapes reduce letter swapping.
+ * The woff2 binaries live in `public/fonts/` (see the README there). If they are absent the
+ * "dyslexic" option simply falls back to the generic sans stack below.
+ */
+@font-face {
+  font-family: "OpenDyslexic";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/opendyslexic-400-normal.otf") format("opentype");
+}
+@font-face {
+  font-family: "OpenDyslexic";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/opendyslexic-700-normal.otf") format("opentype");
+}
+
+/*
+ * Typeface options (personal preference, applied as data-font on <html>). Overriding --font-sans
+ * cascades to every surface, since the whole UI reads var(--font-sans). The default (plex) needs no
+ * override: the :root value above already is IBM Plex.
+ */
+:root[data-font="system"] {
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+:root[data-font="dyslexic"] {
+  --font-sans: "OpenDyslexic", "Comic Sans MS", "Segoe UI", sans-serif;
+}
+
+/*
+ * Text size (personal preference, applied as data-text on <html>). The UI is laid out in pixels, so
+ * a proportional zoom scales text and spacing together, keeping every screen coherent. Medium is the
+ * unscaled default.
+ */
+:root[data-text="s"] {
+  --ui-zoom: 0.92;
+}
+:root[data-text="l"] {
+  --ui-zoom: 1.1;
+}
+:root[data-text="xl"] {
+  --ui-zoom: 1.2;
+}
 :root {
-  color-scheme: light;
+  zoom: var(--ui-zoom, 1);
+  /*
+   * CSS `zoom` scales rendered size, but viewport units (vh/vw) and fixed-element containing blocks
+   * do NOT track it: a raw 100vh box would render at 100vh * zoom and overflow the screen. These
+   * compensated units divide by the zoom first, so a box sized var(--ui-vh) renders at exactly the
+   * viewport once zoom scales it back up. Full-height shells and full-screen overlays use them; both
+   * resolve to 100dvh / 100vw at the default zoom of 1, so nothing changes when the text size is Normal.
+   */
+  --ui-vh: calc(100dvh / var(--ui-zoom, 1));
+  --ui-vw: calc(100vw / var(--ui-zoom, 1));
 }
 
 body {
-  @apply bg-white text-neutral-800 font-sans antialiased;
-  font-size: 14px;
+  background: var(--surface-canvas);
+  color: var(--text-body);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /*
+   * Pin the body to the zoom-compensated viewport and clip it. At the default zoom this is just
+   * 100vw x 100dvh; when a larger text size zooms the root, this keeps the page itself from scrolling
+   * on either axis (the fixed-height shells inside manage their own internal scroll areas).
+   */
+  width: var(--ui-vw, 100vw);
+  height: var(--ui-vh, 100dvh);
+  overflow: hidden;
 }

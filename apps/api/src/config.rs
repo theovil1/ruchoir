@@ -14,6 +14,10 @@ pub struct Config {
     pub addr: SocketAddr,
     /// Directory holding the static web bundle (Next.js export output) to serve.
     pub web_dist: PathBuf,
+    /// Optional directory holding the self-hosted emoji pack (Fluent assets), served under
+    /// `/emoji`. When unset or absent, the client falls back to native OS emoji. The pack is a
+    /// deployment choice kept out of the web bundle because it can be large.
+    pub emoji_dir: Option<PathBuf>,
     /// Optional TLS material. When both are set (and the `tls` feature is built in),
     /// the server serves HTTPS; otherwise it serves plain HTTP (local dev only).
     pub tls_cert: Option<PathBuf>,
@@ -23,21 +27,23 @@ pub struct Config {
 impl Config {
     /// Build the configuration from the process environment, applying defaults.
     pub fn from_env() -> Result<Self, ConfigError> {
-        let host: IpAddr = env_or("WORKCHAT_API_HOST", "0.0.0.0")
+        let host: IpAddr = env_or("RUCHOIR_API_HOST", "0.0.0.0")
             .parse()
-            .map_err(|_| ConfigError::Invalid("WORKCHAT_API_HOST"))?;
-        let port: u16 = env_or("WORKCHAT_API_PORT", "8080")
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_API_HOST"))?;
+        let port: u16 = env_or("RUCHOIR_API_PORT", "8080")
             .parse()
-            .map_err(|_| ConfigError::Invalid("WORKCHAT_API_PORT"))?;
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_API_PORT"))?;
 
-        let web_dist = PathBuf::from(env_or("WORKCHAT_WEB_DIST", "./apps/web/out"));
+        let web_dist = PathBuf::from(env_or("RUCHOIR_WEB_DIST", "./apps/web/out"));
+        let emoji_dir = env_opt("RUCHOIR_EMOJI_DIR").map(PathBuf::from);
 
-        let tls_cert = env_opt("WORKCHAT_TLS_CERT").map(PathBuf::from);
-        let tls_key = env_opt("WORKCHAT_TLS_KEY").map(PathBuf::from);
+        let tls_cert = env_opt("RUCHOIR_TLS_CERT").map(PathBuf::from);
+        let tls_key = env_opt("RUCHOIR_TLS_KEY").map(PathBuf::from);
 
         Ok(Self {
             addr: SocketAddr::new(host, port),
             web_dist,
+            emoji_dir,
             tls_cert,
             tls_key,
         })

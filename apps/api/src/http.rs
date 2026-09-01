@@ -6,6 +6,7 @@ use axum::http::{header, HeaderName, HeaderValue};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::Serialize;
+use tower::ServiceBuilder;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
@@ -26,7 +27,7 @@ impl Health {
     fn ok() -> Self {
         Self {
             status: "ok",
-            service: "workchat-api",
+            service: "ruchoir-api",
             version: env!("CARGO_PKG_VERSION"),
         }
     }
@@ -67,7 +68,7 @@ pub(crate) async fn api_health() -> Json<Health> {
 /// aligned with the "self-hosted, no external origin" posture
 /// (self-hosted, no external origin). It is tightened later (nonce-based CSP,
 /// HSTS once TLS is terminated in front of the API).
-pub fn router(web_dist: &Path) -> Router {
+pub fn router(web_dist: &Path, emoji_dir: Option<&Path>) -> Router {
     let index = web_dist.join("index.html");
     let static_service = ServeDir::new(web_dist).not_found_service(ServeFile::new(index));
 
@@ -83,10 +84,34 @@ pub fn router(web_dist: &Path) -> Router {
                style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; \
                connect-src 'self'";
 
-    Router::new()
+    let mut router = Router::new()
         .route("/healthz", get(healthz))
         .route("/api/v1/health", get(api_health))
-        .route("/api/openapi.json", get(crate::openapi::openapi_json))
+        .route("/api/openapi.json", get(crate::openapi::openapi_json));
+
+    // Optional self-hosted emoji pack. `ServeDir` handles path traversal safely and returns 404
+    // for missing files, which the client treats as "no asset" and renders the native glyph. The
+    // pack lives outside the web bundle so a deployment can omit it.
+    //
+    // Emoji assets are large and change only when the pack is rebuilt, so they are cached for a week.
+    // The client fetches the manifest and the single sprite once, then reuses them; this caps the
+    // pack at a couple of requests per client per week instead of one per glyph on every load. The
+    // window is intentionally not `immutable`: `sprite.svg`/`manifest.json` keep a stable name across
+    // rebuilds, so a bounded max-age lets a rebuilt pack propagate (or a hard refresh forces it).
+    if let Some(dir) = emoji_dir {
+        let emoji_service = ServeDir::new(dir);
+        router = router.nest_service(
+            "/emoji",
+            ServiceBuilder::new()
+                .layer(SetResponseHeaderLayer::overriding(
+                    header::CACHE_CONTROL,
+                    HeaderValue::from_static("public, max-age=604800"),
+                ))
+                .service(emoji_service),
+        );
+    }
+
+    router
         .fallback_service(static_service)
         .layer(set_header(header::CONTENT_SECURITY_POLICY, csp))
         .layer(set_header(header::X_CONTENT_TYPE_OPTIONS, "nosniff"))

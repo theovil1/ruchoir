@@ -3,66 +3,558 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Workchat API reference</title>
+    <title>MielApi reference</title>
+    <meta name="description" content="MielApi: the Ruchoir HTTP API reference." />
+    <!--
+      Our own OpenAPI reference renderer. No third-party viewer, no CDN, no external request:
+      the page fetches the live spec at /api/openapi.json (same origin) and renders it. This
+      replaced the vendored Scalar bundle (US-governed, 2.5 MB) with ~1 self-contained file,
+      which is both lighter and consistent with the sovereignty rule.
+    -->
     <style>
-      /* Provisional Workchat wordmark bar. The brand is not finalized (the design system
-         ships a placeholder logotype); full brand integration lands later. */
-      .wc-topbar {
-        display: flex;
-        align-items: baseline;
-        gap: 12px;
-        padding: 14px 20px;
-        border-bottom: 1px solid #e7e7e1;
-        background: #fcfcfb;
-        font-family: "IBM Plex Sans", system-ui, sans-serif;
-      }
-      .wc-mark {
-        font-size: 20px;
-        font-weight: 600;
-        letter-spacing: -0.03em;
-        color: #1a1a18;
-      }
-      .wc-dot {
-        color: #e0533d;
-      }
-      .wc-sub {
-        font-size: 12px;
-        color: #7a7a71;
-        font-family: "IBM Plex Mono", ui-monospace, monospace;
+      /* Self-hosted IBM Plex (same woff2 the app ships, served same-origin from /fonts). */
+      @font-face { font-family: "IBM Plex Sans"; font-weight: 400; font-display: swap; src: url("/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); }
+      @font-face { font-family: "IBM Plex Sans"; font-weight: 500; font-display: swap; src: url("/fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); }
+      @font-face { font-family: "IBM Plex Sans"; font-weight: 600; font-display: swap; src: url("/fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); }
+      @font-face { font-family: "IBM Plex Sans"; font-weight: 700; font-display: swap; src: url("/fonts/ibm-plex-sans-latin-700-normal.woff2") format("woff2"); }
+      @font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-display: swap; src: url("/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2"); }
+      @font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-display: swap; src: url("/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2"); }
+
+      :root {
+        --accent: #c65d45;
+        --accent-strong: #aa513d;
+        --ink: #171716;
+        --body: #31302e;
+        --muted: #65625c;
+        --subtle: #807a74;
+        --canvas: #f7f3ed;
+        --raised: #fffdf9;
+        --sunken: #f0e8e0;
+        --chrome: #f3eee6;
+        --border: #e8ded2;
+        --border-strong: #d8cdbf;
+        --teal: #18383d;
+        --code-bg: #f3eee6;
+
+        --get: #1f7a4d;
+        --post: #2c5fa8;
+        --put: #a9750c;
+        --patch: #7a5cc6;
+        --delete: #b7243a;
+
+        --radius: 8px;
+        --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        --sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+        color-scheme: light;
       }
       @media (prefers-color-scheme: dark) {
-        .wc-topbar {
-          background: #1a1a18;
-          border-color: #2c2c29;
+        :root {
+          --accent: #d07a66;
+          --accent-strong: #db9788;
+          --ink: #f5f3ec;
+          --body: #e0ece9;
+          --muted: #a6c4c3;
+          --subtle: #83a7a7;
+          --canvas: #143336;
+          --raised: #183a3c;
+          --sunken: #102c2f;
+          --chrome: #0f2629;
+          --border: #244b4e;
+          --border-strong: #315a5d;
+          --code-bg: #102c2f;
+          color-scheme: dark;
         }
-        .wc-mark {
-          color: #f8f8f5;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; }
+      body {
+        font-family: var(--sans);
+        color: var(--body);
+        background: var(--canvas);
+        font-size: 15px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--accent-strong); }
+
+      /* Header */
+      header.top {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 56px;
+        padding: 0 20px;
+        background: color-mix(in srgb, var(--canvas) 88%, transparent);
+        backdrop-filter: saturate(1.4) blur(8px);
+        border-bottom: 1px solid var(--border);
+      }
+      .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+      .brand svg { width: 26px; height: 26px; display: block; }
+      .wordmark { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
+      .wordmark .miel { color: var(--accent); }
+      .wordmark .api { color: var(--ink); }
+      .ver {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--subtle);
+        padding: 2px 8px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+      }
+      .spec-link { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--muted); text-decoration: none; }
+      .spec-link:hover { color: var(--accent-strong); }
+
+      /* Layout */
+      .layout { display: grid; grid-template-columns: 264px minmax(0, 1fr); }
+      nav.side {
+        position: sticky;
+        top: 56px;
+        align-self: start;
+        height: calc(100vh - 56px);
+        overflow-y: auto;
+        padding: 20px 12px 40px;
+        border-right: 1px solid var(--border);
+      }
+      nav.side .group { margin-bottom: 18px; }
+      nav.side .group-title {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--subtle);
+        padding: 4px 10px;
+      }
+      nav.side a.navitem {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 10px;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--body);
+        font-size: 13.5px;
+      }
+      nav.side a.navitem:hover { background: var(--sunken); }
+      nav.side a.navitem.active { background: var(--sunken); color: var(--ink); font-weight: 500; }
+      nav.side a.navitem .path { font-family: var(--mono); font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      main { padding: 32px clamp(20px, 5vw, 56px) 96px; max-width: 940px; }
+      section { scroll-margin-top: 72px; }
+
+      /* Method badge */
+      .verb {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #fff;
+        padding: 2px 7px;
+        border-radius: 5px;
+        line-height: 1.5;
+      }
+      .verb.get { background: var(--get); }
+      .verb.post { background: var(--post); }
+      .verb.put { background: var(--put); }
+      .verb.patch { background: var(--patch); }
+      .verb.delete { background: var(--delete); }
+      .verb.head, .verb.options { background: var(--muted); }
+
+      /* Info block */
+      .info h1 { font-size: 30px; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 6px; }
+      .info .lead { font-size: 16px; color: var(--muted); margin: 0 0 16px; }
+      .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+      .chip {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+        background: var(--chrome);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 3px 10px;
+      }
+      .chip b { color: var(--body); font-weight: 500; }
+
+      hr.rule { border: 0; border-top: 1px solid var(--border); margin: 32px 0; }
+
+      /* Operation */
+      .op { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 28px; background: var(--raised); }
+      .op-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--chrome); flex-wrap: wrap; }
+      .op-head .route { font-family: var(--mono); font-size: 14px; color: var(--ink); font-weight: 500; word-break: break-all; }
+      .op-head .summary { color: var(--muted); font-size: 13.5px; }
+      .op-body { padding: 16px; }
+      .op-desc { color: var(--body); margin: 0 0 16px; }
+      .op-body h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--subtle); margin: 20px 0 8px; }
+      .op-body h3:first-child { margin-top: 0; }
+
+      /* Tables */
+      table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+      th { text-align: left; font-weight: 600; color: var(--subtle); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+      td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+      tr:last-child td { border-bottom: 0; }
+      .field { font-family: var(--mono); font-size: 13px; color: var(--ink); }
+      .type { font-family: var(--mono); font-size: 12.5px; color: var(--accent-strong); }
+      .req { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--delete); letter-spacing: 0.04em; }
+      .muted { color: var(--muted); }
+
+      /* Status rows */
+      .status { font-family: var(--mono); font-weight: 600; }
+      .status.ok { color: var(--get); }
+      .status.err { color: var(--delete); }
+      .status.other { color: var(--put); }
+
+      /* Schemas section */
+      .schema-card { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; overflow: hidden; background: var(--raised); }
+      .schema-card > .name { font-family: var(--mono); font-weight: 600; color: var(--ink); padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--chrome); }
+      .schema-card > .name .kind { color: var(--subtle); font-weight: 400; font-size: 12px; margin-left: 8px; }
+
+      code, .code { font-family: var(--mono); font-size: 0.9em; background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+      pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; overflow-x: auto; font-family: var(--mono); font-size: 13px; }
+
+      .state { padding: 60px 20px; text-align: center; color: var(--muted); }
+      .state code { color: var(--body); }
+
+      /* Mobile */
+      .menu-toggle { display: none; }
+      @media (max-width: 860px) {
+        .layout { grid-template-columns: 1fr; }
+        nav.side {
+          position: fixed;
+          inset: 56px 0 0 0;
+          height: auto;
+          background: var(--canvas);
+          border-right: 0;
+          transform: translateX(-100%);
+          transition: transform 160ms ease;
+          z-index: 9;
         }
-        .wc-sub {
-          color: #9c9c92;
+        nav.side.open { transform: translateX(0); }
+        .menu-toggle {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px; height: 36px;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          background: var(--raised);
+          color: var(--body);
+          cursor: pointer;
         }
       }
     </style>
   </head>
   <body>
-    <div class="wc-topbar">
-      <span class="wc-mark">Workchat<span class="wc-dot">.</span></span>
-      <span class="wc-sub">API reference</span>
+    <header class="top">
+      <button class="menu-toggle" id="menu" aria-label="Ouvrir la navigation" aria-expanded="false">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
+      <a class="brand" href="#top" aria-label="MielApi">
+        <!-- Inline hexagon mark (echoes the Ruchoir hive; drop a raster at /brand/mielapi-mark.png to swap). -->
+        <svg viewBox="0 0 48 48" aria-hidden="true">
+          <path d="M24 3.5 42.7 14.2v21.6L24 46.5 5.3 35.8V14.2z" fill="none" stroke="var(--accent)" stroke-width="4.5" stroke-linejoin="round"/>
+          <circle cx="18" cy="24" r="2.6" fill="var(--accent)"/>
+          <circle cx="29" cy="18.5" r="2.6" fill="var(--accent)"/>
+          <circle cx="29" cy="29.5" r="2.6" fill="var(--accent)"/>
+          <path d="M20.4 22.8 26.8 19M20.4 25.2 26.8 29" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+        <span class="wordmark"><span class="miel">Miel</span><span class="api">Api</span></span>
+      </a>
+      <span class="ver" id="version">…</span>
+      <a class="spec-link" href="/api/openapi.json">openapi.json</a>
+    </header>
+
+    <div class="layout">
+      <nav class="side" id="side" aria-label="Endpoints"></nav>
+      <main id="main">
+        <div class="state" id="state">Chargement de la spécification…</div>
+      </main>
     </div>
 
-    <!--
-      Interactive OpenAPI reference (Scalar), served same-origin (strict CSP). It renders
-      the live spec at /api/openapi.json. Configuration:
-        - withDefaultFonts:false  -> no external font CDN (sovereignty rule)
-        - customCss               -> Workchat palette (terracotta accent, olive neutrals),
-                                     IBM Plex fonts, and hides the "Powered by Scalar" link.
-      The standalone bundle is vendored: see public/vendor/README.md.
-    -->
-    <script
-      id="api-reference"
-      data-url="/api/openapi.json"
-      data-configuration="{&quot;withDefaultFonts&quot;:false,&quot;customCss&quot;:&quot;:root{--scalar-color-accent:#E0533D;--scalar-color-1:#1A1A18;--scalar-color-2:#43433E;--scalar-color-3:#7A7A71;--scalar-background-1:#FCFCFB;--scalar-background-2:#F8F8F5;--scalar-background-3:#F1F1EC;--scalar-border-color:#E7E7E1;--scalar-font:'IBM Plex Sans',system-ui,sans-serif;--scalar-font-code:'IBM Plex Mono',ui-monospace,monospace}.dark-mode{--scalar-color-accent:#E76F5B;--scalar-color-1:#F8F8F5;--scalar-color-2:#D8D8D0;--scalar-color-3:#9C9C92;--scalar-background-1:#1A1A18;--scalar-background-2:#2C2C29;--scalar-background-3:#43433E;--scalar-border-color:#2C2C29}a[href*='scalar.com']{display:none!important}&quot;}"
-    ></script>
-    <script src="/vendor/scalar.standalone.js"></script>
+    <script>
+      (function () {
+        "use strict";
+        var SPEC_URL = "/api/openapi.json";
+
+        function el(tag, attrs, children) {
+          var node = document.createElement(tag);
+          if (attrs) for (var k in attrs) {
+            if (k === "class") node.className = attrs[k];
+            else if (k === "text") node.textContent = attrs[k];
+            else if (k === "html") node.innerHTML = attrs[k];
+            else node.setAttribute(k, attrs[k]);
+          }
+          (children || []).forEach(function (c) { if (c) node.appendChild(c); });
+          return node;
+        }
+        function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
+        function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+
+        // Resolve a local $ref (#/components/schemas/X) against the spec.
+        function deref(schema, spec, seen) {
+          if (!schema || typeof schema !== "object") return schema;
+          if (schema.$ref) {
+            var path = schema.$ref.replace(/^#\//, "").split("/");
+            var cur = spec;
+            for (var i = 0; i < path.length; i++) { cur = cur && cur[path[i]]; }
+            if (!cur || (seen && seen.indexOf(schema.$ref) !== -1)) return { type: "object", _name: path[path.length - 1] };
+            var next = (seen || []).concat(schema.$ref);
+            var resolved = deref(cur, spec, next);
+            if (resolved && typeof resolved === "object" && !resolved._name) resolved._name = path[path.length - 1];
+            return resolved;
+          }
+          return schema;
+        }
+
+        // A short, human type label for a schema.
+        function typeLabel(schema, spec) {
+          if (!schema) return "any";
+          if (schema.$ref) { var p = schema.$ref.split("/"); return p[p.length - 1]; }
+          if (schema.enum) return schema.enum.map(function (v) { return JSON.stringify(v); }).join(" | ");
+          var t = schema.type;
+          if (Array.isArray(t)) t = t.join(" | ");
+          if (t === "array") { return typeLabel(schema.items || {}, spec) + "[]"; }
+          if (schema.oneOf || schema.anyOf) {
+            var arr = schema.oneOf || schema.anyOf;
+            return arr.map(function (s) { return typeLabel(s, spec); }).join(" | ");
+          }
+          if (schema.allOf) return schema.allOf.map(function (s) { return typeLabel(s, spec); }).join(" & ");
+          if (t) return schema.format ? t + " <" + schema.format + ">" : t;
+          if (schema.properties) return "object";
+          return "any";
+        }
+
+        // Render an object schema's properties as a table (one level deep).
+        function propsTable(schema, spec) {
+          var resolved = deref(schema, spec);
+          if (!resolved || !resolved.properties) return null;
+          var required = resolved.required || [];
+          var rows = Object.keys(resolved.properties).map(function (name) {
+            var p = resolved.properties[name];
+            return el("tr", null, [
+              el("td", null, [
+                el("span", { class: "field", text: name }),
+                required.indexOf(name) !== -1 ? el("span", { class: "req", text: " required", style: "margin-left:6px" }) : null,
+              ]),
+              el("td", null, [el("span", { class: "type", text: typeLabel(p, spec) })]),
+              el("td", { class: "muted", html: esc(p.description || "") }),
+            ]);
+          });
+          return el("table", null, [
+            el("thead", null, [el("tr", null, [
+              el("th", { text: "Field" }), el("th", { text: "Type" }), el("th", { text: "Description" }),
+            ])]),
+            el("tbody", null, rows),
+          ]);
+        }
+
+        function statusClass(code) {
+          var n = parseInt(code, 10);
+          if (n >= 200 && n < 300) return "ok";
+          if (n >= 400) return "err";
+          return "other";
+        }
+
+        var METHODS = ["get", "post", "put", "patch", "delete", "head", "options"];
+
+        function operationSection(method, path, op, spec, id) {
+          var head = el("div", { class: "op-head" }, [
+            el("span", { class: "verb " + method, text: method }),
+            el("span", { class: "route", text: path }),
+            op.summary ? el("span", { class: "summary", text: op.summary }) : null,
+          ]);
+          var body = el("div", { class: "op-body" }, []);
+          if (op.description) body.appendChild(el("p", { class: "op-desc", html: esc(op.description) }));
+
+          // Parameters
+          var params = (op.parameters || []);
+          if (params.length) {
+            body.appendChild(el("h3", { text: "Parameters" }));
+            body.appendChild(el("table", null, [
+              el("thead", null, [el("tr", null, [
+                el("th", { text: "Name" }), el("th", { text: "In" }), el("th", { text: "Type" }), el("th", { text: "Description" }),
+              ])]),
+              el("tbody", null, params.map(function (p) {
+                return el("tr", null, [
+                  el("td", null, [
+                    el("span", { class: "field", text: p.name }),
+                    p.required ? el("span", { class: "req", text: " required", style: "margin-left:6px" }) : null,
+                  ]),
+                  el("td", { class: "muted", text: p["in"] || "" }),
+                  el("td", null, [el("span", { class: "type", text: typeLabel(p.schema || {}, spec) })]),
+                  el("td", { class: "muted", html: esc(p.description || "") }),
+                ]);
+              })),
+            ]));
+          }
+
+          // Request body
+          var rb = op.requestBody;
+          if (rb && rb.content) {
+            body.appendChild(el("h3", { text: "Request body" }));
+            var ct = Object.keys(rb.content)[0];
+            var rbSchema = rb.content[ct] && rb.content[ct].schema;
+            body.appendChild(el("p", { class: "muted", html: "<code>" + esc(ct) + "</code>" + (rb.required ? " · <span class='req'>required</span>" : "") }));
+            var t = propsTable(rbSchema, spec);
+            if (t) body.appendChild(t);
+            else body.appendChild(el("p", { class: "muted", text: typeLabel(rbSchema, spec) }));
+          }
+
+          // Responses
+          if (op.responses) {
+            body.appendChild(el("h3", { text: "Responses" }));
+            var rows = Object.keys(op.responses).map(function (code) {
+              var r = op.responses[code] || {};
+              var schemaLabel = "";
+              if (r.content) {
+                var rct = Object.keys(r.content)[0];
+                if (rct && r.content[rct].schema) schemaLabel = typeLabel(r.content[rct].schema, spec);
+              }
+              return el("tr", null, [
+                el("td", null, [el("span", { class: "status " + statusClass(code), text: code })]),
+                el("td", { class: "muted", html: esc(r.description || "") }),
+                el("td", null, [schemaLabel ? el("span", { class: "type", text: schemaLabel }) : el("span", { class: "muted", text: "—" })]),
+              ]);
+            });
+            body.appendChild(el("table", null, [
+              el("thead", null, [el("tr", null, [
+                el("th", { text: "Status" }), el("th", { text: "Description" }), el("th", { text: "Body" }),
+              ])]),
+              el("tbody", null, rows),
+            ]));
+          }
+
+          return el("section", { id: id, class: "op" }, [head, body]);
+        }
+
+        function render(spec) {
+          var main = document.getElementById("main");
+          var side = document.getElementById("side");
+          main.innerHTML = "";
+          side.innerHTML = "";
+          var info = spec.info || {};
+          document.getElementById("version").textContent = "v" + (info.version || "?");
+          document.title = (info.title || "MielApi") + " reference";
+
+          // Info header
+          var badges = el("div", { class: "badges" }, [
+            el("span", { class: "chip", html: "OpenAPI <b>" + esc((spec.openapi || "3.1")) + "</b>" }),
+            info.license ? el("span", { class: "chip", html: "License <b>" + esc(info.license.name || "") + "</b>" }) : null,
+          ]);
+          (spec.servers || []).forEach(function (s) {
+            badges.appendChild(el("span", { class: "chip", html: "Server <b>" + esc(s.url) + "</b>" }));
+          });
+          main.appendChild(el("section", { id: "top", class: "info" }, [
+            el("h1", { text: info.title || "MielApi" }),
+            info.description ? el("p", { class: "lead", html: esc(info.description) }) : null,
+            badges,
+          ]));
+          main.appendChild(el("hr", { class: "rule" }));
+
+          // Group operations by first tag.
+          var paths = spec.paths || {};
+          var groups = {}; // tag -> [{method, path, op, id}]
+          var order = [];
+          Object.keys(paths).forEach(function (path) {
+            var item = paths[path];
+            METHODS.forEach(function (method) {
+              var op = item[method];
+              if (!op) return;
+              var tag = (op.tags && op.tags[0]) || "default";
+              if (!groups[tag]) { groups[tag] = []; order.push(tag); }
+              var id = "op-" + slug(method + "-" + path);
+              groups[tag].push({ method: method, path: path, op: op, id: id });
+            });
+          });
+
+          if (!order.length) {
+            main.appendChild(el("div", { class: "state", html: "No paths documented yet. As the API grows, its <code>#[utoipa::path]</code> handlers appear here automatically." }));
+          }
+
+          // Tag descriptions from the top-level tags list.
+          var tagDesc = {};
+          (spec.tags || []).forEach(function (t) { tagDesc[t.name] = t.description; });
+
+          order.forEach(function (tag) {
+            // Sidebar group
+            var navGroup = el("div", { class: "group" }, [el("div", { class: "group-title", text: tag })]);
+            // Content group header
+            main.appendChild(el("h2", { id: "tag-" + slug(tag), style: "font-size:20px;color:var(--ink);letter-spacing:-0.01em;margin:8px 0 4px", text: tag.charAt(0).toUpperCase() + tag.slice(1) }));
+            if (tagDesc[tag]) main.appendChild(el("p", { class: "muted", style: "margin:0 0 16px", html: esc(tagDesc[tag]) }));
+
+            groups[tag].forEach(function (entry) {
+              navGroup.appendChild(el("a", { class: "navitem", href: "#" + entry.id }, [
+                el("span", { class: "verb " + entry.method, text: entry.method }),
+                el("span", { class: "path", text: entry.path }),
+              ]));
+              main.appendChild(operationSection(entry.method, entry.path, entry.op, spec, entry.id));
+            });
+            side.appendChild(navGroup);
+          });
+
+          // Schemas
+          var schemas = (spec.components && spec.components.schemas) || {};
+          var schemaNames = Object.keys(schemas);
+          if (schemaNames.length) {
+            main.appendChild(el("hr", { class: "rule" }));
+            main.appendChild(el("h2", { id: "schemas", style: "font-size:20px;color:var(--ink);margin:8px 0 16px", text: "Schemas" }));
+            var navGroup = el("div", { class: "group" }, [el("div", { class: "group-title", text: "Schemas" })]);
+            schemaNames.forEach(function (name) {
+              var s = schemas[name];
+              var card = el("div", { class: "schema-card", id: "schema-" + slug(name) }, [
+                el("div", { class: "name", html: esc(name) + "<span class='kind'>" + esc(typeLabel(s, spec)) + "</span>" }),
+              ]);
+              var t = propsTable(s, spec);
+              if (t) { var wrap = el("div", { style: "padding: 4px 4px" }, [t]); card.appendChild(wrap); }
+              else if (s.description) card.appendChild(el("p", { class: "muted", style: "padding:12px 16px;margin:0", html: esc(s.description) }));
+              main.appendChild(card);
+              navGroup.appendChild(el("a", { class: "navitem", href: "#schema-" + slug(name) }, [el("span", { class: "path", text: name })]));
+            });
+            side.appendChild(navGroup);
+          }
+
+          setupScrollSpy();
+        }
+
+        function setupScrollSpy() {
+          var links = Array.prototype.slice.call(document.querySelectorAll("nav.side a.navitem"));
+          var map = {};
+          links.forEach(function (l) { map[l.getAttribute("href").slice(1)] = l; });
+          var targets = links.map(function (l) { return document.getElementById(l.getAttribute("href").slice(1)); }).filter(Boolean);
+          var obs = new IntersectionObserver(function (entries) {
+            entries.forEach(function (e) {
+              if (e.isIntersecting) {
+                links.forEach(function (l) { l.classList.remove("active"); });
+                if (map[e.target.id]) map[e.target.id].classList.add("active");
+              }
+            });
+          }, { rootMargin: "-64px 0px -70% 0px" });
+          targets.forEach(function (t) { obs.observe(t); });
+        }
+
+        // Mobile menu.
+        var menu = document.getElementById("menu");
+        menu.addEventListener("click", function () {
+          var side = document.getElementById("side");
+          var open = side.classList.toggle("open");
+          menu.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+        document.getElementById("side").addEventListener("click", function (e) {
+          if (e.target.closest("a")) document.getElementById("side").classList.remove("open");
+        });
+
+        fetch(SPEC_URL, { headers: { accept: "application/json" } })
+          .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+          .then(render)
+          .catch(function (err) {
+            document.getElementById("state").innerHTML =
+              "Impossible de charger la spécification depuis <code>" + esc(SPEC_URL) + "</code>.<br><span class='muted'>" + esc(err.message) + "</span>";
+          });
+      })();
+    </script>
   </body>
 </html>
