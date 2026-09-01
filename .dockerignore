@@ -11,7 +11,7 @@ dist/
 .git/
 .github/
 
-# Local-only, private, AI-facing or asset files (also gitignored)
+# Local-only, private or asset files (also gitignored)
 .claude/
 CLAUDE.md
 CAHIER-DES-CHARGES.md

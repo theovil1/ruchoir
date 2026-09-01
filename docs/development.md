@@ -129,6 +129,6 @@ from the file-storage work on, so this setup is optional until then.
 ## Dependency freshness
 
 Pin the latest **stable** release of every dependency, verified against the live registry
-(npm / crates.io), not from memory. A local Claude Code hook reminds you whenever a manifest
+(npm / crates.io), not from memory. A local Git hook reminds you whenever a manifest
 changes; `scripts/check-deps.sh` runs the full outdated + audit sweep on demand, and CI runs
 the audit on every push.

@@ -1,6 +1,6 @@
 /**
  * Domain types for the app shell. These describe the shape the UI consumes; they are
- * intentionally close to what the Rust API will return so that L5b can swap the mock
+ * intentionally close to what the Rust API will return so that we can later swap the mock
  * implementation of the data seam (lib/data) for real HTTP calls without touching views.
  */
 import type { Presence } from "@/components/ds";
@@ -64,7 +64,7 @@ export type MessageAttachment = {
 };
 
 /**
- * A link unfurl (preview). L2 implication: these fields must be fetched server-side and
+ * A link unfurl (preview). Data-model implication: these fields must be fetched server-side and
  * stored (a message -> link_preview relation), not resolved in the browser, so the client
  * stays sovereign and cannot be used to probe arbitrary URLs on a viewer's behalf.
  */
@@ -78,7 +78,7 @@ export type LinkPreview = {
 };
 
 /**
- * An inline image attachment. L2/L4 implication: needs a stored thumbnail plus intrinsic
+ * An inline image attachment. Data-model / storage implication: needs a stored thumbnail plus intrinsic
  * dimensions to reserve layout space before load. No real bytes here: the exploration renders
  * a locally-generated placeholder, never a remote image (sovereignty + CSP).
  */
@@ -111,7 +111,7 @@ export type Message = {
   /** Whether the current user saved (bookmarked) this message. */
   saved?: boolean;
   /**
-   * Names who have read this message. L2 implication (to settle before the schema freezes):
+   * Names who have read this message. Data-model implication (to settle before the schema freezes):
    * a per-message-per-user receipt (this shape, heavy, privacy-sensitive) vs a single
    * per-channel-per-user read cursor (light, Slack-style). This exploration renders the former
    * only to visualize it; the storage decision is open.

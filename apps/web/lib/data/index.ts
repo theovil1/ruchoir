@@ -2,7 +2,7 @@
  * The data seam.
  *
  * Screens read every piece of domain data through this module and never import
- * `lib/mock` directly. Today each function returns fixture data synchronously; in L5b
+ * `lib/mock` directly. Today each function returns fixture data synchronously; once wired
  * these bodies become `fetch` calls to the Rust API. Keeping the signatures stable here
  * is what lets that swap happen without editing a single view.
  */
@@ -59,7 +59,7 @@ export function getCurrentUser(): { name: string } {
 }
 
 /**
- * Names currently typing in a channel. Ephemeral by nature: L3 delivers this over the realtime
+ * Names currently typing in a channel. Ephemeral by nature: the realtime layer delivers this over the
  * channel and never persists it. Mocked here so the indicator can be visualized.
  */
 export function getTypingUsers(channelId: string): string[] {

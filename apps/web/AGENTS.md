@@ -93,9 +93,9 @@ Microsoft (US) governance, flagged under repo rule #2, kept out of the productio
 
 ## Design system
 
-Integration started in **L5a** (UI shell exploration on mocked data; spec in
-`docs/specs/L5a-ui-shell-exploration.md`). Recreate mockups faithfully in React; do not copy
-prototype internals when they do not fit. Enforce token usage with the design-system oxlint config.
+The UI shell was built first on mocked data, as an exploration ahead of the backend. Recreate
+mockups faithfully in React; do not copy prototype internals when they do not fit. Enforce token
+usage with the design-system oxlint config.
 
 - **Tokens** live in `app/tokens.css` (the full DS variable set as `:root` custom properties)
   plus a brand subset mirrored in `app/globals.css` `@theme` for Tailwind utilities. Component
@@ -111,7 +111,7 @@ prototype internals when they do not fit. Enforce token usage with the design-sy
   SVG, or same-origin bytes later), never a remote `<img src>`: sovereignty + CSP. See
   `features/channel/InlineImage.tsx` for the pattern.
 - **App code** is organized as `features/<area>/` (screens) reading domain data only through the
-  data seam `@/lib/data`, never from `lib/mock` directly (this is what lets L5b swap mocks for the
+  data seam `@/lib/data`, never from `lib/mock` directly (this is what lets us later swap mocks for the
   real API without touching views).
 - **Floating UI** (menus, emoji picker, profile card) uses `components/ds/Popover.tsx`: portaled to
   `body`, `position: fixed`, viewport-aware (flips/clamps so it never overflows). Do not hand-roll

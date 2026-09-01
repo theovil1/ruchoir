@@ -76,7 +76,7 @@
   --alpha-paper-90: rgb(247 243 237 / 0.9);
 
   /*
-   * Type scale. L5a reframing (see docs/specs/L5a-reframing-log.md): bumped one notch to a
+   * Type scale. Reframed during the UI exploration: bumped one notch to a
    * "comfort" density (PM found the DS 1440-calibrated scale too small on wider screens).
    * DS originals were 11/12/13/14/16/18/22. Restore those to return to the dense DS scale.
    */
@@ -124,7 +124,7 @@
   --space-20: 80px;
   --space-24: 96px;
 
-  /* Fixed layout templates for the web app. Bumped with the L5a comfort density (see above);
+  /* Fixed layout templates for the web app. Bumped with the comfort density (see above);
    * DS originals: rail 56, sidebar 248, panel 320, topbar 48, composer 44, hit-target 32. */
   --rail-width: 60px;
   --sidebar-width: 264px;
@@ -138,7 +138,7 @@
   --hit-target: 36px;
 
   /*
-   * L5a reframing (see docs/specs/L5a-reframing-log.md): the channel feed uses a wider
+   * Reframed during the UI exploration: the channel feed uses a wider
    * reading measure than the DS document measure (--content-max-width, 720px). A chat feed
    * is not a document; 720px left too much idle horizontal space. Kept centered.
    */

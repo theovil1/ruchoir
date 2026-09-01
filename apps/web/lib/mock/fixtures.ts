@@ -1,5 +1,5 @@
 /**
- * Demonstration data for the UI exploration (L5a). Ported from the design-system kit's
+ * Demonstration data for the UI exploration. Ported from the design-system kit's
  * `kit-data.jsx`; names and contents are fictional. This module is reached ONLY through
  * the data seam (lib/data) so that the future HTTP implementation can replace it without
  * views ever importing fixtures directly. Do not import this file from a screen.

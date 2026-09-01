@@ -3,7 +3,7 @@ import { Icon } from "@/components/ds";
 /**
  * Discreet "read" indicator, shown on hover only (see MessageRow). This exploration renders a
  * per-message receipt to visualize it; whether the schema stores that (heavy, privacy-sensitive)
- * or a single per-channel read cursor (light) is an open L2 decision, logged in the reframing log.
+ * or a single per-channel read cursor (light) is an open data-model decision, logged in the reframing log.
  */
 export function ReadReceipt({ names }: { names?: string[] }) {
   const label =
