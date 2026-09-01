@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useMemo, useState } from "react";
+import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, useMemo, useRef, useState } from "react";
 import { Avatar, Dialog, Icon } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
@@ -51,6 +51,8 @@ export function GlobalSearchDialog({
   onOpenProfile,
 }: GlobalSearchDialogProps) {
   const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const listRef = useRef<HTMLDivElement>(null);
   const q = query.trim().toLowerCase();
 
   const msgHits = useMemo(
@@ -69,6 +71,43 @@ export function GlobalSearchDialog({
   );
   const total = msgHits.length + fileHits.length + peopleHits.length;
 
+  // Flat list of open actions, in display order (messages, then files, then people), so the arrow
+  // keys move across every group. The group offsets below map a row back to its global index.
+  const actions = useMemo<(() => void)[]>(
+    () => [
+      ...msgHits.map((it) => () => onOpenMessage(it.channelId, it.message.id)),
+      ...fileHits.map(() => onOpenFile),
+      ...peopleHits.map((p) => () => onOpenProfile(p.name)),
+    ],
+    [msgHits, fileHits, peopleHits, onOpenMessage, onOpenFile, onOpenProfile],
+  );
+  const fileStart = msgHits.length;
+  const peopleStart = msgHits.length + fileHits.length;
+
+  const rowStyle = (idx: number): CSSProperties => ({
+    ...styles.row,
+    background: idx === active ? "var(--surface-selected)" : "transparent",
+  });
+  const scrollTo = (i: number) => {
+    listRef.current?.querySelector<HTMLElement>(`[data-idx="${i}"]`)?.scrollIntoView({ block: "nearest" });
+  };
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = Math.min(total - 1, active + 1);
+      setActive(next);
+      scrollTo(next);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const next = Math.max(0, active - 1);
+      setActive(next);
+      scrollTo(next);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      actions[active]?.();
+    }
+  };
+
   return (
     <Dialog title="Rechercher partout" size="md" onClose={onClose}>
       <div
@@ -86,7 +125,11 @@ export function GlobalSearchDialog({
         <input
           autoFocus
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setActive(0);
+          }}
+          onKeyDown={onKeyDown}
           aria-label="Rechercher dans tout l'espace"
           placeholder="Messages, fichiers, personnes dans tout l'espace…"
           style={{
@@ -101,7 +144,7 @@ export function GlobalSearchDialog({
         />
       </div>
 
-      <div style={{ maxHeight: 360, overflow: "auto" }}>
+      <div ref={listRef} style={{ maxHeight: 360, overflow: "auto" }}>
         {!q ? (
           <div style={styles.empty}>Tapez pour chercher dans les canaux, les fichiers et l&apos;annuaire.</div>
         ) : total === 0 ? (
@@ -111,12 +154,14 @@ export function GlobalSearchDialog({
             {msgHits.length > 0 ? (
               <>
                 <div style={styles.label}>Messages</div>
-                {msgHits.map((it) => (
+                {msgHits.map((it, i) => (
                   <button
                     key={`${it.channelId}:${it.message.id}`}
                     type="button"
                     className="wc-listrow"
-                    style={styles.row}
+                    data-idx={i}
+                    style={rowStyle(i)}
+                    onMouseMove={() => setActive(i)}
                     onClick={() => onOpenMessage(it.channelId, it.message.id)}
                   >
                     <Avatar name={it.message.author} size={26} />
@@ -146,8 +191,16 @@ export function GlobalSearchDialog({
             {fileHits.length > 0 ? (
               <>
                 <div style={styles.label}>Fichiers</div>
-                {fileHits.map((f) => (
-                  <button key={f.name} type="button" className="wc-listrow" style={styles.row} onClick={onOpenFile}>
+                {fileHits.map((f, i) => (
+                  <button
+                    key={f.name}
+                    type="button"
+                    className="wc-listrow"
+                    data-idx={fileStart + i}
+                    style={rowStyle(fileStart + i)}
+                    onMouseMove={() => setActive(fileStart + i)}
+                    onClick={onOpenFile}
+                  >
                     <Icon name={f.kind} size={18} style={{ color: "var(--text-muted)", marginTop: 1 }} />
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, color: "var(--text-strong)" }}>{f.name}</span>
@@ -163,12 +216,14 @@ export function GlobalSearchDialog({
             {peopleHits.length > 0 ? (
               <>
                 <div style={styles.label}>Personnes</div>
-                {peopleHits.map((p) => (
+                {peopleHits.map((p, i) => (
                   <button
                     key={p.name}
                     type="button"
                     className="wc-listrow"
-                    style={styles.row}
+                    data-idx={peopleStart + i}
+                    style={rowStyle(peopleStart + i)}
+                    onMouseMove={() => setActive(peopleStart + i)}
                     onClick={() => onOpenProfile(p.name)}
                   >
                     <Avatar name={p.name} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
@@ -180,6 +235,13 @@ export function GlobalSearchDialog({
           </>
         )}
       </div>
+      {total > 0 ? (
+        <div style={{ display: "flex", gap: 14, padding: "8px 2px 0", fontSize: 11, color: "var(--text-subtle)" }}>
+          <span>↑ ↓ pour naviguer</span>
+          <span>Entrée pour ouvrir</span>
+          <span>Échap pour fermer</span>
+        </div>
+      ) : null}
     </Dialog>
   );
 }

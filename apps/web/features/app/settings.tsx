@@ -3,6 +3,7 @@
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 import { DEFAULT_NOTIF_PREFS, type NotifPrefs } from "./notifications";
 import { DEFAULT_ACCOUNT_SECURITY, type AccountSecurity } from "./security";
+import { DEFAULT_BINDINGS, mergeBindings, type Bindings } from "./shortcuts";
 
 /** The four shipped themes. RuchUI (warm cream + terracotta) is the default. */
 export type ThemeName = "ruchui" | "light" | "ruchui-dark" | "dark";
@@ -46,6 +47,8 @@ export type Settings = {
   notif: NotifPrefs;
   /** Personal account security (two-factor, passkeys, recovery codes). */
   security: AccountSecurity;
+  /** Customizable keyboard shortcut bindings, keyed by command id. */
+  shortcuts: Bindings;
 };
 
 type SettingsContextValue = Settings & {
@@ -60,6 +63,7 @@ const DEFAULTS: Settings = {
   emojiPack: true,
   notif: DEFAULT_NOTIF_PREFS,
   security: DEFAULT_ACCOUNT_SECURITY,
+  shortcuts: DEFAULT_BINDINGS,
 };
 
 const SettingsContext = createContext<SettingsContextValue>({
@@ -101,6 +105,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           notif: { ...DEFAULT_NOTIF_PREFS, ...(parsed.notif ?? {}) },
           // Same deep-merge for account security (passkeys array kept as stored when present).
           security: { ...DEFAULT_ACCOUNT_SECURITY, ...(parsed.security ?? {}) },
+          // Keep only known commands and string bindings; unknown/missing ones fall back to default.
+          shortcuts: mergeBindings(parsed.shortcuts),
         });
       }
     } catch {

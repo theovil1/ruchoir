@@ -1,19 +1,28 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Field, Icon, Input, Switch } from "@/components/ds";
 import { AccountSecuritySection } from "./AccountSecurity";
 import { Emoji } from "./Emoji";
 import { DEFAULT_NOTIF_PREFS, quietHoursLabel } from "./notifications";
 import { useSettings, type FontChoice, type TextSize, type ThemeName } from "./settings";
+import {
+  COMMANDS,
+  DEFAULT_BINDINGS,
+  eventToChord,
+  formatChord,
+  isMac,
+  type ShortcutId,
+} from "./shortcuts";
 import type { Toast } from "./types";
 
-type PrefTab = "appearance" | "notifications" | "security" | "emojis";
+export type PrefTab = "appearance" | "notifications" | "shortcuts" | "security" | "emojis";
 
 const NAV: [PrefTab, string, string][] = [
   ["appearance", "Apparence", "layout-grid"],
   ["notifications", "Notifications", "bell"],
+  ["shortcuts", "Raccourcis clavier", "key-round"],
   ["security", "Compte et sécurité", "shield"],
   ["emojis", "Emojis", "smile"],
 ];
@@ -276,17 +285,185 @@ function ThemePicker({ value, onChange }: { value: ThemeName; onChange: (t: Them
   );
 }
 
+const kbdStyle: CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 12,
+  color: "var(--text-muted)",
+  background: "var(--grey-100)",
+  border: "1px solid var(--border-subtle)",
+  borderRadius: "var(--radius-sm)",
+  padding: "2px 8px",
+  whiteSpace: "nowrap",
+};
+
+/** One editable shortcut row: label + hint on the left, current chord and controls on the right. */
+function ShortcutRow({
+  id,
+  capturing,
+  chord,
+  isDefault,
+  conflict,
+  mac,
+  onStart,
+  onReset,
+}: {
+  id: ShortcutId;
+  capturing: boolean;
+  chord: string;
+  isDefault: boolean;
+  conflict: string | null;
+  mac: boolean;
+  onStart: () => void;
+  onReset: () => void;
+}) {
+  const def = COMMANDS.find((c) => c.id === id)!;
+  return (
+    <div style={rowStyle}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{def.label}</div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 460 }}>{def.hint}</div>
+        {conflict ? (
+          <div style={{ fontSize: 12, color: "var(--status-danger-fg)", marginTop: 4 }}>
+            Déjà utilisé par « {conflict} ».
+          </div>
+        ) : null}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        {capturing ? (
+          <span
+            style={{
+              ...kbdStyle,
+              color: "var(--text-accent)",
+              borderColor: "var(--border-accent)",
+              background: "var(--surface-selected)",
+            }}
+          >
+            Appuyez sur une combinaison…
+          </span>
+        ) : chord ? (
+          <kbd style={kbdStyle}>{formatChord(chord, mac)}</kbd>
+        ) : (
+          <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>Non attribué</span>
+        )}
+        <Button size="sm" variant="secondary" onClick={onStart} aria-label={`Modifier le raccourci : ${def.label}`}>
+          {capturing ? "Annuler" : "Modifier"}
+        </Button>
+        {!isDefault ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            iconLeft="refresh-cw"
+            onClick={onReset}
+            aria-label={`Rétablir le raccourci par défaut : ${def.label}`}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/** The "Raccourcis clavier" preferences panel: view, rebind, unbind and reset each command. */
+function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
+  const s = useSettings();
+  const bindings = s.shortcuts;
+  const [capturing, setCapturing] = useState<ShortcutId | null>(null);
+  const mac = isMac();
+
+  // Latest-value refs so the capture listener (attached once per capture) always sees fresh state.
+  const bindingsRef = useRef(bindings);
+  const setRef = useRef(s.set);
+  useEffect(() => {
+    bindingsRef.current = bindings;
+    setRef.current = s.set;
+  });
+
+  // While capturing, the next chord replaces the binding. Escape cancels, Backspace/Delete unbinds.
+  // A capture-phase listener runs before the preferences' own Escape handler, so cancelling never
+  // closes the whole screen.
+  useEffect(() => {
+    if (!capturing) return;
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Escape") {
+        setCapturing(null);
+        return;
+      }
+      if (e.key === "Backspace" || e.key === "Delete") {
+        setRef.current("shortcuts", { ...bindingsRef.current, [capturing]: "" });
+        setCapturing(null);
+        return;
+      }
+      const chord = eventToChord(e);
+      if (!chord) return; // lone modifier: keep waiting for the full combination
+      setRef.current("shortcuts", { ...bindingsRef.current, [capturing]: chord });
+      setCapturing(null);
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
+  }, [capturing]);
+
+  // Map each chord to the commands that use it, to flag duplicates.
+  const usedBy: Record<string, ShortcutId[]> = {};
+  for (const c of COMMANDS) {
+    const ch = bindings[c.id];
+    if (ch) (usedBy[ch] ??= []).push(c.id);
+  }
+  const conflictLabel = (id: ShortcutId): string | null => {
+    const ch = bindings[id];
+    if (!ch) return null;
+    const other = (usedBy[ch] ?? []).find((x) => x !== id);
+    return other ? COMMANDS.find((c) => c.id === other)!.label : null;
+  };
+
+  const resetAll = () => {
+    setRef.current("shortcuts", { ...DEFAULT_BINDINGS });
+    setCapturing(null);
+    onNotify?.({ tone: "info", title: "Raccourcis réinitialisés" });
+  };
+
+  return (
+    <>
+      <h2 style={st.h}>Raccourcis clavier</h2>
+      <p style={st.sub}>
+        Personnalisez les raccourcis. Cliquez sur « Modifier » puis appuyez sur la combinaison voulue ;
+        la touche Retour arrière la retire, Échap annule.
+      </p>
+      {COMMANDS.map((c) => (
+        <ShortcutRow
+          key={c.id}
+          id={c.id}
+          capturing={capturing === c.id}
+          chord={bindings[c.id]}
+          isDefault={bindings[c.id] === c.defaultChord}
+          conflict={conflictLabel(c.id)}
+          mac={mac}
+          onStart={() => setCapturing((prev) => (prev === c.id ? null : c.id))}
+          onReset={() => s.set("shortcuts", { ...bindings, [c.id]: c.defaultChord })}
+        />
+      ))}
+      <div style={{ marginTop: 18 }}>
+        <Button variant="secondary" iconLeft="refresh-cw" onClick={resetAll}>
+          Rétablir les valeurs par défaut
+        </Button>
+      </div>
+    </>
+  );
+}
+
 export type PreferencesScreenProps = {
   onClose: () => void;
   onNotify?: (t: Toast) => void;
   /** Compact (mobile): stack the sub-nav above the panel. */
   compact?: boolean;
+  /** Section to open on mount (defaults to appearance). */
+  initialTab?: PrefTab;
 };
 
 /** Full-screen personal preferences view: appearance, notifications, account security and emojis. */
-export function PreferencesScreen({ onClose, onNotify, compact = false }: PreferencesScreenProps) {
+export function PreferencesScreen({ onClose, onNotify, compact = false, initialTab = "appearance" }: PreferencesScreenProps) {
   const s = useSettings();
-  const [tab, setTab] = useState<PrefTab>("appearance");
+  const [tab, setTab] = useState<PrefTab>(initialTab);
 
   // Escape leaves the preferences, but only when no sub-dialog is open (a dialog handles Escape first).
   useEffect(() => {
@@ -376,6 +553,8 @@ export function PreferencesScreen({ onClose, onNotify, compact = false }: Prefer
               ) : null}
             </>
           ) : null}
+
+          {tab === "shortcuts" ? <ShortcutsSection onNotify={onNotify} /> : null}
 
           {tab === "security" ? (
             <>

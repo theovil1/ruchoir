@@ -4,6 +4,8 @@ import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Dialog, Field, Icon, Input, Radio, Select } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { ChannelType } from "@/lib/data";
+import { COMMANDS, formatChord, isMac } from "./shortcuts";
+import { useSettings } from "./settings";
 
 const listItem: CSSProperties = {
   display: "flex",
@@ -214,14 +216,6 @@ export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void;
   );
 }
 
-const SHORTCUTS: [string, string][] = [
-  ["Recherche globale", "Ctrl + K"],
-  ["Aller à un canal", "Ctrl + J"],
-  ["Nouveau message", "Ctrl + Maj + M"],
-  ["Message suivant non lu", "Alt + Maj + ↓"],
-  ["Marquer comme lu", "Échap"],
-];
-
 const HELP_LINKS: [string, string][] = [
   ["Guide de prise en main", "book-open"],
   ["Importer depuis Slack, Mattermost, Nextcloud", "import"],
@@ -229,8 +223,10 @@ const HELP_LINKS: [string, string][] = [
   ["Contacter le support", "life-buoy"],
 ];
 
-/** Help centre: documentation links and keyboard shortcuts. */
-export function HelpDialog({ onClose }: { onClose: () => void }) {
+/** Help centre: documentation links and the live (customizable) keyboard shortcuts. */
+export function HelpDialog({ onClose, onCustomize }: { onClose: () => void; onCustomize?: () => void }) {
+  const { shortcuts } = useSettings();
+  const mac = isMac();
   return (
     <Dialog title="Aide" subtitle="Documentation et raccourcis" size="md" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18 }}>
@@ -250,35 +246,57 @@ export function HelpDialog({ onClose }: { onClose: () => void }) {
       </div>
       <div
         style={{
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "var(--tracking-caps)",
-          textTransform: "uppercase",
-          color: "var(--text-subtle)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
           margin: "0 0 8px",
         }}
       >
-        Raccourcis clavier
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "var(--tracking-caps)",
+            textTransform: "uppercase",
+            color: "var(--text-subtle)",
+          }}
+        >
+          Raccourcis clavier
+        </span>
+        {onCustomize ? (
+          <Button size="sm" variant="link" onClick={onCustomize}>
+            Personnaliser
+          </Button>
+        ) : null}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        {SHORTCUTS.map(([label, keys]) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 2px" }}>
-            <span style={{ fontSize: 13, color: "var(--text-body)" }}>{label}</span>
-            <kbd
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                color: "var(--text-muted)",
-                background: "var(--grey-100)",
-                border: "1px solid var(--border-subtle)",
-                borderRadius: "var(--radius-sm)",
-                padding: "1px 6px",
-              }}
-            >
-              {keys}
-            </kbd>
-          </div>
-        ))}
+        {COMMANDS.map((c) => {
+          const keys = formatChord(shortcuts[c.id], mac);
+          return (
+            <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "6px 2px" }}>
+              <span style={{ fontSize: 13, color: "var(--text-body)" }}>{c.label}</span>
+              {keys ? (
+                <kbd
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    background: "var(--grey-100)",
+                    border: "1px solid var(--border-subtle)",
+                    borderRadius: "var(--radius-sm)",
+                    padding: "1px 6px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {keys}
+                </kbd>
+              ) : (
+                <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>Non attribué</span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </Dialog>
   );

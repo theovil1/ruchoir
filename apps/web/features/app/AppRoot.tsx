@@ -28,13 +28,15 @@ import { ActivityView } from "./ActivityView";
 import { collectMentions, collectSaved, collectThreads, flattenMessages, type MessageMap } from "./activity";
 import { HelpDialog, InviteDialog, NewChannelDialog, NewMessageDialog, NewWorkspaceDialog } from "./dialogs";
 import { GlobalSearchDialog } from "./GlobalSearchDialog";
+import { QuickSwitcher } from "./QuickSwitcher";
+import { useGlobalShortcuts } from "./useGlobalShortcuts";
 import {
   buildNotifications,
   type ChannelNotifPref,
   DEFAULT_CHANNEL_PREF,
   passesPref,
 } from "./notifications";
-import { PreferencesScreen } from "./PreferencesScreen";
+import { PreferencesScreen, type PrefTab } from "./PreferencesScreen";
 import { SettingsProvider, useSettings } from "./settings";
 import { Sidebar } from "./Sidebar";
 import type { AppView, ChannelPanel, Toast } from "./types";
@@ -53,7 +55,7 @@ export function AppRoot() {
   );
 }
 
-type Modal = "import" | "newChannel" | "newMessage" | "invite" | "newWorkspace" | "help" | "search" | null;
+type Modal = "import" | "newChannel" | "newMessage" | "invite" | "newWorkspace" | "help" | "search" | "switcher" | null;
 
 const toastStyle: Record<string, CSSProperties> = {
   wrap: { position: "fixed", right: 20, bottom: 20, zIndex: 60 },
@@ -119,6 +121,8 @@ function AppShell() {
   const [view, setView] = useState<AppView>("channel");
   // The view to restore when the full-screen preferences are closed (they are opened from menus, not the nav).
   const [prevView, setPrevView] = useState<AppView>("channel");
+  // Which preferences section to land on when the full-screen preferences open.
+  const [prefsTab, setPrefsTab] = useState<PrefTab>("appearance");
   // Dev/audit only: a click-only popover the deep-link asked to open on load (set post-mount, see below).
   const [deepLinkPop, setDeepLinkPop] = useState<string | undefined>(undefined);
   const [channelId, setChannelId] = useState("compta");
@@ -163,6 +167,7 @@ function AppShell() {
     /* eslint-disable react-hooks/set-state-in-effect */
     if (link.stage) setAuthStage(link.stage);
     if (link.view) setView(link.view);
+    if (link.prefsTab) setPrefsTab(link.prefsTab);
     if (link.channel) setChannelId(link.channel);
     if (link.panel) setPanel(link.panel);
     if (link.modal) setModal(link.modal);
@@ -221,15 +226,28 @@ function AppShell() {
     setNotifs((prev) => prev.map((n) => (n.channelId === id ? { ...n, read: true } : n)));
   };
 
+  /** Jump to the next (dir 1) or previous (dir -1) unread conversation, channels then DMs, cyclically. */
+  const gotoUnread = (dir: 1 | -1) => {
+    const ids = [...channels, ...dms].filter((c) => c.unread > 0).map((c) => c.id);
+    if (ids.length === 0) {
+      showToast({ tone: "info", title: "Aucune conversation non lue" });
+      return;
+    }
+    const cur = ids.indexOf(channelId);
+    const next = cur === -1 ? (dir === 1 ? 0 : ids.length - 1) : (cur + dir + ids.length) % ids.length;
+    openChannel(ids[next]);
+  };
+
   const showToast = (t: Toast) => {
     setToast(t);
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 4000);
   };
 
-  /** Open the full-screen preferences, remembering the current view so closing returns to it. */
-  const openPreferences = () => {
+  /** Open the full-screen preferences on a given section, remembering the current view so closing returns to it. */
+  const openPreferences = (tab: PrefTab = "appearance") => {
     setModal(null);
+    setPrefsTab(tab);
     if (view !== "prefs") setPrevView(view);
     // Preferences are a full-screen overlay: leave the underlying view, panel and thread untouched so
     // closing them returns to exactly where the user was (with the right panel still open).
@@ -416,6 +434,31 @@ function AppShell() {
 
   const uploadFile = (file: SpaceFile) => setFiles((prev) => [file, ...prev]);
 
+  // Global keyboard shortcuts, using the user's (customizable) bindings. Suspended whenever a modal,
+  // dialog, the preferences overlay or the login flow is up, so their own key handling wins.
+  const shortcutsEnabled =
+    authStage === "app" &&
+    modal === null &&
+    view !== "prefs" &&
+    editing === null &&
+    channelSettingsId === null &&
+    channelNotifId === null;
+  useGlobalShortcuts(
+    settings.shortcuts,
+    {
+      search: () => setModal("search"),
+      switcher: () => setModal("switcher"),
+      newMessage: () => setModal("newMessage"),
+      nextUnread: () => gotoUnread(1),
+      prevUnread: () => gotoUnread(-1),
+      markRead: () => {
+        if (view === "channel") markConversationRead(channelId);
+      },
+      help: () => setModal("help"),
+    },
+    shortcutsEnabled,
+  );
+
   if (authStage !== "app") {
     return (
       <div style={{ height: "var(--ui-vh)", display: "flex", flexDirection: "column", overflow: "auto", background: "var(--surface-canvas)" }}>
@@ -529,7 +572,7 @@ function AppShell() {
         onOpenNotification={openNotification}
         onToggleNotifRead={setNotifRead}
         onMarkAllNotifsRead={markAllNotifsRead}
-        onOpenNotifPrefs={() => openPreferences()}
+        onOpenNotifPrefs={() => openPreferences("notifications")}
         onLogout={() => setAuthStage("login")}
         openNotifications={deepLinkPop === "notifications"}
       />
@@ -600,7 +643,7 @@ function AppShell() {
           and dialogs (z 90) so the security sub-dialogs still layer on top. */}
       {view === "prefs" ? (
         <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)" }}>
-          <PreferencesScreen compact={compact} onClose={() => setView(prevView)} onNotify={showToast} />
+          <PreferencesScreen compact={compact} initialTab={prefsTab} onClose={() => setView(prevView)} onNotify={showToast} />
         </div>
       ) : null}
       {modal === "import" ? (
@@ -626,7 +669,20 @@ function AppShell() {
         />
       ) : null}
       {modal === "newWorkspace" ? <NewWorkspaceDialog onClose={() => setModal(null)} onCreate={createWorkspace} /> : null}
-      {modal === "help" ? <HelpDialog onClose={() => setModal(null)} /> : null}
+      {modal === "help" ? (
+        <HelpDialog onClose={() => setModal(null)} onCustomize={() => openPreferences("shortcuts")} />
+      ) : null}
+      {modal === "switcher" ? (
+        <QuickSwitcher
+          channels={channels}
+          dms={dms}
+          onClose={() => setModal(null)}
+          onOpen={(id) => {
+            setModal(null);
+            openChannel(id);
+          }}
+        />
+      ) : null}
       {modal === "search" ? (
         <GlobalSearchDialog
           messages={flattenMessages(messages, channels, dms)}
@@ -763,7 +819,7 @@ function AppShell() {
                 onOpenNotification={openNotification}
                 onToggleNotifRead={setNotifRead}
                 onMarkAllNotifsRead={markAllNotifsRead}
-                onOpenNotifPrefs={() => openPreferences()}
+                onOpenNotifPrefs={() => openPreferences("notifications")}
                 onLogout={() => setAuthStage("login")}
                 />
               </main>

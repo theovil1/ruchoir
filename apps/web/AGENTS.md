@@ -48,8 +48,10 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
 ## Dev deep-link
 
 The app is a state machine (auth stage + view + optional modal), not routes. `lib/dev/deeplink.ts`
-reads query params (`?stage=`, `view=`, `channel=`, `panel=`, `modal=`, `push=1`) on mount to land
-directly on any screen. In the compact shell `push=1` opens the content full-screen instead of the
+reads query params (`?stage=`, `view=`, `channel=`, `panel=`, `modal=`, `prefsTab=`, `text=`, `font=`,
+`pop=`, `push=1`) on mount to land directly on any screen. `prefsTab=` picks the preferences section
+when `view=prefs` (appearance/notifications/shortcuts/security/emojis). In the compact shell `push=1`
+opens the content full-screen instead of the
 bottom-tab list, so the audit can reach the mobile conversation/content views. It is **development only**: `readDeepLink()` returns `null` under `NODE_ENV=production`,
 so the static export ignores it. Used by the responsive audit to reach every state without click
 scripting.
@@ -137,7 +139,17 @@ prototype internals when they do not fit. Enforce token usage with the design-sy
   `RUCHOIR_EMOJI_DIR` (prod). Fallback chain per emoji: animated (reactions, opt-in) -> static
   (sprite) -> native. Emoji picker data/keywords live in `lib/emoji.ts`.
 - **User settings** live in `features/app/settings.tsx` (`SettingsProvider` + `useSettings`,
-  persisted to localStorage): currently emoji animation and the simulated pack-present flag.
+  persisted to localStorage): theme, typeface, text size, notification prefs, account security,
+  emoji animation, the simulated pack-present flag, and keyboard-shortcut bindings.
+- **Keyboard shortcuts.** Commands and their default chords live in `features/app/shortcuts.ts`
+  (`COMMANDS`, `DEFAULT_BINDINGS`, plus `eventToChord`/`formatChord`; `Mod` = Cmd on macOS, Ctrl
+  elsewhere). Bindings persist in the settings and are user-editable in Préférences > Raccourcis
+  (`ShortcutsSection` in `PreferencesScreen.tsx`, capture-to-rebind). `features/app/useGlobalShortcuts.ts`
+  matches keydowns against the live bindings and runs the handler wired in `AppRoot`; it is suspended
+  while any modal/dialog/preferences overlay is open. The `HelpDialog` shortcut list reads the same
+  live bindings. The quick switcher (`QuickSwitcher.tsx`, default `Mod+J`) jumps to a channel/DM;
+  global search (`GlobalSearchDialog.tsx`, default `Mod+K`) spans messages/files/people. Both support
+  arrow + Enter selection.
 - **Avatars** are generated locally with DiceBear (`lib/avatar.ts`, `@dicebear/core` v10 +
   `@dicebear/styles` JSON defs), seeded by name, cached, emitted as data URIs (no remote request).
   Styles by subject: person=cameo, bot=gaze, workspace=blobs. Person/bot backgrounds are lively

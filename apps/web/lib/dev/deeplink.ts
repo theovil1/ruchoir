@@ -27,10 +27,12 @@ const MODALS = [
   "newWorkspace",
   "help",
   "search",
+  "switcher",
 ] as const;
 const TEXT_SIZES = ["s", "m", "l", "xl"] as const;
 const FONTS = ["plex", "system", "dyslexic"] as const;
 const POPOVERS = ["notifications"] as const;
+const PREF_TABS = ["appearance", "notifications", "shortcuts", "security", "emojis"] as const;
 
 export type DeepLink = {
   stage?: (typeof STAGES)[number];
@@ -44,6 +46,8 @@ export type DeepLink = {
   font?: (typeof FONTS)[number];
   /** Open a click-only popover on load so the audit can probe it (e.g. the notification center). */
   pop?: (typeof POPOVERS)[number];
+  /** Preferences section to open when `view=prefs` (defaults to appearance). */
+  prefsTab?: (typeof PREF_TABS)[number];
   /** Compact shell only: push the content view full-screen (instead of showing the list). */
   push?: boolean;
 };
@@ -71,6 +75,7 @@ export function readDeepLink(): DeepLink | null {
     text: pick("text", TEXT_SIZES),
     font: pick("font", FONTS),
     pop: pick("pop", POPOVERS),
+    prefsTab: pick("prefsTab", PREF_TABS),
     push: q.get("push") === "1" || q.get("push") === "true" ? true : undefined,
   };
 

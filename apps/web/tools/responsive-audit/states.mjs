@@ -96,6 +96,7 @@ export const STATES = [
   { id: "settings-open", label: "Reglages ouvert (compact)", query: "stage=app&view=settings&push=1" },
   { id: "settings", label: "Reglages de l'espace", query: "stage=app&view=settings" },
   { id: "prefs", label: "Preferences", query: "stage=app&view=prefs" },
+  { id: "prefs-shortcuts", label: "Preferences (raccourcis)", query: "stage=app&view=prefs&prefsTab=shortcuts" },
   { id: "prefs-open", label: "Preferences ouvert (compact)", query: "stage=app&view=prefs&push=1" },
   { id: "threads", label: "Fils", query: "stage=app&view=threads" },
   { id: "mentions", label: "Mentions", query: "stage=app&view=mentions" },
@@ -109,6 +110,7 @@ export const STATES = [
   { id: "modal-invite", label: "Inviter des personnes", query: "stage=app&modal=invite" },
   { id: "modal-newWorkspace", label: "Nouvel espace", query: "stage=app&modal=newWorkspace" },
   { id: "modal-help", label: "Aide", query: "stage=app&modal=help" },
+  { id: "modal-switcher", label: "Aller a une conversation", query: "stage=app&modal=switcher" },
 
   // Appearance: every text size and every typeface across the key surfaces (generated above).
   ...APPEARANCE_STATES,
