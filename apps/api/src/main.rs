@@ -5,9 +5,11 @@
 //! serves an HTTP surface: health endpoints plus the exported static web bundle. Auth,
 //! real-time transport and richer business logic build on this foundation in later stages.
 
+mod auth;
 mod cache;
 mod config;
 mod db;
+mod entities;
 mod http;
 mod openapi;
 mod state;

@@ -112,7 +112,11 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(0),
                     )
-                    .col(ColumnDef::new(WebauthnCredentials::Transports).string().null())
+                    .col(
+                        ColumnDef::new(WebauthnCredentials::Transports)
+                            .string()
+                            .null(),
+                    )
                     .col(ColumnDef::new(WebauthnCredentials::Label).string().null())
                     .col(
                         ColumnDef::new(WebauthnCredentials::CreatedAt)
@@ -249,10 +253,20 @@ impl MigrationTrait for Migration {
         // Drop in reverse dependency order. The `citext` extension is left in place: other
         // schema may rely on it, and dropping extensions is not a per-table concern.
         manager
-            .drop_table(Table::drop().table(RecoveryCodes::Table).if_exists().to_owned())
+            .drop_table(
+                Table::drop()
+                    .table(RecoveryCodes::Table)
+                    .if_exists()
+                    .to_owned(),
+            )
             .await?;
         manager
-            .drop_table(Table::drop().table(TotpSecrets::Table).if_exists().to_owned())
+            .drop_table(
+                Table::drop()
+                    .table(TotpSecrets::Table)
+                    .if_exists()
+                    .to_owned(),
+            )
             .await?;
         manager
             .drop_table(

@@ -25,7 +25,7 @@ serde_json = "1"
 dotenvy = "0.15"
 # OpenAPI generation from code (dynamic, always in sync). `utoipa` is community,
 # EU-authored: compliant with the no-US-dependency rule.
-utoipa = { version = "5", features = ["axum_extras"] }
+utoipa = { version = "5", features = ["axum_extras", "uuid"] }
 # Optional dev TLS. Uses the community `ring` crypto provider (not AWS `aws-lc-rs`),
 # per the no-US-dependency rule. Enabled through the `tls` feature of apps/api.
 axum-server = { version = "0.8", default-features = false, features = ["tls-rustls-no-provider"] }
@@ -55,6 +55,16 @@ async-trait = "0.1.92"
 # features ("transactions", "i-std") cover keys/expire/ping/pub-sub with no TLS provider pulled;
 # the `enable-rustls-ring` feature (ring, not aws-lc-rs) is the sovereign TLS path for later hardening.
 fred = "10.1.0"
+
+# --- Auth (password hashing, sessions, cookies) ---
+# argon2id password hashing (RustCrypto, community). getrandom (rust-random) sources CSPRNG bytes
+# for session ids and salts. uuid/time are community crates; axum-extra provides the cookie jar
+# (tokio ecosystem, already using axum). All local libraries: compliant with the dependency rule.
+argon2 = "0.6"
+getrandom = "0.4"
+uuid = { version = "1.26", features = ["v4", "serde"] }
+time = "0.3.55"
+axum-extra = { version = "0.12.6", features = ["cookie"] }
 
 [profile.release]
 # Lean, fast production binary.

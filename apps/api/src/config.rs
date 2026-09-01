@@ -34,6 +34,16 @@ pub struct Config {
     /// Whether the API applies pending migrations automatically on startup. True in dev; set
     /// `RUCHOIR_AUTO_MIGRATE=false` in production and apply them through the `migrate` subcommand.
     pub auto_migrate: bool,
+    /// argon2id memory cost in KiB.
+    pub argon2_memory_kib: u32,
+    /// argon2id iterations (time cost).
+    pub argon2_iterations: u32,
+    /// argon2id degree of parallelism.
+    pub argon2_parallelism: u32,
+    /// Sliding session idle timeout, in seconds: a session expires if unused for this long.
+    pub session_idle_ttl_secs: i64,
+    /// Absolute session lifetime cap, in seconds, regardless of activity.
+    pub session_absolute_ttl_secs: i64,
 }
 
 impl Config {
@@ -67,6 +77,26 @@ impl Config {
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_AUTO_MIGRATE"))?;
 
+        // argon2id cost parameters, OWASP-aligned baseline (19 MiB, t=2, p=1). Tunable so the
+        // cost can be raised on stronger hardware without a code change.
+        let argon2_memory_kib: u32 = env_or("RUCHOIR_ARGON2_MEMORY_KIB", "19456")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_ARGON2_MEMORY_KIB"))?;
+        let argon2_iterations: u32 = env_or("RUCHOIR_ARGON2_ITERATIONS", "2")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_ARGON2_ITERATIONS"))?;
+        let argon2_parallelism: u32 = env_or("RUCHOIR_ARGON2_PARALLELISM", "1")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_ARGON2_PARALLELISM"))?;
+
+        // Session lifetimes: sliding idle timeout (14 days) plus an absolute cap (30 days).
+        let session_idle_ttl_secs: i64 = env_or("RUCHOIR_SESSION_IDLE_TTL_SECS", "1209600")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_SESSION_IDLE_TTL_SECS"))?;
+        let session_absolute_ttl_secs: i64 = env_or("RUCHOIR_SESSION_ABSOLUTE_TTL_SECS", "2592000")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_SESSION_ABSOLUTE_TTL_SECS"))?;
+
         Ok(Self {
             addr: SocketAddr::new(host, port),
             web_dist,
@@ -78,6 +108,11 @@ impl Config {
             valkey_url,
             valkey_pool_size,
             auto_migrate,
+            argon2_memory_kib,
+            argon2_iterations,
+            argon2_parallelism,
+            session_idle_ttl_secs,
+            session_absolute_ttl_secs,
         })
     }
 

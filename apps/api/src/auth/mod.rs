@@ -1,0 +1,14 @@
+//! Authentication: password hashing, opaque sessions, the session cookie and the HTTP routes.
+//!
+//! The API owns auth end to end. Passwords are argon2id; sessions are opaque records in Valkey
+//! delivered as a hardened `__Host-` cookie; the client never holds an auth secret. The
+//! authorization guard (extracting the caller from the session on every protected request) and
+//! MFA build on these pieces in later steps.
+
+pub mod cookie;
+pub mod error;
+pub mod extract;
+pub mod routes;
+pub mod session;
+
+mod password;

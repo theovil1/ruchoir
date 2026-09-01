@@ -126,7 +126,8 @@ pub fn router(state: AppState) -> Router {
     let mut router = Router::new()
         .route("/healthz", get(healthz))
         .route("/api/v1/health", get(api_health))
-        .route("/api/openapi.json", get(crate::openapi::openapi_json));
+        .route("/api/openapi.json", get(crate::openapi::openapi_json))
+        .nest("/api/v1/auth", crate::auth::routes::router());
 
     // Optional self-hosted emoji pack. `ServeDir` handles path traversal safely and returns 404
     // for missing files, which the client treats as "no asset" and renders the native glyph. The

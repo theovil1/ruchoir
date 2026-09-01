@@ -18,9 +18,26 @@ use utoipa::OpenApi;
         description = "MielApi: the Ruchoir HTTP API. Sovereign, open-core workspace: real-time messaging and file sharing.",
         license(name = "AGPL-3.0-only")
     ),
-    paths(crate::http::healthz, crate::http::api_health),
-    components(schemas(crate::http::Health, crate::http::ApiHealth)),
-    tags((name = "health", description = "Liveness and health checks"))
+    paths(
+        crate::http::healthz,
+        crate::http::api_health,
+        crate::auth::routes::register,
+        crate::auth::routes::login,
+        crate::auth::routes::logout,
+        crate::auth::routes::logout_all,
+        crate::auth::routes::current_session
+    ),
+    components(schemas(
+        crate::http::Health,
+        crate::http::ApiHealth,
+        crate::auth::routes::RegisterRequest,
+        crate::auth::routes::LoginRequest,
+        crate::auth::routes::UserSummary
+    )),
+    tags(
+        (name = "health", description = "Liveness and health checks"),
+        (name = "auth", description = "Registration, login, sessions")
+    )
 )]
 pub struct ApiDoc;
 

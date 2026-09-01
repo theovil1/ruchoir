@@ -36,3 +36,10 @@ rustls = { workspace = true, optional = true }
 sea-orm = { workspace = true }
 fred = { workspace = true }
 ruchoir-migration = { path = "../../migrations" }
+
+# Auth: argon2id hashing, CSPRNG, ids, cookie handling.
+argon2 = { workspace = true }
+getrandom = { workspace = true }
+uuid = { workspace = true }
+time = { workspace = true }
+axum-extra = { workspace = true }

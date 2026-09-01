@@ -70,6 +70,9 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | sea-orm / sea-orm-migration | 2.0.2 / 2.0.2 (`runtime-tokio`, no implicit TLS) | `Cargo.toml` |
 | fred (Valkey/RESP client) | 10.1.0 | `Cargo.toml` |
 | async-trait | 0.1 | `Cargo.toml` |
+| argon2 / getrandom | 0.6 / 0.4 | `Cargo.toml` |
+| uuid / time | 1.26 / 0.3 | `Cargo.toml` |
+| axum-extra (cookie) | 0.12.6 | `Cargo.toml` |
 | Node (build only) | 24 (LTS) | `.nvmrc` |
 | pnpm | 11.24.0 | root `package.json` (`packageManager`) |
 | Next.js / React | 16.3.3 / 19.2 | `apps/web/package.json` |

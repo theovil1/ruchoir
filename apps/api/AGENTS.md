@@ -14,6 +14,10 @@ context and takes precedence here.
 - `src/db.rs`     - PostgreSQL connection pool via SeaORM.
 - `src/cache.rs`  - Valkey connection pool via fred.
 - `src/state.rs`  - `AppState` (db + Valkey + config) shared with handlers.
+- `src/entities/` - SeaORM entity models mapping the database schema.
+- `src/auth/`     - password hashing (argon2id), opaque Valkey sessions, the `__Host-` session
+  cookie, the `AuthSession` extractor (authorization guard), error type, and the `/api/v1/auth`
+  routes (register, login, logout, logout/all, session).
 - `src/http.rs`   - router, health endpoints (incl. DB/Valkey readiness probe), static web
   hosting (SPA fallback), security headers.
 - `src/openapi.rs`- OpenAPI document generated from the code with `utoipa`.
