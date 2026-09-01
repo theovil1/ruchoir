@@ -24,6 +24,9 @@ export function Drawer({ open, onClose, side = "left", width = 300, label, child
   const [entered, setEntered] = useState(false);
 
   useEffect(() => {
+    // `render` must persist as state through the exit window so the drawer stays mounted while it
+    // slides out; setting it synchronously here is the canonical enter/exit pattern, not derivable.
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (open) {
       setRender(true);
       const id = requestAnimationFrame(() => setEntered(true));
@@ -32,6 +35,7 @@ export function Drawer({ open, onClose, side = "left", width = 300, label, child
     setEntered(false);
     const t = setTimeout(() => setRender(false), DURATION);
     return () => clearTimeout(t);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [open]);
 
   useEffect(() => {
@@ -47,7 +51,11 @@ export function Drawer({ open, onClose, side = "left", width = 300, label, child
 
   const scrim: CSSProperties = {
     position: "fixed",
-    inset: 0,
+    // Compensated for the text-size zoom (see globals.css) so it fills the screen without overflow.
+    top: 0,
+    left: 0,
+    width: "var(--ui-vw, 100vw)",
+    height: "var(--ui-vh, 100dvh)",
     zIndex: 70,
     background: "var(--scrim, rgba(15, 23, 42, 0.45))",
     opacity: entered ? 1 : 0,
@@ -57,10 +65,10 @@ export function Drawer({ open, onClose, side = "left", width = 300, label, child
   const panel: CSSProperties = {
     position: "fixed",
     top: 0,
-    bottom: 0,
+    height: "var(--ui-vh, 100dvh)",
     [side]: 0,
     zIndex: 71,
-    width: `min(${width}px, 88vw)`,
+    width: `min(${width}px, calc(0.88 * var(--ui-vw, 100vw)))`,
     background: "var(--surface-chrome)",
     borderRight: side === "left" ? "1px solid var(--border-subtle)" : undefined,
     borderLeft: side === "right" ? "1px solid var(--border-subtle)" : undefined,

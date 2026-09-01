@@ -14,9 +14,10 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-// Applied before first paint so the stored theme is in place with no flash of the default.
-// Kept inline and tiny: reads the persisted setting and stamps data-theme on <html>.
-const themeBootstrap = `try{var t=JSON.parse(localStorage.getItem("ruchoir.settings")||"{}").theme;if(t==="light"||t==="ruchui-dark"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}`;
+// Applied before first paint so the stored appearance is in place with no flash of the defaults.
+// Kept inline and tiny: reads the persisted settings and stamps data-theme/font/text on <html>.
+// Only non-default values are stamped, matching how the CSS defaults are the bare :root.
+const themeBootstrap = `try{var s=JSON.parse(localStorage.getItem("ruchoir.settings")||"{}"),d=document.documentElement.dataset;if(s.theme==="light"||s.theme==="ruchui-dark"||s.theme==="dark")d.theme=s.theme;if(s.font==="system"||s.font==="dyslexic")d.font=s.font;if(s.textSize==="s"||s.textSize==="l"||s.textSize==="xl")d.text=s.textSize;}catch(e){}`;
 
 export default function RootLayout({
   children,

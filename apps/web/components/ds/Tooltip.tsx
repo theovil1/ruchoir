@@ -2,6 +2,7 @@
 
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { uiZoom } from "./uiZoom";
 
 export type TooltipSide = "top" | "bottom" | "left" | "right";
 
@@ -18,7 +19,9 @@ type Coords = { top: number; left: number };
 const MARGIN = 8;
 const GAP = 6;
 
-function place(side: TooltipSide, a: DOMRect, w: number, h: number, vw: number, vh: number): Coords {
+type RectLike = { top: number; bottom: number; left: number; right: number; width: number; height: number };
+
+function place(side: TooltipSide, a: RectLike, w: number, h: number, vw: number, vh: number): Coords {
   const cx = a.left + a.width / 2;
   const cy = a.top + a.height / 2;
   let top = 0;
@@ -72,15 +75,16 @@ export function Tooltip({ label, shortcut, side = "top", children, className = "
   const [pos, setPos] = useState<Coords | null>(null);
 
   useEffect(() => {
-    if (!open) {
-      setPos(null);
-      return;
-    }
+    if (!open) return;
     const compute = () => {
       const a = anchorRef.current?.getBoundingClientRect();
       const b = bubbleRef.current?.getBoundingClientRect();
       if (!a) return;
-      setPos(place(side, a, b?.width ?? 80, b?.height ?? 24, window.innerWidth, window.innerHeight));
+      // Convert visual rects and the viewport to unzoomed layout space so the fixed bubble lands right
+      // under the text-size zoom (see uiZoom). A no-op at the default zoom of 1.
+      const z = uiZoom();
+      const anchor: RectLike = { top: a.top / z, bottom: a.bottom / z, left: a.left / z, right: a.right / z, width: a.width / z, height: a.height / z };
+      setPos(place(side, anchor, (b?.width ?? 80) / z, (b?.height ?? 24) / z, window.innerWidth / z, window.innerHeight / z));
     };
     compute();
     window.addEventListener("scroll", compute, true);
@@ -88,6 +92,8 @@ export function Tooltip({ label, shortcut, side = "top", children, className = "
     return () => {
       window.removeEventListener("scroll", compute, true);
       window.removeEventListener("resize", compute);
+      // Reset in cleanup (a callback, not a synchronous effect-body setState) so the next open recomputes.
+      setPos(null);
     };
   }, [open, side]);
 

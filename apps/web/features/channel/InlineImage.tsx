@@ -84,7 +84,11 @@ export function InlineImage({ image }: { image: InlineImageData }) {
           aria-label={image.alt}
           style={{
             position: "fixed",
-            inset: 0,
+            top: 0,
+            left: 0,
+            // Compensated for the text-size zoom (see globals.css) so the lightbox fills the screen.
+            width: "var(--ui-vw, 100vw)",
+            height: "var(--ui-vh, 100dvh)",
             zIndex: 80,
             background: "var(--scrim)",
             display: "flex",
@@ -95,7 +99,7 @@ export function InlineImage({ image }: { image: InlineImageData }) {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ position: "relative", width: "min(880px, 90vw)" }}
+            style={{ position: "relative", width: "min(880px, calc(0.9 * var(--ui-vw, 100vw)))" }}
           >
             <div style={{ position: "absolute", top: -44, right: 0 }}>
               <IconButton icon="x" label="Fermer" variant="outlined" onClick={() => setOpen(false)} />

@@ -16,3 +16,21 @@ The matching `@font-face` rules are in `app/globals.css` (one per weight). Add a
 Provenance: the OFL binaries as repackaged by Fontsource's `@fontsource/ibm-plex-sans` and
 `@fontsource/ibm-plex-mono` (identical to the official IBM Plex release). The OFL permits
 redistribution, so these are committed directly. Do not fetch fonts at build time or runtime.
+
+## OpenDyslexic (accessibility option)
+
+The appearance settings offer **OpenDyslexic** as a dyslexia-friendly typeface (also OFL, so it is
+self-hosted here exactly like IBM Plex). Its `@font-face` rules are already in `app/globals.css`,
+expecting these two OpenType files in this folder:
+
+- `opendyslexic-400-normal.otf` (Regular)
+- `opendyslexic-700-normal.otf` (Bold)
+
+The upstream release ships as OTF, which browsers load natively (`format("opentype")`), so committing
+the `.otf` directly is fine. The font is only fetched when a user actually selects "OpenDyslexic", so
+the larger OTF payload stays on-demand. If you later want a smaller, subset payload, convert to woff2
+(e.g. `fonttools` / `woff2`) and switch the two `src` lines back to `format("woff2")`.
+
+The Regular and Bold OTF files are committed here, with the upstream attribution kept alongside in
+`opendyslexic-README.txt` (OpenDyslexic is OFL, based on Bitstream Vera). Source: opendyslexic.org.
+Same rule as above: commit the font directly, never fetch at build or runtime.

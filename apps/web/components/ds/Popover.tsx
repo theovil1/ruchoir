@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { uiZoom } from "./uiZoom";
 
 // Position must be measured before paint to avoid a flash: on the server, fall back to useEffect.
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -48,13 +49,17 @@ export function Popover<T extends HTMLElement = HTMLElement>({
   const [pos, setPos] = useState<Coords | null>(null);
 
   const compute = useCallback(() => {
-    const anchor = anchorRef.current?.getBoundingClientRect();
+    const anchorRect = anchorRef.current?.getBoundingClientRect();
     const content = contentRef.current?.getBoundingClientRect();
-    if (!anchor) return;
-    const cw = content?.width ?? 320;
-    const ch = content?.height ?? 280;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    if (!anchorRect) return;
+    // Convert measured (visual) rects and the viewport to unzoomed layout space so the fixed top/left
+    // we set render correctly under the text-size zoom (see uiZoom). A no-op at the default zoom of 1.
+    const z = uiZoom();
+    const anchor = { top: anchorRect.top / z, bottom: anchorRect.bottom / z, left: anchorRect.left / z, right: anchorRect.right / z };
+    const cw = (content?.width ?? 320) / z;
+    const ch = (content?.height ?? 280) / z;
+    const vw = window.innerWidth / z;
+    const vh = window.innerHeight / z;
 
     const roomAbove = anchor.top;
     const roomBelow = vh - anchor.bottom;
