@@ -8,8 +8,23 @@ use argon2::password_hash::phc::PasswordHash;
 use argon2::password_hash::{PasswordHasher, PasswordVerifier};
 use argon2::{Algorithm, Argon2, Params, Version};
 
+use super::breach::BreachFilter;
 use super::error::AuthError;
 use crate::config::Config;
+
+/// Minimum password length.
+pub const MIN_PASSWORD_LEN: usize = 12;
+
+/// Validate a password against policy: a minimum length and an offline breached-password check.
+pub fn check_policy(password: &str, breaches: &BreachFilter) -> Result<(), AuthError> {
+    if password.chars().count() < MIN_PASSWORD_LEN {
+        return Err(AuthError::WeakPassword);
+    }
+    if breaches.is_breached(password) {
+        return Err(AuthError::BreachedPassword);
+    }
+    Ok(())
+}
 
 /// Hash a plaintext password into a PHC string suitable for storage. A random salt is generated
 /// internally by the hasher.

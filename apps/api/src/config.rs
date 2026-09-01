@@ -56,6 +56,23 @@ pub struct Config {
     pub auth_rate_burst: u32,
     /// Per-IP rate limit on the auth routes: interval, in ms, after which one request is replenished.
     pub auth_rate_period_ms: u64,
+    /// SMTP relay host for outgoing email. When unset, email is logged for local dev instead of sent.
+    pub smtp_host: Option<String>,
+    /// SMTP relay port (STARTTLS submission is 587 by default).
+    pub smtp_port: u16,
+    /// Optional SMTP username / password for authenticated relays.
+    pub smtp_username: Option<String>,
+    pub smtp_password: Option<String>,
+    /// `From` mailbox for outgoing email, e.g. `Ruchoir <no-reply@example.org>`.
+    pub smtp_from: String,
+    /// Public base URL used to build verification / reset links in emails.
+    pub public_base_url: String,
+    /// Lifetime, in seconds, of an email-verification token.
+    pub email_verification_ttl_secs: i64,
+    /// Lifetime, in seconds, of a password-reset token.
+    pub password_reset_ttl_secs: i64,
+    /// Path to the breached-password bloom filter. When unset, the breach check is disabled.
+    pub breached_pw_bloom_path: Option<PathBuf>,
 }
 
 impl Config {
@@ -132,6 +149,24 @@ impl Config {
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_AUTH_RATE_PERIOD_MS"))?;
 
+        // Email. When SMTP_HOST is unset, the mailer logs messages for local dev instead of sending.
+        let smtp_host = env_opt("RUCHOIR_SMTP_HOST");
+        let smtp_port: u16 = env_or("RUCHOIR_SMTP_PORT", "587")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_SMTP_PORT"))?;
+        let smtp_username = env_opt("RUCHOIR_SMTP_USERNAME");
+        let smtp_password = env_opt("RUCHOIR_SMTP_PASSWORD");
+        let smtp_from = env_or("RUCHOIR_SMTP_FROM", "Ruchoir <no-reply@localhost>");
+        let public_base_url = env_or("RUCHOIR_PUBLIC_BASE_URL", "http://localhost:8080");
+        let email_verification_ttl_secs: i64 = env_or("RUCHOIR_EMAIL_VERIFICATION_TTL_SECS", "86400")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_EMAIL_VERIFICATION_TTL_SECS"))?;
+        let password_reset_ttl_secs: i64 = env_or("RUCHOIR_PASSWORD_RESET_TTL_SECS", "3600")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_PASSWORD_RESET_TTL_SECS"))?;
+
+        let breached_pw_bloom_path = env_opt("RUCHOIR_BREACHED_PW_BLOOM").map(PathBuf::from);
+
         Ok(Self {
             addr: SocketAddr::new(host, port),
             web_dist,
@@ -154,6 +189,15 @@ impl Config {
             login_lock_max_secs,
             auth_rate_burst,
             auth_rate_period_ms,
+            smtp_host,
+            smtp_port,
+            smtp_username,
+            smtp_password,
+            smtp_from,
+            public_base_url,
+            email_verification_ttl_secs,
+            password_reset_ttl_secs,
+            breached_pw_bloom_path,
         })
     }
 

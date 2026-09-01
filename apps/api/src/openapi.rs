@@ -25,14 +25,21 @@ use utoipa::OpenApi;
         crate::auth::routes::login,
         crate::auth::routes::logout,
         crate::auth::routes::logout_all,
-        crate::auth::routes::current_session
+        crate::auth::routes::current_session,
+        crate::auth::routes::verify_email_request,
+        crate::auth::routes::verify_email_confirm,
+        crate::auth::routes::password_reset_request,
+        crate::auth::routes::password_reset_confirm
     ),
     components(schemas(
         crate::http::Health,
         crate::http::ApiHealth,
         crate::auth::routes::RegisterRequest,
         crate::auth::routes::LoginRequest,
-        crate::auth::routes::UserSummary
+        crate::auth::routes::UserSummary,
+        crate::auth::routes::EmailRequest,
+        crate::auth::routes::TokenRequest,
+        crate::auth::routes::PasswordResetConfirm
     )),
     tags(
         (name = "health", description = "Liveness and health checks"),

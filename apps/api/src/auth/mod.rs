@@ -5,11 +5,14 @@
 //! authorization guard (extracting the caller from the session on every protected request) and
 //! MFA build on these pieces in later steps.
 
+pub mod breach;
 pub mod cookie;
 pub mod error;
 pub mod extract;
+pub mod mailer;
 pub mod routes;
 pub mod session;
 pub mod throttle;
+pub mod tokens;
 
 mod password;

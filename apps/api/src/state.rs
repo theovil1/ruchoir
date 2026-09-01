@@ -8,6 +8,8 @@ use std::sync::Arc;
 use fred::prelude::Pool;
 use sea_orm::DatabaseConnection;
 
+use crate::auth::breach::BreachFilter;
+use crate::auth::mailer::Mailer;
 use crate::config::Config;
 
 /// Handles to the datastores and configuration that handlers need.
@@ -17,6 +19,10 @@ pub struct AppState {
     pub db: DatabaseConnection,
     /// Valkey connection pool (sessions, and later pub-sub / presence).
     pub valkey: Pool,
+    /// Outgoing email (or dev-log when no relay is configured).
+    pub mailer: Mailer,
+    /// Offline breached-password bloom filter (disabled when none is configured).
+    pub breaches: Arc<BreachFilter>,
     /// Fully resolved runtime configuration.
     pub config: Arc<Config>,
 }

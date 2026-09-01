@@ -74,9 +74,33 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     let valkey = cache::connect(&config).await?;
     tracing::info!("connected to Valkey");
 
+    let mailer = auth::mailer::Mailer::from_config(&config)?;
+    if config.smtp_host.is_none() {
+        tracing::warn!("no SMTP relay configured; emails will be logged, not sent (dev only)");
+    }
+
+    let breaches = match &config.breached_pw_bloom_path {
+        Some(path) => match auth::breach::BreachFilter::from_path(path) {
+            Ok(filter) => {
+                tracing::info!(path = %path.display(), "loaded breached-password filter");
+                filter
+            }
+            Err(err) => {
+                tracing::warn!(error = %err, "could not load breached-password filter; check disabled");
+                auth::breach::BreachFilter::disabled()
+            }
+        },
+        None => {
+            tracing::warn!("no breached-password filter configured; breach check disabled");
+            auth::breach::BreachFilter::disabled()
+        }
+    };
+
     let state = AppState {
         db,
         valkey,
+        mailer,
+        breaches: Arc::new(breaches),
         config: Arc::new(config),
     };
 

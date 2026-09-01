@@ -44,3 +44,6 @@ uuid = { workspace = true }
 time = { workspace = true }
 axum-extra = { workspace = true }
 tower_governor = { workspace = true }
+lettre = { workspace = true }
+sha2 = { workspace = true }
+sha1 = { workspace = true }
