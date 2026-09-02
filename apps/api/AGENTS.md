@@ -14,7 +14,14 @@ context and takes precedence here.
 - `src/db.rs`     - PostgreSQL connection pool via SeaORM.
 - `src/cache.rs`  - Valkey connection pool via fred.
 - `src/state.rs`  - `AppState` (db + Valkey + config) shared with handlers.
-- `src/entities/` - SeaORM entity models mapping the database schema.
+- `src/entities/` - SeaORM entity models mapping the database schema. The auth tables plus the
+  collaboration domain: spaces/membership, the `conversations` supertype with `channels` and
+  `dm_conversations`, `messages` and their satellites (reactions, mentions, link previews,
+  attachments, pins, saved, read cursors), and `files`/`file_versions`/`file_shares`. Relations are
+  added when query code needs them.
+- `src/seed.rs`   - the `seed` subcommand: populates a realistic dev workspace (6 fixture accounts +
+  an import bot, a space, channels, messages/threads/reactions, a file with a version and a share,
+  DMs). Dev-guarded (`RUCHOIR_ENV=dev` or `--force`) and idempotent at the workspace level.
 - `src/auth/`     - the auth core: password hashing (argon2id) + policy with an offline breach
   check, opaque Valkey sessions, the `__Host-` session cookie, the `AuthSession` extractor
   (authorization guard), per-account anti-bruteforce throttle, SMTP mailer + single-use email
@@ -53,7 +60,10 @@ with the community `ring` provider (never AWS `aws-lc-rs`), per the no-US-depend
 
 - Run: `cargo run -p ruchoir-api` (loads a local `.env` via dotenvy; real env vars win). Set
   `RUCHOIR_API_PORT=0` for a random free port when 8080 is taken; the bound port is logged.
-- Test: `cargo test --all-features`
+- Seed dev data: `RUCHOIR_ENV=dev cargo run -p ruchoir-api -- seed` (applies migrations first,
+  then populates a demo workspace; refuses to run outside dev, idempotent).
+- Test: `cargo test --all-features` (the migration round-trip test needs
+  `RUCHOIR_TEST_DATABASE_URL` and is skipped otherwise).
 - Serves `RUCHOIR_WEB_DIST` (defaults to `./apps/web/out`), so build the web app first to
   see the full app locally.
 - Optionally serves a self-hosted emoji pack under `/emoji` when `RUCHOIR_EMOJI_DIR` is set

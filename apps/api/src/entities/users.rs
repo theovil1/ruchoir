@@ -18,6 +18,14 @@ pub struct Model {
     /// Account lifecycle: `pending`, `active` or `locked`.
     pub status: String,
     pub mfa_enforced: bool,
+    /// Global profile fields surfaced by the UI. All optional and self-editable except
+    /// `is_bot`, which marks service accounts (e.g. the import assistant).
+    pub title: Option<String>,
+    pub pronouns: Option<String>,
+    pub timezone: Option<String>,
+    pub bio: Option<String>,
+    pub avatar_file_id: Option<Uuid>,
+    pub is_bot: bool,
     pub created_at: TimeDateTimeWithTimeZone,
     pub updated_at: TimeDateTimeWithTimeZone,
 }

@@ -21,3 +21,7 @@ pub mod tokens;
 pub mod totp;
 
 mod password;
+
+/// Re-exported so other modules (e.g. the dev seed) can hash a password without reaching into the
+/// private `password` submodule.
+pub use password::hash_password;
