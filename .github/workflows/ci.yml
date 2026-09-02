@@ -144,9 +144,14 @@ jobs:
       - name: Set up Rust
         run: rustup show
       - name: cargo audit
+        # RUSTSEC-2026-0235 (rkyv 0.7 out-of-bounds read on Rc/Arc archives): transitive only, via
+        # rust_decimal's rkyv feature that sea-orm's default features pull in through sea-query. The
+        # code never deserializes rkyv archives, so the vulnerable path is unreachable, and there is
+        # no fix on the 0.7 line (0.8 is a breaking change rust_decimal 1.x does not support). Remove
+        # this ignore once sea-orm / rust_decimal move to rkyv >= 0.8.17.
         run: |
           cargo install cargo-audit --locked
-          cargo audit
+          cargo audit --ignore RUSTSEC-2026-0235
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
