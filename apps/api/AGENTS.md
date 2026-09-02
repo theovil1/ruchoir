@@ -27,8 +27,21 @@ context and takes precedence here.
   (authorization guard), per-account anti-bruteforce throttle, SMTP mailer + single-use email
   tokens (verification / reset), MFA (TOTP with AES-GCM-encrypted secrets, WebAuthn passkeys,
   HMAC-hashed recovery codes) with a login step-up flow, error type, and the `/api/v1/auth` routes.
+- `src/messaging/` - the REST surface over the collaboration schema: `authz` (the conversation
+  membership choke point plus audience computation), `error` (`ApiError`), `dto` (response/request
+  shapes, kept close to the web data seam), `mentions` (`@`-parsing + resolution), and the handlers
+  `messages`/`reactions`/`read`/`pins`/`saved`/`conversations`. Every mutation authorizes server-
+  side, commits, then hands the resulting event to `realtime` for fan-out.
+- `src/realtime/`  - real-time transport and presence: `event` (the versioned push envelope + the
+  fan-out wire type), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
+  `SubscriberClient` on `rt:fanout`, delivery gated by a publish-time audience), `presence`
+  (ephemeral heartbeat + the persistent `users.manual_presence` override), `typing` (throttled,
+  ephemeral), and the two transports `ws` (WebSocket) / `sse` (read-only fallback + typing POST).
+  State-changing operations are never accepted over the socket; they are REST handlers in
+  `messaging`.
 - `src/http.rs`   - router, health endpoints (incl. DB/Valkey readiness probe), static web
-  hosting (SPA fallback), security headers.
+  hosting (SPA fallback), security headers. The `messaging` and `realtime` routers use absolute
+  `/api/v1/...` paths and are merged in (not a second `/api/v1` nest) to avoid path overlap.
 - `src/openapi.rs`- OpenAPI document generated from the code with `utoipa`.
 
 The API needs PostgreSQL and Valkey at startup (see `docker-compose.yml`). Migrations live in the

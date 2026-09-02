@@ -222,6 +222,8 @@ pub async fn register(
         bio: NotSet,
         avatar_file_id: NotSet,
         is_bot: NotSet,
+        // Presence override starts unset (automatic); the user sets it later from the account menu.
+        manual_presence: NotSet,
         created_at: NotSet,
         updated_at: NotSet,
     }

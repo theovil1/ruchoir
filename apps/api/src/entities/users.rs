@@ -26,6 +26,9 @@ pub struct Model {
     pub bio: Option<String>,
     pub avatar_file_id: Option<Uuid>,
     pub is_bot: bool,
+    /// Deliberate presence override: `active`, `away`, `dnd`, `invisible`, or `None` for "auto"
+    /// (derive from the live Valkey heartbeat). Enforced by a CHECK constraint.
+    pub manual_presence: Option<String>,
     pub created_at: TimeDateTimeWithTimeZone,
     pub updated_at: TimeDateTimeWithTimeZone,
 }

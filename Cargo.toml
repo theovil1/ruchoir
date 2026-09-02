@@ -12,9 +12,15 @@ repository = "https://github.com/theovil1/ruchoir"
 
 # Shared dependency versions. Pin exact minor versions here; keep AGENTS.md in sync.
 [workspace.dependencies]
-tokio = { version = "1.53", features = ["rt-multi-thread", "net", "macros", "signal"] }
-axum = "0.8"
+tokio = { version = "1.53", features = ["rt-multi-thread", "net", "macros", "signal", "time", "sync"] }
+# `ws` powers the real-time WebSocket transport; SSE is in axum core.
+axum = { version = "0.8", features = ["ws"] }
 tower = "0.5"
+# Stream utilities: split a WebSocket into sink/stream and combine event streams. `futures-util`
+# is the rust-lang community async foundation (neutral governance, per the no-US-dependency rule).
+futures-util = "0.3"
+# Wrap Tokio channels as `Stream`s for the SSE fan-out response (tokio ecosystem).
+tokio-stream = { version = "0.1", features = ["sync"] }
 tower-http = { version = "0.7", features = ["fs", "trace", "set-header", "cors"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
@@ -54,7 +60,9 @@ async-trait = "0.1.92"
 # Valkey/RESP client for opaque sessions (and, later, presence / pub-sub). Community, MIT. Default
 # features ("transactions", "i-std") cover keys/expire/ping/pub-sub with no TLS provider pulled;
 # the `enable-rustls-ring` feature (ring, not aws-lc-rs) is the sovereign TLS path for later hardening.
-fred = "10.1.0"
+# `subscriber-client` adds the dedicated pub/sub subscriber connection used by the real-time hub
+# (a subscriber needs its own connection, separate from the command pool).
+fred = { version = "10.1.0", features = ["subscriber-client"] }
 
 # --- Auth (password hashing, sessions, cookies) ---
 # argon2id password hashing (RustCrypto, community). getrandom (rust-random) sources CSPRNG bytes
@@ -63,7 +71,8 @@ fred = "10.1.0"
 argon2 = "0.6"
 getrandom = "0.4"
 uuid = { version = "1.26", features = ["v4", "serde"] }
-time = "0.3.55"
+# `formatting` powers RFC 3339 serialization of message timestamps in the API DTOs.
+time = { version = "0.3.55", features = ["formatting"] }
 axum-extra = { version = "0.12.6", features = ["cookie"] }
 # Coarse per-IP rate limiting layer for the auth routes (community; wraps `governor`). Default
 # features pull `tonic` (gRPC), which we do not use: keep only the axum integration.

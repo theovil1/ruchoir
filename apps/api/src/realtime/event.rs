@@ -1,0 +1,125 @@
+//! The real-time event envelope pushed to clients, and the fan-out wire type.
+//!
+//! Every server-to-client push is a [`RealtimeEnvelope`]: a versioned, self-describing frame the
+//! client can switch on without guessing. Handlers never build one by hand: they call the small
+//! constructors here so the `type` strings stay in one place and can never drift from the payload.
+//!
+//! Between API instances, an envelope travels wrapped in a [`FanoutMessage`] that also carries the
+//! `audience` (the user ids allowed to receive it). The audience is computed once, at publish time,
+//! from membership, so the receiving side never touches the database on the hot path. Clients only
+//! ever see the inner `envelope`: the audience is stripped before delivery.
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use uuid::Uuid;
+
+/// The current envelope schema version. Bumped only on a breaking shape change so old clients can
+/// detect and refuse an envelope they cannot parse.
+pub const ENVELOPE_VERSION: u8 = 1;
+
+/// A single server-to-client real-time frame.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RealtimeEnvelope {
+    /// Envelope schema version (see [`ENVELOPE_VERSION`]).
+    pub v: u8,
+    /// The event discriminator, e.g. `message.created`. See the constructors below for the full set.
+    #[serde(rename = "type")]
+    pub event_type: String,
+    /// The conversation the event belongs to, when it is conversation-scoped (all message, reaction,
+    /// pin, typing and read events). `None` for user-global events such as presence.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conversation_id: Option<Uuid>,
+    /// The event body. Shape depends on `event_type`; the messaging DTOs define the concrete forms.
+    pub payload: Value,
+}
+
+impl RealtimeEnvelope {
+    /// Build a conversation-scoped envelope from any serializable payload.
+    fn conversation(event_type: &str, conversation_id: Uuid, payload: impl Serialize) -> Self {
+        Self {
+            v: ENVELOPE_VERSION,
+            event_type: event_type.to_string(),
+            conversation_id: Some(conversation_id),
+            payload: serde_json::to_value(payload).unwrap_or(Value::Null),
+        }
+    }
+
+    /// Build a user-global envelope (no conversation scope).
+    fn global(event_type: &str, payload: impl Serialize) -> Self {
+        Self {
+            v: ENVELOPE_VERSION,
+            event_type: event_type.to_string(),
+            conversation_id: None,
+            payload: serde_json::to_value(payload).unwrap_or(Value::Null),
+        }
+    }
+
+    /// A new message was posted.
+    pub fn message_created(conversation_id: Uuid, message: impl Serialize) -> Self {
+        Self::conversation("message.created", conversation_id, message)
+    }
+
+    /// An existing message was edited.
+    pub fn message_updated(conversation_id: Uuid, message: impl Serialize) -> Self {
+        Self::conversation("message.updated", conversation_id, message)
+    }
+
+    /// A message was soft-deleted (a tombstone remains).
+    pub fn message_deleted(conversation_id: Uuid, message: impl Serialize) -> Self {
+        Self::conversation("message.deleted", conversation_id, message)
+    }
+
+    /// A reaction was added to a message.
+    pub fn reaction_added(conversation_id: Uuid, payload: impl Serialize) -> Self {
+        Self::conversation("reaction.added", conversation_id, payload)
+    }
+
+    /// A reaction was removed from a message.
+    pub fn reaction_removed(conversation_id: Uuid, payload: impl Serialize) -> Self {
+        Self::conversation("reaction.removed", conversation_id, payload)
+    }
+
+    /// A message was pinned in a channel.
+    pub fn message_pinned(conversation_id: Uuid, payload: impl Serialize) -> Self {
+        Self::conversation("message.pinned", conversation_id, payload)
+    }
+
+    /// A message was unpinned.
+    pub fn message_unpinned(conversation_id: Uuid, payload: impl Serialize) -> Self {
+        Self::conversation("message.unpinned", conversation_id, payload)
+    }
+
+    /// The caller saved a message (delivered only to that user's own connections).
+    pub fn message_saved(conversation_id: Uuid, payload: impl Serialize) -> Self {
+        Self::conversation("message.saved", conversation_id, payload)
+    }
+
+    /// The caller removed a saved message (delivered only to that user's own connections).
+    pub fn message_unsaved(conversation_id: Uuid, payload: impl Serialize) -> Self {
+        Self::conversation("message.unsaved", conversation_id, payload)
+    }
+
+    /// The caller's read cursor advanced (delivered only to that user's own connections).
+    pub fn read_updated(conversation_id: Uuid, payload: impl Serialize) -> Self {
+        Self::conversation("read.updated", conversation_id, payload)
+    }
+
+    /// Someone is typing in a conversation (ephemeral, never stored).
+    pub fn typing(conversation_id: Uuid, payload: impl Serialize) -> Self {
+        Self::conversation("typing", conversation_id, payload)
+    }
+
+    /// A user's effective presence changed.
+    pub fn presence(payload: impl Serialize) -> Self {
+        Self::global("presence", payload)
+    }
+}
+
+/// The wire type carried between API instances over the `rt:fanout` Valkey channel.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FanoutMessage {
+    /// User ids permitted to receive `envelope`. Computed once at publish time from membership.
+    pub audience: Vec<Uuid>,
+    /// The frame to deliver to each locally-connected member of `audience`.
+    pub envelope: RealtimeEnvelope,
+}

@@ -11,9 +11,14 @@ mod config;
 mod db;
 mod entities;
 mod http;
+mod messaging;
 mod openapi;
+mod realtime;
 mod seed;
 mod state;
+
+#[cfg(test)]
+mod tests_integration;
 
 use std::net::SocketAddr;
 use std::process::ExitCode;
@@ -84,6 +89,10 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     let valkey = cache::connect(&config).await?;
     tracing::info!("connected to Valkey");
 
+    // Real-time hub: opens a dedicated pub/sub subscriber and starts the fan-out loop.
+    let hub = realtime::Hub::start(&config, valkey.clone()).await?;
+    tracing::info!("real-time hub started");
+
     let mailer = auth::mailer::Mailer::from_config(&config)?;
     if config.smtp_host.is_none() {
         tracing::warn!("no SMTP relay configured; emails will be logged, not sent (dev only)");
@@ -135,6 +144,7 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         breaches: Arc::new(breaches),
         secret_key: Arc::new(secret_key),
         webauthn: Arc::new(webauthn),
+        hub,
         config: Arc::new(config),
     };
 
