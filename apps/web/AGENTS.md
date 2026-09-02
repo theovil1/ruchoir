@@ -88,7 +88,8 @@ suspect combinations, and writes `report/report.{json,html}`. Exits non-zero on 
 JS error (CI-gateable). Beyond mechanical layout it also runs UX/a11y checks (finding
 `category: "ux"`): low-contrast (WCAG AA), tiny text (<12px), and dialogs taller than the viewport. See its `README.md`. Depends on **Playwright** as a dev-only dependency:
 Microsoft (US) governance, flagged under repo rule #2, kept out of the production runtime/export
-(locally-executed QA tooling only, consistent with the R7 reading). Install:
+(locally-executed QA tooling only, consistent with the rule that targets runtime
+services/infra, not locally-executed open-source tooling). Install:
 `pnpm --dir apps/web add -D playwright && pnpm --dir apps/web exec playwright install chromium`.
 
 ## Design system
