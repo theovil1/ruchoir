@@ -73,6 +73,10 @@ pub struct Config {
     pub password_reset_ttl_secs: i64,
     /// Path to the breached-password bloom filter. When unset, the breach check is disabled.
     pub breached_pw_bloom_path: Option<PathBuf>,
+    /// WebAuthn relying-party id (registrable domain, e.g. `localhost` or `ruchoir.example.org`).
+    pub webauthn_rp_id: String,
+    /// WebAuthn relying-party origin (full URL the browser sees, e.g. `https://ruchoir.example.org`).
+    pub webauthn_origin: String,
 }
 
 impl Config {
@@ -167,6 +171,10 @@ impl Config {
 
         let breached_pw_bloom_path = env_opt("RUCHOIR_BREACHED_PW_BLOOM").map(PathBuf::from);
 
+        // WebAuthn relying party. Origin defaults to the public base URL; rp_id to its host.
+        let webauthn_rp_id = env_or("RUCHOIR_WEBAUTHN_RP_ID", "localhost");
+        let webauthn_origin = env_or("RUCHOIR_WEBAUTHN_ORIGIN", &public_base_url);
+
         Ok(Self {
             addr: SocketAddr::new(host, port),
             web_dist,
@@ -198,6 +206,8 @@ impl Config {
             email_verification_ttl_secs,
             password_reset_ttl_secs,
             breached_pw_bloom_path,
+            webauthn_rp_id,
+            webauthn_origin,
         })
     }
 

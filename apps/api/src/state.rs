@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use fred::prelude::Pool;
 use sea_orm::DatabaseConnection;
+use webauthn_rs::Webauthn;
 
 use crate::auth::breach::BreachFilter;
 use crate::auth::mailer::Mailer;
@@ -23,6 +24,11 @@ pub struct AppState {
     pub mailer: Mailer,
     /// Offline breached-password bloom filter (disabled when none is configured).
     pub breaches: Arc<BreachFilter>,
+    /// 256-bit data-encryption key for secrets at rest (MFA). Kept out of `Config` so it never
+    /// appears in a debug dump.
+    pub secret_key: Arc<[u8; 32]>,
+    /// WebAuthn relying party, driving the passkey ceremonies.
+    pub webauthn: Arc<Webauthn>,
     /// Fully resolved runtime configuration.
     pub config: Arc<Config>,
 }

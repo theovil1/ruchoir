@@ -96,11 +96,35 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    let secret_key = match std::env::var("RUCHOIR_SECRET_ENCRYPTION_KEY") {
+        Ok(hex) => decode_key_hex(&hex)
+            .ok_or("RUCHOIR_SECRET_ENCRYPTION_KEY must be 64 hex characters (32 bytes)")?,
+        Err(_) => {
+            tracing::warn!(
+                "RUCHOIR_SECRET_ENCRYPTION_KEY unset; using an INSECURE built-in dev key \
+                 (never use in production)"
+            );
+            DEV_SECRET_KEY
+        }
+    };
+
+    let webauthn = {
+        let origin = webauthn_rs::prelude::Url::parse(&config.webauthn_origin)
+            .map_err(|e| format!("invalid RUCHOIR_WEBAUTHN_ORIGIN: {e}"))?;
+        webauthn_rs::WebauthnBuilder::new(&config.webauthn_rp_id, &origin)
+            .map_err(|e| format!("webauthn configuration: {e}"))?
+            .rp_name("Ruchoir")
+            .build()
+            .map_err(|e| format!("webauthn configuration: {e}"))?
+    };
+
     let state = AppState {
         db,
         valkey,
         mailer,
         breaches: Arc::new(breaches),
+        secret_key: Arc::new(secret_key),
+        webauthn: Arc::new(webauthn),
         config: Arc::new(config),
     };
 
@@ -111,6 +135,22 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     );
 
     serve(state).await
+}
+
+/// Insecure development fallback for the secret-encryption key. Production MUST set
+/// `RUCHOIR_SECRET_ENCRYPTION_KEY` to a real 32-byte key (64 hex characters).
+const DEV_SECRET_KEY: [u8; 32] = [0x11; 32];
+
+/// Decode a 64-character hex string into 32 bytes.
+fn decode_key_hex(hex: &str) -> Option<[u8; 32]> {
+    if hex.len() != 64 {
+        return None;
+    }
+    let mut out = [0u8; 32];
+    for (i, byte) in out.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(hex.get(2 * i..2 * i + 2)?, 16).ok()?;
+    }
+    Some(out)
 }
 
 /// Configure structured, filtered logging. Never logs secrets.

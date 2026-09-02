@@ -29,7 +29,10 @@ use utoipa::OpenApi;
         crate::auth::routes::verify_email_request,
         crate::auth::routes::verify_email_confirm,
         crate::auth::routes::password_reset_request,
-        crate::auth::routes::password_reset_confirm
+        crate::auth::routes::password_reset_confirm,
+        crate::auth::routes::totp_enroll,
+        crate::auth::routes::totp_confirm,
+        crate::auth::routes::recovery_generate
     ),
     components(schemas(
         crate::http::Health,
@@ -39,7 +42,10 @@ use utoipa::OpenApi;
         crate::auth::routes::UserSummary,
         crate::auth::routes::EmailRequest,
         crate::auth::routes::TokenRequest,
-        crate::auth::routes::PasswordResetConfirm
+        crate::auth::routes::PasswordResetConfirm,
+        crate::auth::routes::TotpEnrollResponse,
+        crate::auth::routes::TotpConfirm,
+        crate::auth::routes::RecoveryCodesResponse
     )),
     tags(
         (name = "health", description = "Liveness and health checks"),

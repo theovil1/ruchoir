@@ -47,3 +47,9 @@ tower_governor = { workspace = true }
 lettre = { workspace = true }
 sha2 = { workspace = true }
 sha1 = { workspace = true }
+hmac = { workspace = true }
+totp-rs = { workspace = true }
+aes-gcm = { workspace = true }
+zeroize = { workspace = true }
+qrcodegen = { workspace = true }
+webauthn-rs = { workspace = true }

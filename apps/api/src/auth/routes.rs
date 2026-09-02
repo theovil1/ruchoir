@@ -20,9 +20,10 @@ use super::cookie::{clear_session_cookie, session_cookie, SESSION_COOKIE};
 use super::error::AuthError;
 use super::extract::AuthSession;
 use super::tokens::{self, TokenPurpose};
-use super::{password, session, throttle};
-use crate::entities::users;
+use super::{crypto, passkey, password, recovery, session, throttle, totp};
+use crate::entities::{recovery_codes, totp_secrets, users, webauthn_credentials};
 use crate::state::AppState;
+use webauthn_rs::prelude::{CreationChallengeResponse, RegisterPublicKeyCredential};
 
 /// New-account request.
 #[derive(Debug, Deserialize, ToSchema)]
@@ -58,6 +59,27 @@ pub struct PasswordResetConfirm {
     pub password: String,
 }
 
+/// TOTP enrollment material returned to the client to display.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct TotpEnrollResponse {
+    /// The `otpauth://` provisioning URI for manual entry.
+    pub otpauth_url: String,
+    /// An SVG QR code encoding the provisioning URI, ready to embed.
+    pub qr_svg: String,
+}
+
+/// A TOTP code submitted to confirm enrollment.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct TotpConfirm {
+    pub code: String,
+}
+
+/// A freshly generated set of recovery codes, shown to the user exactly once.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct RecoveryCodesResponse {
+    pub codes: Vec<String>,
+}
+
 /// Public view of an account returned to the client. Never includes secrets.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct UserSummary {
@@ -88,6 +110,11 @@ pub fn router() -> Router<AppState> {
         .route("/verify-email/confirm", post(verify_email_confirm))
         .route("/password-reset/request", post(password_reset_request))
         .route("/password-reset/confirm", post(password_reset_confirm))
+        .route("/mfa/totp/enroll", post(totp_enroll))
+        .route("/mfa/totp/confirm", post(totp_confirm))
+        .route("/mfa/recovery-codes/generate", post(recovery_generate))
+        .route("/mfa/passkey/register/start", post(passkey_register_start))
+        .route("/mfa/passkey/register/finish", post(passkey_register_finish))
 }
 
 /// Register a new account. The account starts unverified; a verification email is sent and no
@@ -398,6 +425,255 @@ pub async fn password_reset_confirm(
     // A password change invalidates every existing session.
     session::delete_all(&state.valkey, user_id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Begin TOTP enrollment: generate a secret, store it encrypted (unconfirmed), and return the
+/// provisioning URI plus a QR code. Enrollment is finalized by `totp_confirm`.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/mfa/totp/enroll",
+    tag = "auth",
+    responses(
+        (status = 200, description = "Enrollment started", body = TotpEnrollResponse),
+        (status = 401, description = "Not authenticated")
+    )
+)]
+pub async fn totp_enroll(
+    State(state): State<AppState>,
+    auth: AuthSession,
+) -> Result<Json<TotpEnrollResponse>, AuthError> {
+    let user = users::Entity::find_by_id(auth.user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::Unauthorized)?;
+
+    let secret = totp::generate_secret()?;
+    let (ciphertext, nonce) = crypto::encrypt(&state.secret_key, &secret)?;
+
+    // Replace any prior (possibly unconfirmed) enrollment.
+    totp_secrets::Entity::delete_by_id(auth.user_id)
+        .exec(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    totp_secrets::ActiveModel {
+        user_id: Set(auth.user_id),
+        secret_ciphertext: Set(ciphertext),
+        secret_nonce: Set(nonce),
+        confirmed_at: Set(None),
+        created_at: NotSet,
+        updated_at: NotSet,
+    }
+    .insert(&state.db)
+    .await
+    .map_err(|_| AuthError::Internal)?;
+
+    let totp = totp::build(&secret, &user.email)?;
+    let otpauth_url = totp.to_url().map_err(|_| AuthError::Internal)?;
+    let qr = qrcodegen::QrCode::encode_text(&otpauth_url, qrcodegen::QrCodeEcc::Medium)
+        .map_err(|_| AuthError::Internal)?;
+    let qr_svg = qr_to_svg(&qr, 4);
+
+    Ok(Json(TotpEnrollResponse {
+        otpauth_url,
+        qr_svg,
+    }))
+}
+
+/// Finalize TOTP enrollment by verifying a code, then enforce MFA on the account.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/mfa/totp/confirm",
+    tag = "auth",
+    request_body = TotpConfirm,
+    responses(
+        (status = 204, description = "TOTP enabled"),
+        (status = 400, description = "Incorrect code"),
+        (status = 401, description = "Not authenticated")
+    )
+)]
+pub async fn totp_confirm(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    Json(body): Json<TotpConfirm>,
+) -> Result<StatusCode, AuthError> {
+    let row = totp_secrets::Entity::find_by_id(auth.user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::InvalidCode)?;
+    let user = users::Entity::find_by_id(auth.user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::Unauthorized)?;
+
+    let secret = crypto::decrypt(&state.secret_key, &row.secret_ciphertext, &row.secret_nonce)?;
+    let totp = totp::build(&secret, &user.email)?;
+    if totp.check_current(&body.code).is_none() {
+        return Err(AuthError::InvalidCode);
+    }
+
+    let now = OffsetDateTime::now_utc();
+    let mut secret_active = row.into_active_model();
+    secret_active.confirmed_at = Set(Some(now));
+    secret_active.updated_at = Set(now);
+    secret_active
+        .update(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+
+    let mut user_active = user.into_active_model();
+    user_active.mfa_enforced = Set(true);
+    user_active.updated_at = Set(now);
+    user_active
+        .update(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Generate a fresh set of single-use recovery codes, replacing any existing set. The plaintext
+/// codes are returned exactly once; only their hashes are stored.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/mfa/recovery-codes/generate",
+    tag = "auth",
+    responses(
+        (status = 200, description = "New recovery codes", body = RecoveryCodesResponse),
+        (status = 401, description = "Not authenticated")
+    )
+)]
+pub async fn recovery_generate(
+    State(state): State<AppState>,
+    auth: AuthSession,
+) -> Result<Json<RecoveryCodesResponse>, AuthError> {
+    let codes = recovery::generate_codes()?;
+
+    // Replace any prior set.
+    recovery_codes::Entity::delete_many()
+        .filter(recovery_codes::Column::UserId.eq(auth.user_id))
+        .exec(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+
+    for code in &codes {
+        let code_hash = recovery::hash_code(&state.secret_key, code);
+        recovery_codes::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            user_id: Set(auth.user_id),
+            code_hash: Set(code_hash),
+            used_at: Set(None),
+            created_at: NotSet,
+        }
+        .insert(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    }
+
+    Ok(Json(RecoveryCodesResponse { codes }))
+}
+
+/// Begin passkey registration: returns the WebAuthn creation challenge the browser passes to
+/// `navigator.credentials.create()`. The ceremony state is kept server-side in Valkey.
+///
+/// Not described in the OpenAPI document: the WebAuthn request/response types are foreign and do
+/// not implement utoipa's schema traits.
+pub async fn passkey_register_start(
+    State(state): State<AppState>,
+    auth: AuthSession,
+) -> Result<Json<CreationChallengeResponse>, AuthError> {
+    let user = users::Entity::find_by_id(auth.user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::Unauthorized)?;
+
+    let (challenge, registration) = state
+        .webauthn
+        .start_passkey_registration(user.id, &user.email, &user.display_name, None)
+        .map_err(|_| AuthError::Internal)?;
+
+    passkey::store_registration(&state.valkey, auth.user_id, &registration).await?;
+
+    Ok(Json(challenge))
+}
+
+/// Finish passkey registration: verify the browser's attestation, store the credential, and
+/// enforce MFA on the account. Request body is the WebAuthn `RegisterPublicKeyCredential`.
+///
+/// Not described in the OpenAPI document: the WebAuthn request/response types are foreign and do
+/// not implement utoipa's schema traits.
+pub async fn passkey_register_finish(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    Json(credential): Json<RegisterPublicKeyCredential>,
+) -> Result<StatusCode, AuthError> {
+    let registration = passkey::take_registration(&state.valkey, auth.user_id)
+        .await?
+        .ok_or(AuthError::InvalidToken)?;
+
+    let passkey = state
+        .webauthn
+        .finish_passkey_registration(&credential, &registration)
+        .map_err(|_| AuthError::InvalidCode)?;
+
+    let credential_id = passkey.cred_id().as_ref().to_vec();
+    let passkey_blob = serde_json::to_vec(&passkey).map_err(|_| AuthError::Internal)?;
+
+    webauthn_credentials::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        user_id: Set(auth.user_id),
+        credential_id: Set(credential_id),
+        public_key: Set(passkey_blob),
+        sign_count: Set(0),
+        transports: Set(None),
+        label: Set(None),
+        created_at: NotSet,
+        last_used_at: Set(None),
+    }
+    .insert(&state.db)
+    .await
+    .map_err(|_| AuthError::Internal)?;
+
+    // Registering a passkey enforces MFA on the account.
+    let user = users::Entity::find_by_id(auth.user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::Unauthorized)?;
+    let mut user_active = user.into_active_model();
+    user_active.mfa_enforced = Set(true);
+    user_active.updated_at = Set(OffsetDateTime::now_utc());
+    user_active
+        .update(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Render a QR code as a self-contained SVG string (no external assets, embeddable directly).
+fn qr_to_svg(qr: &qrcodegen::QrCode, border: i32) -> String {
+    use std::fmt::Write as _;
+    let size = qr.size();
+    let dim = size + border * 2;
+    let mut svg = String::new();
+    let _ = write!(
+        svg,
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {dim} {dim}\" stroke=\"none\">\
+         <rect width=\"100%\" height=\"100%\" fill=\"#ffffff\"/><path d=\""
+    );
+    for y in 0..size {
+        for x in 0..size {
+            if qr.get_module(x, y) {
+                let _ = write!(svg, "M{},{}h1v1h-1z", x + border, y + border);
+            }
+        }
+    }
+    svg.push_str("\" fill=\"#000000\"/></svg>");
+    svg
 }
 
 /// Issue and send an email-verification link for a user.

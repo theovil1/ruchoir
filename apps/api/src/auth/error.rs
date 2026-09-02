@@ -29,6 +29,8 @@ pub enum AuthError {
     EmailNotVerified,
     /// A verification or password-reset token is missing, expired or already used.
     InvalidToken,
+    /// An MFA verification code (e.g. TOTP) is incorrect.
+    InvalidCode,
     /// Any unexpected server-side failure. Never leaks internals to the client.
     Internal,
 }
@@ -86,6 +88,11 @@ impl IntoResponse for AuthError {
                 StatusCode::BAD_REQUEST,
                 "invalid_token",
                 "This link is invalid or has expired.",
+            ),
+            AuthError::InvalidCode => (
+                StatusCode::BAD_REQUEST,
+                "invalid_code",
+                "Incorrect verification code.",
             ),
             AuthError::Internal => (
                 StatusCode::INTERNAL_SERVER_ERROR,

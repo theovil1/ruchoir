@@ -81,6 +81,22 @@ lettre = { version = "0.11.23", default-features = false, features = [
 sha2 = "0.11"
 # SHA-1 for the offline breached-password check (the public breach corpora are SHA-1 keyed).
 sha1 = "0.11"
+# HMAC-SHA-256 for hashing single-use recovery codes at rest (RustCrypto, community).
+hmac = "0.13"
+# --- MFA (TOTP + secret encryption at rest) ---
+# TOTP (RFC 6238) for authenticator-app two-factor (community). AES-GCM (RustCrypto) encrypts the
+# TOTP secret at rest; zeroize wipes key material from memory after use.
+totp-rs = { version = "6", default-features = false, features = ["std", "otpauth"] }
+aes-gcm = "0.11"
+zeroize = "1.9"
+# Pure-Rust QR encoder (Nayuki, community, zero deps): renders the TOTP provisioning URL to SVG,
+# avoiding the heavy raster `image` stack that totp-rs's own `qr` feature would pull.
+qrcodegen = "1.8"
+# WebAuthn / passkeys (Kanidm project, AU-led community: neutral governance). Handles the
+# registration and authentication ceremonies server-side. The `danger-allow-state-serialisation`
+# feature is required (and safe here) to persist ceremony state server-side in Valkey between the
+# start and finish steps, as the crate documents.
+webauthn-rs = { version = "0.5.5", features = ["danger-allow-state-serialisation"] }
 
 [profile.release]
 # Lean, fast production binary.
