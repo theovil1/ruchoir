@@ -7,6 +7,11 @@
 pub use sea_orm_migration::prelude::*;
 
 mod m20260901_000001_init_auth;
+mod m20260902_000001_spaces_and_channels;
+mod m20260902_000002_files;
+mod m20260902_000003_messaging;
+mod m20260902_000004_user_profiles;
+mod m20260902_000005_preferences_and_media;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -14,6 +19,13 @@ pub struct Migrator;
 #[async_trait::async_trait]
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(m20260901_000001_init_auth::Migration)]
+        vec![
+            Box::new(m20260901_000001_init_auth::Migration),
+            Box::new(m20260902_000001_spaces_and_channels::Migration),
+            Box::new(m20260902_000002_files::Migration),
+            Box::new(m20260902_000003_messaging::Migration),
+            Box::new(m20260902_000004_user_profiles::Migration),
+            Box::new(m20260902_000005_preferences_and_media::Migration),
+        ]
     }
 }

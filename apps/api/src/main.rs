@@ -12,6 +12,7 @@ mod db;
 mod entities;
 mod http;
 mod openapi;
+mod seed;
 mod state;
 
 use std::net::SocketAddr;
@@ -61,6 +62,15 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         tracing::info!("applying database migrations");
         Migrator::up(&db, None).await?;
         tracing::info!("migrations applied");
+        return Ok(());
+    }
+
+    // `ruchoir-api seed` populates a dev workspace and exits. It applies migrations first so a
+    // fresh database can be seeded in one step, and refuses to run outside development.
+    if subcommand.as_deref() == Some("seed") {
+        tracing::info!("applying migrations before seeding");
+        Migrator::up(&db, None).await?;
+        seed::run(&db, &config).await?;
         return Ok(());
     }
 

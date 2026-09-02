@@ -215,6 +215,13 @@ pub async fn register(
         password_hash: Set(Some(password_hash)),
         status: Set("pending".to_string()),
         mfa_enforced: Set(false),
+        // Profile fields: unset at registration, filled in later via profile editing.
+        title: NotSet,
+        pronouns: NotSet,
+        timezone: NotSet,
+        bio: NotSet,
+        avatar_file_id: NotSet,
+        is_bot: NotSet,
         created_at: NotSet,
         updated_at: NotSet,
     }
