@@ -26,7 +26,13 @@ pub async fn store_registration(
     let json = serde_json::to_string(state).map_err(|_| AuthError::Internal)?;
     let key = format!("{REG_PREFIX}{user_id}");
     let _: () = valkey
-        .set(key.as_str(), json, Some(Expiration::EX(REG_TTL_SECS)), None, false)
+        .set(
+            key.as_str(),
+            json,
+            Some(Expiration::EX(REG_TTL_SECS)),
+            None,
+            false,
+        )
         .await
         .map_err(|_| AuthError::Internal)?;
     Ok(())
@@ -54,7 +60,13 @@ pub async fn store_authentication(
     let json = serde_json::to_string(state).map_err(|_| AuthError::Internal)?;
     let key = format!("{AUTH_PREFIX}{mfa_token}");
     let _: () = valkey
-        .set(key.as_str(), json, Some(Expiration::EX(REG_TTL_SECS)), None, false)
+        .set(
+            key.as_str(),
+            json,
+            Some(Expiration::EX(REG_TTL_SECS)),
+            None,
+            false,
+        )
         .await
         .map_err(|_| AuthError::Internal)?;
     Ok(())

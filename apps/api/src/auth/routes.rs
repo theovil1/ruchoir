@@ -154,11 +154,20 @@ pub fn router() -> Router<AppState> {
         .route("/mfa/totp/confirm", post(totp_confirm))
         .route("/mfa/recovery-codes/generate", post(recovery_generate))
         .route("/mfa/passkey/register/start", post(passkey_register_start))
-        .route("/mfa/passkey/register/finish", post(passkey_register_finish))
+        .route(
+            "/mfa/passkey/register/finish",
+            post(passkey_register_finish),
+        )
         .route("/mfa/totp/verify", post(totp_verify))
         .route("/mfa/recovery/verify", post(recovery_verify))
-        .route("/mfa/passkey/authenticate/start", post(passkey_authenticate_start))
-        .route("/mfa/passkey/authenticate/finish", post(passkey_authenticate_finish))
+        .route(
+            "/mfa/passkey/authenticate/start",
+            post(passkey_authenticate_start),
+        )
+        .route(
+            "/mfa/passkey/authenticate/finish",
+            post(passkey_authenticate_finish),
+        )
         .route("/oidc/providers", get(oidc_providers))
         .route("/oidc/{provider}/start", get(oidc_not_implemented))
         .route("/oidc/{provider}/callback", get(oidc_not_implemented))
@@ -291,7 +300,10 @@ pub async fn login(
     }
 
     let session_id = session::create(&state.valkey, &state.config, user.id).await?;
-    let jar = jar.add(session_cookie(session_id, state.config.session_idle_ttl_secs));
+    let jar = jar.add(session_cookie(
+        session_id,
+        state.config.session_idle_ttl_secs,
+    ));
     Ok((jar, Json(UserSummary::from(user))).into_response())
 }
 
@@ -850,7 +862,10 @@ async fn complete_mfa_login(
         .map_err(|_| AuthError::Internal)?
         .ok_or(AuthError::Unauthorized)?;
     let session_id = session::create(&state.valkey, &state.config, user_id).await?;
-    let jar = jar.add(session_cookie(session_id, state.config.session_idle_ttl_secs));
+    let jar = jar.add(session_cookie(
+        session_id,
+        state.config.session_idle_ttl_secs,
+    ));
     Ok((jar, Json(UserSummary::from(user))).into_response())
 }
 

@@ -48,7 +48,12 @@ fn generate_one() -> Result<String, AuthError> {
         .iter()
         .map(|b| ALPHABET[*b as usize % ALPHABET.len()] as char)
         .collect();
-    Ok(format!("{}-{}-{}", &chars[0..5], &chars[5..10], &chars[10..15]))
+    Ok(format!(
+        "{}-{}-{}",
+        &chars[0..5],
+        &chars[5..10],
+        &chars[10..15]
+    ))
 }
 
 #[cfg(test)]

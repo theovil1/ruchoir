@@ -166,9 +166,10 @@ impl Config {
         let smtp_password = env_opt("RUCHOIR_SMTP_PASSWORD");
         let smtp_from = env_or("RUCHOIR_SMTP_FROM", "Ruchoir <no-reply@localhost>");
         let public_base_url = env_or("RUCHOIR_PUBLIC_BASE_URL", "http://localhost:8080");
-        let email_verification_ttl_secs: i64 = env_or("RUCHOIR_EMAIL_VERIFICATION_TTL_SECS", "86400")
-            .parse()
-            .map_err(|_| ConfigError::Invalid("RUCHOIR_EMAIL_VERIFICATION_TTL_SECS"))?;
+        let email_verification_ttl_secs: i64 =
+            env_or("RUCHOIR_EMAIL_VERIFICATION_TTL_SECS", "86400")
+                .parse()
+                .map_err(|_| ConfigError::Invalid("RUCHOIR_EMAIL_VERIFICATION_TTL_SECS"))?;
         let password_reset_ttl_secs: i64 = env_or("RUCHOIR_PASSWORD_RESET_TTL_SECS", "3600")
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_PASSWORD_RESET_TTL_SECS"))?;

@@ -89,7 +89,11 @@ pub async fn resolve(
         return Ok(None);
     };
     let now = now_secs();
-    if record.created_at.saturating_add(config.session_absolute_ttl_secs) <= now {
+    if record
+        .created_at
+        .saturating_add(config.session_absolute_ttl_secs)
+        <= now
+    {
         delete(valkey, id).await?;
         return Ok(None);
     }

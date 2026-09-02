@@ -50,7 +50,10 @@ impl Mailer {
             tracing::info!(%to, %subject, "email not sent (no SMTP relay configured); body follows for dev:\n{body}");
             return Ok(());
         };
-        let from: Mailbox = self.from.parse().map_err(|e| format!("invalid From: {e}"))?;
+        let from: Mailbox = self
+            .from
+            .parse()
+            .map_err(|e| format!("invalid From: {e}"))?;
         let to: Mailbox = to.parse().map_err(|e| format!("invalid To: {e}"))?;
         let email = Message::builder()
             .from(from)
