@@ -6,6 +6,7 @@
 
 use axum::extract::State;
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use axum_extra::extract::cookie::CookieJar;
@@ -20,10 +21,13 @@ use super::cookie::{clear_session_cookie, session_cookie, SESSION_COOKIE};
 use super::error::AuthError;
 use super::extract::AuthSession;
 use super::tokens::{self, TokenPurpose};
-use super::{crypto, passkey, password, recovery, session, throttle, totp};
+use super::{crypto, mfa, passkey, password, recovery, session, throttle, totp};
 use crate::entities::{recovery_codes, totp_secrets, users, webauthn_credentials};
 use crate::state::AppState;
-use webauthn_rs::prelude::{CreationChallengeResponse, RegisterPublicKeyCredential};
+use webauthn_rs::prelude::{
+    CreationChallengeResponse, Passkey, PublicKeyCredential, RegisterPublicKeyCredential,
+    RequestChallengeResponse,
+};
 
 /// New-account request.
 #[derive(Debug, Deserialize, ToSchema)]
@@ -80,6 +84,35 @@ pub struct RecoveryCodesResponse {
     pub codes: Vec<String>,
 }
 
+/// Returned by login when the account requires a second factor. The client completes one of the
+/// listed methods against `mfa_token` to obtain a session.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MfaRequired {
+    pub mfa_required: bool,
+    pub methods: Vec<String>,
+    pub mfa_token: String,
+}
+
+/// A second factor submitted with its pending MFA token (TOTP or recovery code).
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct MfaCodeRequest {
+    pub mfa_token: String,
+    pub code: String,
+}
+
+/// Start a passkey authentication for a pending MFA step-up.
+#[derive(Debug, Deserialize)]
+pub struct PasskeyAuthStart {
+    pub mfa_token: String,
+}
+
+/// Finish a passkey authentication for a pending MFA step-up.
+#[derive(Debug, Deserialize)]
+pub struct PasskeyAuthFinish {
+    pub mfa_token: String,
+    pub credential: PublicKeyCredential,
+}
+
 /// Public view of an account returned to the client. Never includes secrets.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct UserSummary {
@@ -115,6 +148,10 @@ pub fn router() -> Router<AppState> {
         .route("/mfa/recovery-codes/generate", post(recovery_generate))
         .route("/mfa/passkey/register/start", post(passkey_register_start))
         .route("/mfa/passkey/register/finish", post(passkey_register_finish))
+        .route("/mfa/totp/verify", post(totp_verify))
+        .route("/mfa/recovery/verify", post(recovery_verify))
+        .route("/mfa/passkey/authenticate/start", post(passkey_authenticate_start))
+        .route("/mfa/passkey/authenticate/finish", post(passkey_authenticate_finish))
 }
 
 /// Register a new account. The account starts unverified; a verification email is sent and no
@@ -188,7 +225,7 @@ pub async fn login(
     State(state): State<AppState>,
     jar: CookieJar,
     Json(body): Json<LoginRequest>,
-) -> Result<(CookieJar, Json<UserSummary>), AuthError> {
+) -> Result<Response, AuthError> {
     let email = body.email.trim().to_lowercase();
 
     // Refuse early if this account is in an anti-bruteforce cooldown. Keyed by the submitted email
@@ -231,10 +268,21 @@ pub async fn login(
         return Err(AuthError::EmailNotVerified);
     }
 
+    // MFA step-up: an enforced account completes a second factor before any session is issued.
+    if user.mfa_enforced {
+        let methods = available_methods(&state, user.id).await?;
+        let mfa_token = mfa::start_pending(&state.valkey, user.id).await?;
+        return Ok(Json(MfaRequired {
+            mfa_required: true,
+            methods,
+            mfa_token,
+        })
+        .into_response());
+    }
+
     let session_id = session::create(&state.valkey, &state.config, user.id).await?;
     let jar = jar.add(session_cookie(session_id, state.config.session_idle_ttl_secs));
-
-    Ok((jar, Json(user.into())))
+    Ok((jar, Json(UserSummary::from(user))).into_response())
 }
 
 /// Revoke the current session and clear the cookie.
@@ -652,6 +700,193 @@ pub async fn passkey_register_finish(
         .map_err(|_| AuthError::Internal)?;
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Complete a TOTP second factor for a pending login.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/mfa/totp/verify",
+    tag = "auth",
+    request_body = MfaCodeRequest,
+    responses(
+        (status = 200, description = "Authenticated", body = UserSummary),
+        (status = 400, description = "Incorrect code"),
+        (status = 401, description = "No pending step-up")
+    )
+)]
+pub async fn totp_verify(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Json(body): Json<MfaCodeRequest>,
+) -> Result<Response, AuthError> {
+    let user_id = mfa::resolve_pending(&state.valkey, &body.mfa_token)
+        .await?
+        .ok_or(AuthError::InvalidToken)?;
+    let row = totp_secrets::Entity::find_by_id(user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::InvalidCode)?;
+    if row.confirmed_at.is_none() {
+        return Err(AuthError::InvalidCode);
+    }
+    let user = users::Entity::find_by_id(user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::Unauthorized)?;
+    let secret = crypto::decrypt(&state.secret_key, &row.secret_ciphertext, &row.secret_nonce)?;
+    let totp = totp::build(&secret, &user.email)?;
+    if totp.check_current(&body.code).is_none() {
+        return Err(AuthError::InvalidCode);
+    }
+    complete_mfa_login(&state, jar, &body.mfa_token, user_id).await
+}
+
+/// Complete a login with a single-use recovery code (MFA fallback).
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/mfa/recovery/verify",
+    tag = "auth",
+    request_body = MfaCodeRequest,
+    responses(
+        (status = 200, description = "Authenticated", body = UserSummary),
+        (status = 400, description = "Incorrect code"),
+        (status = 401, description = "No pending step-up")
+    )
+)]
+pub async fn recovery_verify(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Json(body): Json<MfaCodeRequest>,
+) -> Result<Response, AuthError> {
+    let user_id = mfa::resolve_pending(&state.valkey, &body.mfa_token)
+        .await?
+        .ok_or(AuthError::InvalidToken)?;
+    let hash = recovery::hash_code(&state.secret_key, &body.code);
+    let row = recovery_codes::Entity::find()
+        .filter(recovery_codes::Column::UserId.eq(user_id))
+        .filter(recovery_codes::Column::CodeHash.eq(hash))
+        .filter(recovery_codes::Column::UsedAt.is_null())
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::InvalidCode)?;
+    let mut active = row.into_active_model();
+    active.used_at = Set(Some(OffsetDateTime::now_utc()));
+    active
+        .update(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    complete_mfa_login(&state, jar, &body.mfa_token, user_id).await
+}
+
+/// Begin passkey authentication for a pending MFA step-up.
+///
+/// Not described in the OpenAPI document: the WebAuthn request/response types are foreign.
+pub async fn passkey_authenticate_start(
+    State(state): State<AppState>,
+    Json(body): Json<PasskeyAuthStart>,
+) -> Result<Json<RequestChallengeResponse>, AuthError> {
+    let user_id = mfa::resolve_pending(&state.valkey, &body.mfa_token)
+        .await?
+        .ok_or(AuthError::InvalidToken)?;
+    let passkeys = load_passkeys(&state, user_id).await?;
+    if passkeys.is_empty() {
+        return Err(AuthError::InvalidCode);
+    }
+    let (challenge, auth_state) = state
+        .webauthn
+        .start_passkey_authentication(&passkeys)
+        .map_err(|_| AuthError::Internal)?;
+    passkey::store_authentication(&state.valkey, &body.mfa_token, &auth_state).await?;
+    Ok(Json(challenge))
+}
+
+/// Finish passkey authentication and, on success, open a session.
+///
+/// Not described in the OpenAPI document: the WebAuthn request/response types are foreign. The
+/// signature counter is not yet persisted back (a hardening follow-up); the single-use challenge
+/// still prevents assertion replay.
+pub async fn passkey_authenticate_finish(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Json(body): Json<PasskeyAuthFinish>,
+) -> Result<Response, AuthError> {
+    let user_id = mfa::resolve_pending(&state.valkey, &body.mfa_token)
+        .await?
+        .ok_or(AuthError::InvalidToken)?;
+    let auth_state = passkey::take_authentication(&state.valkey, &body.mfa_token)
+        .await?
+        .ok_or(AuthError::InvalidToken)?;
+    state
+        .webauthn
+        .finish_passkey_authentication(&body.credential, &auth_state)
+        .map_err(|_| AuthError::InvalidCode)?;
+    complete_mfa_login(&state, jar, &body.mfa_token, user_id).await
+}
+
+/// Complete a login after a successful second factor: consume the pending token, open a session.
+async fn complete_mfa_login(
+    state: &AppState,
+    jar: CookieJar,
+    mfa_token: &str,
+    user_id: Uuid,
+) -> Result<Response, AuthError> {
+    mfa::consume_pending(&state.valkey, mfa_token).await?;
+    let user = users::Entity::find_by_id(user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::Unauthorized)?;
+    let session_id = session::create(&state.valkey, &state.config, user_id).await?;
+    let jar = jar.add(session_cookie(session_id, state.config.session_idle_ttl_secs));
+    Ok((jar, Json(UserSummary::from(user))).into_response())
+}
+
+/// The second-factor methods a user currently has available.
+async fn available_methods(state: &AppState, user_id: Uuid) -> Result<Vec<String>, AuthError> {
+    let mut methods = Vec::new();
+    let totp = totp_secrets::Entity::find_by_id(user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    if totp.is_some_and(|t| t.confirmed_at.is_some()) {
+        methods.push("totp".to_string());
+    }
+    let has_passkey = webauthn_credentials::Entity::find()
+        .filter(webauthn_credentials::Column::UserId.eq(user_id))
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .is_some();
+    if has_passkey {
+        methods.push("passkey".to_string());
+    }
+    let has_recovery = recovery_codes::Entity::find()
+        .filter(recovery_codes::Column::UserId.eq(user_id))
+        .filter(recovery_codes::Column::UsedAt.is_null())
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .is_some();
+    if has_recovery {
+        methods.push("recovery".to_string());
+    }
+    Ok(methods)
+}
+
+/// Load and deserialize a user's registered passkeys.
+async fn load_passkeys(state: &AppState, user_id: Uuid) -> Result<Vec<Passkey>, AuthError> {
+    let rows = webauthn_credentials::Entity::find()
+        .filter(webauthn_credentials::Column::UserId.eq(user_id))
+        .all(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|row| serde_json::from_slice::<Passkey>(&row.public_key).ok())
+        .collect())
 }
 
 /// Render a QR code as a self-contained SVG string (no external assets, embeddable directly).

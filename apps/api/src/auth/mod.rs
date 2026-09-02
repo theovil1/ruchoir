@@ -11,6 +11,7 @@ pub mod crypto;
 pub mod error;
 pub mod extract;
 pub mod mailer;
+pub mod mfa;
 pub mod passkey;
 pub mod recovery;
 pub mod routes;
