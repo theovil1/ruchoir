@@ -67,6 +67,18 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | tracing / tracing-subscriber | 0.1 / 0.3 | `Cargo.toml` |
 | serde / serde_json | 1 / 1 | `Cargo.toml` |
 | utoipa (OpenAPI) | 5 | `Cargo.toml` |
+| sea-orm / sea-orm-migration | 2.0.2 / 2.0.2 (`runtime-tokio`, no implicit TLS) | `Cargo.toml` |
+| fred (Valkey/RESP client) | 10.1.0 | `Cargo.toml` |
+| async-trait | 0.1 | `Cargo.toml` |
+| argon2 / getrandom | 0.6 / 0.4 | `Cargo.toml` |
+| uuid / time | 1.26 / 0.3 | `Cargo.toml` |
+| axum-extra (cookie) | 0.12.6 | `Cargo.toml` |
+| tower_governor | 0.8 | `Cargo.toml` |
+| lettre (SMTP, rustls+ring) | 0.11.23 | `Cargo.toml` |
+| sha2 / sha1 / hmac | 0.11 / 0.11 / 0.13 | `Cargo.toml` |
+| totp-rs / aes-gcm / zeroize | 6 / 0.11 / 1.9 | `Cargo.toml` |
+| qrcodegen | 1.8 | `Cargo.toml` |
+| webauthn-rs | 0.5.5 | `Cargo.toml` |
 | Node (build only) | 24 (LTS) | `.nvmrc` |
 | pnpm | 11.24.0 | root `package.json` (`packageManager`) |
 | Next.js / React | 16.3.3 / 19.2 | `apps/web/package.json` |
@@ -83,7 +95,7 @@ apps/api/            Rust backend (axum/tokio)            - has its own AGENTS.m
 apps/web/            Next.js frontend                     - has its own AGENTS.md
 packages/importer/   Nextcloud/Mattermost import scripts + lib - has its own AGENTS.md
 packages/design-system/  React components + design tokens - has its own AGENTS.md
-migrations/          Versioned SQL migrations
+migrations/          Versioned SeaORM migrations (Rust crate `ruchoir-migration`)
 docs/                Technical documentation (EN)
 docker-compose.yml   Full stack (api, web, PostgreSQL, Valkey, Garage)
 ```

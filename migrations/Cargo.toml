@@ -1,0 +1,22 @@
+# Versioned database migrations for Ruchoir, driven by SeaORM.
+#
+# This is a library crate: the API depends on it to apply migrations (auto in dev, or through the
+# `ruchoir-api migrate` subcommand in production). Migrations are Rust, not raw SQL, because the
+# project uses SeaORM as its query + migration layer.
+[package]
+name = "ruchoir-migration"
+version = "0.0.0"
+description = "Ruchoir database migrations (SeaORM)."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "ruchoir_migration"
+path = "src/lib.rs"
+
+[dependencies]
+sea-orm-migration = { workspace = true }
+async-trait = { workspace = true }

@@ -18,9 +18,45 @@ use utoipa::OpenApi;
         description = "MielApi: the Ruchoir HTTP API. Sovereign, open-core workspace: real-time messaging and file sharing.",
         license(name = "AGPL-3.0-only")
     ),
-    paths(crate::http::healthz, crate::http::api_health),
-    components(schemas(crate::http::Health)),
-    tags((name = "health", description = "Liveness and health checks"))
+    paths(
+        crate::http::healthz,
+        crate::http::api_health,
+        crate::auth::routes::register,
+        crate::auth::routes::login,
+        crate::auth::routes::logout,
+        crate::auth::routes::logout_all,
+        crate::auth::routes::current_session,
+        crate::auth::routes::verify_email_request,
+        crate::auth::routes::verify_email_confirm,
+        crate::auth::routes::password_reset_request,
+        crate::auth::routes::password_reset_confirm,
+        crate::auth::routes::totp_enroll,
+        crate::auth::routes::totp_confirm,
+        crate::auth::routes::recovery_generate,
+        crate::auth::routes::totp_verify,
+        crate::auth::routes::recovery_verify,
+        crate::auth::routes::oidc_providers
+    ),
+    components(schemas(
+        crate::http::Health,
+        crate::http::ApiHealth,
+        crate::auth::routes::RegisterRequest,
+        crate::auth::routes::LoginRequest,
+        crate::auth::routes::UserSummary,
+        crate::auth::routes::EmailRequest,
+        crate::auth::routes::TokenRequest,
+        crate::auth::routes::PasswordResetConfirm,
+        crate::auth::routes::TotpEnrollResponse,
+        crate::auth::routes::TotpConfirm,
+        crate::auth::routes::RecoveryCodesResponse,
+        crate::auth::routes::MfaRequired,
+        crate::auth::routes::MfaCodeRequest,
+        crate::auth::routes::OidcProviders
+    )),
+    tags(
+        (name = "health", description = "Liveness and health checks"),
+        (name = "auth", description = "Registration, login, sessions")
+    )
 )]
 pub struct ApiDoc;
 

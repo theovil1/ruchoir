@@ -7,12 +7,26 @@ context and takes precedence here.
 
 ## Layout
 
-- `src/main.rs`   - entrypoint: config load, tracing, server bind (HTTP, or HTTPS with the
-  `tls` feature), graceful shutdown.
+- `src/main.rs`   - entrypoint: config load, tracing, datastore connections, migrations, server
+  bind (HTTP, or HTTPS with the `tls` feature), graceful shutdown. Also handles the `migrate`
+  subcommand.
 - `src/config.rs` - environment-driven configuration with dev defaults.
-- `src/http.rs`   - router, health endpoints, static web hosting (SPA fallback), security
-  headers.
+- `src/db.rs`     - PostgreSQL connection pool via SeaORM.
+- `src/cache.rs`  - Valkey connection pool via fred.
+- `src/state.rs`  - `AppState` (db + Valkey + config) shared with handlers.
+- `src/entities/` - SeaORM entity models mapping the database schema.
+- `src/auth/`     - the auth core: password hashing (argon2id) + policy with an offline breach
+  check, opaque Valkey sessions, the `__Host-` session cookie, the `AuthSession` extractor
+  (authorization guard), per-account anti-bruteforce throttle, SMTP mailer + single-use email
+  tokens (verification / reset), MFA (TOTP with AES-GCM-encrypted secrets, WebAuthn passkeys,
+  HMAC-hashed recovery codes) with a login step-up flow, error type, and the `/api/v1/auth` routes.
+- `src/http.rs`   - router, health endpoints (incl. DB/Valkey readiness probe), static web
+  hosting (SPA fallback), security headers.
 - `src/openapi.rs`- OpenAPI document generated from the code with `utoipa`.
+
+The API needs PostgreSQL and Valkey at startup (see `docker-compose.yml`). Migrations live in the
+`ruchoir-migration` crate (`../../migrations`): applied automatically in dev
+(`RUCHOIR_AUTO_MIGRATE=true`), or explicitly in prod with `ruchoir-api migrate`.
 
 ## Conventions
 

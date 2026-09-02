@@ -1,11 +1,23 @@
 # migrations
 
-Versioned SQL migrations for PostgreSQL, applied in order. The schema (workspaces,
-members, channels, DMs, messages, threads, reactions, files, shares) and a dev seed land
-later; this directory is a placeholder until then.
+Versioned database migrations for PostgreSQL, driven by **SeaORM** (`sea-orm-migration`). This is
+a Rust library crate (`ruchoir-migration`), not a folder of raw `.sql` files: migrations are Rust
+so they are type-checked and share the project's tooling.
 
-Conventions (to be finalized with the schema work):
+## How they run
 
-- One migration per change, prefixed with a zero-padded sequence (e.g. `0001_init.sql`).
-- Forward-only; never edit a migration that has shipped.
-- Parameterized, reviewed SQL; encryption-at-rest expectations per the security requirements.
+- **Development:** the API applies pending migrations on startup (`RUCHOIR_AUTO_MIGRATE=true`,
+  the default).
+- **Production:** set `RUCHOIR_AUTO_MIGRATE=false` and apply them explicitly before deploying:
+  `ruchoir-api migrate`.
+
+## Conventions
+
+- One migration per change, in its own module named `mYYYYMMDD_NNNNNN_description.rs`, registered
+  in `src/lib.rs` (`Migrator::migrations()`), applied in order.
+- **Forward-only**: never edit a migration that has shipped; add a new one.
+- Every migration implements `up` and a best-effort `down`.
+- Secrets are always stored encrypted or hashed (`bytea`), never in clear (security requirements).
+- The first migration (`m20260901_000001_init_auth`) creates the authentication schema: `users`,
+  `webauthn_credentials`, `totp_secrets`, `recovery_codes`. Later migrations append the rest of
+  the schema (spaces, channels, messages, files, ...).

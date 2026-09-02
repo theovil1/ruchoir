@@ -31,3 +31,25 @@ dotenvy = { workspace = true }
 utoipa = { workspace = true }
 axum-server = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
+
+# Data layer: PostgreSQL via SeaORM, Valkey via fred, migrations from the workspace crate.
+sea-orm = { workspace = true }
+fred = { workspace = true }
+ruchoir-migration = { path = "../../migrations" }
+
+# Auth: argon2id hashing, CSPRNG, ids, cookie handling.
+argon2 = { workspace = true }
+getrandom = { workspace = true }
+uuid = { workspace = true }
+time = { workspace = true }
+axum-extra = { workspace = true }
+tower_governor = { workspace = true }
+lettre = { workspace = true }
+sha2 = { workspace = true }
+sha1 = { workspace = true }
+hmac = { workspace = true }
+totp-rs = { workspace = true }
+aes-gcm = { workspace = true }
+zeroize = { workspace = true }
+qrcodegen = { workspace = true }
+webauthn-rs = { workspace = true }

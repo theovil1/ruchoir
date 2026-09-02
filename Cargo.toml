@@ -2,7 +2,7 @@
 # The Rust API is the single production service (it also serves the static web bundle).
 [workspace]
 resolver = "2"
-members = ["apps/api"]
+members = ["apps/api", "migrations"]
 
 [workspace.package]
 edition = "2021"
@@ -25,11 +25,78 @@ serde_json = "1"
 dotenvy = "0.15"
 # OpenAPI generation from code (dynamic, always in sync). `utoipa` is community,
 # EU-authored: compliant with the no-US-dependency rule.
-utoipa = { version = "5", features = ["axum_extras"] }
+utoipa = { version = "5", features = ["axum_extras", "uuid"] }
 # Optional dev TLS. Uses the community `ring` crypto provider (not AWS `aws-lc-rs`),
 # per the no-US-dependency rule. Enabled through the `tls` feature of apps/api.
 axum-server = { version = "0.8", default-features = false, features = ["tls-rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+
+# --- Data layer ---
+# SeaORM is the PostgreSQL ORM + versioned migrator (SeaQL, community, SG-based org: neutral
+# governance per the no-US-dependency rule). Default features are disabled so we do NOT pull an
+# implicit TLS provider: the `runtime-tokio` feature (no `-rustls`/`-native-tls` suffix) speaks
+# plaintext, which is what dev uses over the trusted Docker network. When TLS-to-database is added
+# later during hardening, enable the ring-based rustls path (never AWS `aws-lc-rs`), matching
+# the crypto provider already chosen for the HTTP server.
+sea-orm = { version = "2.0.2", default-features = false, features = [
+    "sqlx-postgres",
+    "runtime-tokio",
+    "macros",
+    "with-uuid",
+    "with-time",
+] }
+sea-orm-migration = { version = "2.0.2", default-features = false, features = [
+    "sqlx-postgres",
+    "runtime-tokio",
+] }
+# `async-trait` backs the SeaORM migration trait implementations.
+async-trait = "0.1.92"
+# Valkey/RESP client for opaque sessions (and, later, presence / pub-sub). Community, MIT. Default
+# features ("transactions", "i-std") cover keys/expire/ping/pub-sub with no TLS provider pulled;
+# the `enable-rustls-ring` feature (ring, not aws-lc-rs) is the sovereign TLS path for later hardening.
+fred = "10.1.0"
+
+# --- Auth (password hashing, sessions, cookies) ---
+# argon2id password hashing (RustCrypto, community). getrandom (rust-random) sources CSPRNG bytes
+# for session ids and salts. uuid/time are community crates; axum-extra provides the cookie jar
+# (tokio ecosystem, already using axum). All local libraries: compliant with the dependency rule.
+argon2 = "0.6"
+getrandom = "0.4"
+uuid = { version = "1.26", features = ["v4", "serde"] }
+time = "0.3.55"
+axum-extra = { version = "0.12.6", features = ["cookie"] }
+# Coarse per-IP rate limiting layer for the auth routes (community; wraps `governor`). Default
+# features pull `tonic` (gRPC), which we do not use: keep only the axum integration.
+tower_governor = { version = "0.8", default-features = false, features = ["axum"] }
+# SMTP client for verification / password-reset emails (community). rustls with the ring provider
+# (never aws-lc-rs), matching the rest of the stack; webpki roots bundled.
+lettre = { version = "0.11.23", default-features = false, features = [
+    "tokio1",
+    "tokio1-rustls-tls",
+    "smtp-transport",
+    "builder",
+    "hostname",
+] }
+# SHA-256 for hashing single-use email tokens at rest (RustCrypto, community).
+sha2 = "0.11"
+# SHA-1 for the offline breached-password check (the public breach corpora are SHA-1 keyed).
+sha1 = "0.11"
+# HMAC-SHA-256 for hashing single-use recovery codes at rest (RustCrypto, community).
+hmac = "0.13"
+# --- MFA (TOTP + secret encryption at rest) ---
+# TOTP (RFC 6238) for authenticator-app two-factor (community). AES-GCM (RustCrypto) encrypts the
+# TOTP secret at rest; zeroize wipes key material from memory after use.
+totp-rs = { version = "6", default-features = false, features = ["std", "otpauth"] }
+aes-gcm = "0.11"
+zeroize = "1.9"
+# Pure-Rust QR encoder (Nayuki, community, zero deps): renders the TOTP provisioning URL to SVG,
+# avoiding the heavy raster `image` stack that totp-rs's own `qr` feature would pull.
+qrcodegen = "1.8"
+# WebAuthn / passkeys (Kanidm project, AU-led community: neutral governance). Handles the
+# registration and authentication ceremonies server-side. The `danger-allow-state-serialisation`
+# feature is required (and safe here) to persist ceremony state server-side in Valkey between the
+# start and finish steps, as the crate documents.
+webauthn-rs = { version = "0.5.5", features = ["danger-allow-state-serialisation"] }
 
 [profile.release]
 # Lean, fast production binary.
