@@ -100,6 +100,13 @@ pub struct MfaCodeRequest {
     pub code: String,
 }
 
+/// Which optional OIDC connectors are enabled.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct OidcProviders {
+    pub google: bool,
+    pub microsoft: bool,
+}
+
 /// Start a passkey authentication for a pending MFA step-up.
 #[derive(Debug, Deserialize)]
 pub struct PasskeyAuthStart {
@@ -152,6 +159,9 @@ pub fn router() -> Router<AppState> {
         .route("/mfa/recovery/verify", post(recovery_verify))
         .route("/mfa/passkey/authenticate/start", post(passkey_authenticate_start))
         .route("/mfa/passkey/authenticate/finish", post(passkey_authenticate_finish))
+        .route("/oidc/providers", get(oidc_providers))
+        .route("/oidc/{provider}/start", get(oidc_not_implemented))
+        .route("/oidc/{provider}/callback", get(oidc_not_implemented))
 }
 
 /// Register a new account. The account starts unverified; a verification email is sent and no
@@ -887,6 +897,33 @@ async fn load_passkeys(state: &AppState, user_id: Uuid) -> Result<Vec<Passkey>, 
         .into_iter()
         .filter_map(|row| serde_json::from_slice::<Passkey>(&row.public_key).ok())
         .collect())
+}
+
+/// Report which OIDC connectors are enabled, so the client can show the right sign-in buttons.
+#[utoipa::path(
+    get,
+    path = "/api/v1/auth/oidc/providers",
+    tag = "auth",
+    responses((status = 200, description = "Enabled OIDC connectors", body = OidcProviders))
+)]
+pub async fn oidc_providers(State(state): State<AppState>) -> Json<OidcProviders> {
+    Json(OidcProviders {
+        google: state.config.oidc_google_enabled,
+        microsoft: state.config.oidc_microsoft_enabled,
+    })
+}
+
+/// OIDC sign-in scaffold: the connectors are off by default and the authorization-code flow is
+/// deferred, so these endpoints reply `501`. (Not described in the OpenAPI document.)
+async fn oidc_not_implemented() -> Response {
+    (
+        StatusCode::NOT_IMPLEMENTED,
+        Json(serde_json::json!({
+            "error": "oidc_not_implemented",
+            "message": "OIDC sign-in is not available yet."
+        })),
+    )
+        .into_response()
 }
 
 /// Render a QR code as a self-contained SVG string (no external assets, embeddable directly).

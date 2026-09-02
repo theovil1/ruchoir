@@ -77,6 +77,10 @@ pub struct Config {
     pub webauthn_rp_id: String,
     /// WebAuthn relying-party origin (full URL the browser sees, e.g. `https://ruchoir.example.org`).
     pub webauthn_origin: String,
+    /// Whether the Google OIDC connector is enabled (off by default; the flow is not implemented yet).
+    pub oidc_google_enabled: bool,
+    /// Whether the Microsoft OIDC connector is enabled (off by default; not implemented yet).
+    pub oidc_microsoft_enabled: bool,
 }
 
 impl Config {
@@ -175,6 +179,14 @@ impl Config {
         let webauthn_rp_id = env_or("RUCHOIR_WEBAUTHN_RP_ID", "localhost");
         let webauthn_origin = env_or("RUCHOIR_WEBAUTHN_ORIGIN", &public_base_url);
 
+        // OIDC connectors: scaffolded but off by default; the authorization-code flow is deferred.
+        let oidc_google_enabled: bool = env_or("RUCHOIR_OIDC_GOOGLE_ENABLED", "false")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_OIDC_GOOGLE_ENABLED"))?;
+        let oidc_microsoft_enabled: bool = env_or("RUCHOIR_OIDC_MICROSOFT_ENABLED", "false")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_OIDC_MICROSOFT_ENABLED"))?;
+
         Ok(Self {
             addr: SocketAddr::new(host, port),
             web_dist,
@@ -208,6 +220,8 @@ impl Config {
             breached_pw_bloom_path,
             webauthn_rp_id,
             webauthn_origin,
+            oidc_google_enabled,
+            oidc_microsoft_enabled,
         })
     }
 

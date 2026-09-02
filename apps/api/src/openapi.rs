@@ -34,7 +34,8 @@ use utoipa::OpenApi;
         crate::auth::routes::totp_confirm,
         crate::auth::routes::recovery_generate,
         crate::auth::routes::totp_verify,
-        crate::auth::routes::recovery_verify
+        crate::auth::routes::recovery_verify,
+        crate::auth::routes::oidc_providers
     ),
     components(schemas(
         crate::http::Health,
@@ -49,7 +50,8 @@ use utoipa::OpenApi;
         crate::auth::routes::TotpConfirm,
         crate::auth::routes::RecoveryCodesResponse,
         crate::auth::routes::MfaRequired,
-        crate::auth::routes::MfaCodeRequest
+        crate::auth::routes::MfaCodeRequest,
+        crate::auth::routes::OidcProviders
     )),
     tags(
         (name = "health", description = "Liveness and health checks"),
