@@ -50,3 +50,27 @@ fn generate_one() -> Result<String, AuthError> {
         .collect();
     Ok(format!("{}-{}-{}", &chars[0..5], &chars[5..10], &chars[10..15]))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generates_a_full_formatted_set() {
+        let codes = generate_codes().unwrap();
+        assert_eq!(codes.len(), CODE_COUNT);
+        for code in &codes {
+            assert_eq!(code.len(), 17); // 15 chars + two hyphens
+            assert_eq!(code.matches('-').count(), 2);
+        }
+    }
+
+    #[test]
+    fn hashing_is_deterministic_and_key_separated() {
+        let k1 = [1u8; 32];
+        let k2 = [2u8; 32];
+        assert_eq!(hash_code(&k1, "abc-def-ghi"), hash_code(&k1, "abc-def-ghi"));
+        assert_ne!(hash_code(&k1, "abc-def-ghi"), hash_code(&k2, "abc-def-ghi"));
+        assert_ne!(hash_code(&k1, "abc-def-ghi"), hash_code(&k1, "abc-def-ghj"));
+    }
+}

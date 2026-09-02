@@ -59,3 +59,16 @@ fn build_hasher(config: &Config) -> Result<Argon2<'static>, AuthError> {
     .map_err(|_| AuthError::Internal)?;
     Ok(Argon2::new(Algorithm::Argon2id, Version::V0x13, params))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::auth::breach::BreachFilter;
+
+    #[test]
+    fn policy_enforces_minimum_length() {
+        let breaches = BreachFilter::disabled();
+        assert!(check_policy("short", &breaches).is_err());
+        assert!(check_policy("this is long enough", &breaches).is_ok());
+    }
+}

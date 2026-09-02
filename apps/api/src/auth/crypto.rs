@@ -34,3 +34,22 @@ pub fn decrypt(
         .map_err(|_| AuthError::Internal)?;
     Ok(Zeroizing::new(plaintext))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn roundtrip() {
+        let key = [7u8; 32];
+        let (ciphertext, nonce) = encrypt(&key, b"a shared secret").unwrap();
+        let plaintext = decrypt(&key, &ciphertext, &nonce).unwrap();
+        assert_eq!(plaintext.as_slice(), b"a shared secret");
+    }
+
+    #[test]
+    fn wrong_key_fails() {
+        let (ciphertext, nonce) = encrypt(&[7u8; 32], b"x").unwrap();
+        assert!(decrypt(&[8u8; 32], &ciphertext, &nonce).is_err());
+    }
+}

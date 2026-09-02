@@ -31,3 +31,16 @@ pub fn build(secret: &[u8], account: &str) -> Result<Totp, AuthError> {
         .build()
         .map_err(|_| AuthError::Internal)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generate_and_verify_current_code() {
+        let secret = generate_secret().unwrap();
+        let totp = build(&secret, "user@example.org").unwrap();
+        let code = totp.generate_current();
+        assert!(totp.check_current(&code.to_string()).is_some());
+    }
+}
