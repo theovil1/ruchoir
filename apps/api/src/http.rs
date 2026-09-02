@@ -147,7 +147,13 @@ pub fn router(state: AppState) -> Router {
         .route("/healthz", get(healthz))
         .route("/api/v1/health", get(api_health))
         .route("/api/openapi.json", get(crate::openapi::openapi_json))
-        .nest("/api/v1/auth", auth_routes);
+        .nest("/api/v1/auth", auth_routes)
+        // The messaging REST surface and the real-time transport use absolute `/api/v1/...` paths
+        // and merge in here. Both are guarded per request by the `AuthSession` extractor, so no
+        // blanket auth layer is needed. Merging (not a second `/api/v1` nest) avoids path overlap
+        // with the health route and the auth nest above.
+        .merge(crate::messaging::routes::router())
+        .merge(crate::realtime::routes::router());
 
     // Optional self-hosted emoji pack. `ServeDir` handles path traversal safely and returns 404
     // for missing files, which the client treats as "no asset" and renders the native glyph. The

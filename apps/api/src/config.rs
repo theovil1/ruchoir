@@ -81,6 +81,18 @@ pub struct Config {
     pub oidc_google_enabled: bool,
     /// Whether the Microsoft OIDC connector is enabled (off by default; not implemented yet).
     pub oidc_microsoft_enabled: bool,
+    /// Time-to-live, in seconds, of a live-presence heartbeat in Valkey. A connection refreshes its
+    /// heartbeat within this window; once it lapses the user is considered offline.
+    pub presence_ttl_secs: i64,
+    /// Interval, in seconds, at which a realtime connection is expected to refresh its heartbeat.
+    /// Kept comfortably below `presence_ttl_secs` so a single missed beat does not flip presence.
+    pub presence_heartbeat_secs: i64,
+    /// Minimum interval, in ms, between two accepted typing signals from one user in one
+    /// conversation. A coarse anti-spam floor: signals arriving faster are dropped server-side.
+    pub typing_min_interval_ms: i64,
+    /// Capacity of the per-connection outbound event buffer. When a slow client fills it, the
+    /// oldest events are dropped rather than blocking the fan-out (the client resyncs over REST).
+    pub realtime_send_buffer: usize,
 }
 
 impl Config {
@@ -188,6 +200,23 @@ impl Config {
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_OIDC_MICROSOFT_ENABLED"))?;
 
+        // Real-time presence and typing tuning. Presence uses a heartbeat every ~20 s against a
+        // 45 s TTL, so one missed beat does not flip a user offline. Typing is throttled to at most
+        // one signal every 2 s per conversation, and each connection buffers up to 256 pending
+        // events before shedding the oldest.
+        let presence_ttl_secs: i64 = env_or("RUCHOIR_PRESENCE_TTL_SECS", "45")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_PRESENCE_TTL_SECS"))?;
+        let presence_heartbeat_secs: i64 = env_or("RUCHOIR_PRESENCE_HEARTBEAT_SECS", "20")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_PRESENCE_HEARTBEAT_SECS"))?;
+        let typing_min_interval_ms: i64 = env_or("RUCHOIR_TYPING_MIN_INTERVAL_MS", "2000")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_TYPING_MIN_INTERVAL_MS"))?;
+        let realtime_send_buffer: usize = env_or("RUCHOIR_REALTIME_SEND_BUFFER", "256")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_REALTIME_SEND_BUFFER"))?;
+
         Ok(Self {
             addr: SocketAddr::new(host, port),
             web_dist,
@@ -223,6 +252,10 @@ impl Config {
             webauthn_origin,
             oidc_google_enabled,
             oidc_microsoft_enabled,
+            presence_ttl_secs,
+            presence_heartbeat_secs,
+            typing_min_interval_ms,
+            realtime_send_buffer,
         })
     }
 

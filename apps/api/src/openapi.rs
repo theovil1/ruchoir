@@ -35,7 +35,29 @@ use utoipa::OpenApi;
         crate::auth::routes::recovery_generate,
         crate::auth::routes::totp_verify,
         crate::auth::routes::recovery_verify,
-        crate::auth::routes::oidc_providers
+        crate::auth::routes::oidc_providers,
+        crate::messaging::messages::list_messages,
+        crate::messaging::messages::list_replies,
+        crate::messaging::messages::send_message,
+        crate::messaging::messages::edit_message,
+        crate::messaging::messages::delete_message,
+        crate::messaging::reactions::add_reaction,
+        crate::messaging::reactions::remove_reaction,
+        crate::messaging::read::set_read_cursor,
+        crate::messaging::pins::list_pins,
+        crate::messaging::pins::pin_message,
+        crate::messaging::pins::unpin_message,
+        crate::messaging::saved::list_saved,
+        crate::messaging::saved::save_message,
+        crate::messaging::saved::unsave_message,
+        crate::messaging::conversations::list_channels,
+        crate::messaging::conversations::list_dms,
+        crate::messaging::conversations::create_dm,
+        crate::realtime::presence::get_space_presence,
+        crate::realtime::presence::set_my_presence,
+        crate::realtime::ws::ws_handler,
+        crate::realtime::sse::sse_handler,
+        crate::realtime::sse::typing_handler
     ),
     components(schemas(
         crate::http::Health,
@@ -51,11 +73,26 @@ use utoipa::OpenApi;
         crate::auth::routes::RecoveryCodesResponse,
         crate::auth::routes::MfaRequired,
         crate::auth::routes::MfaCodeRequest,
-        crate::auth::routes::OidcProviders
+        crate::auth::routes::OidcProviders,
+        crate::messaging::dto::ReactionDto,
+        crate::messaging::dto::MessageDto,
+        crate::messaging::dto::MessagePage,
+        crate::messaging::dto::ChannelDto,
+        crate::messaging::dto::DirectMessageDto,
+        crate::messaging::dto::PresenceDto,
+        crate::messaging::dto::SendMessageRequest,
+        crate::messaging::dto::EditMessageRequest,
+        crate::messaging::dto::ReadRequest,
+        crate::messaging::dto::CreateDmRequest,
+        crate::messaging::dto::ConversationRef,
+        crate::messaging::dto::SetPresenceRequest,
+        crate::messaging::dto::TypingRequest
     )),
     tags(
         (name = "health", description = "Liveness and health checks"),
-        (name = "auth", description = "Registration, login, sessions")
+        (name = "auth", description = "Registration, login, sessions"),
+        (name = "messaging", description = "Channels, direct messages, messages, threads, reactions, pins, saved"),
+        (name = "realtime", description = "WebSocket / SSE transport, typing and presence")
     )
 )]
 pub struct ApiDoc;

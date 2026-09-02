@@ -12,6 +12,7 @@ use webauthn_rs::Webauthn;
 use crate::auth::breach::BreachFilter;
 use crate::auth::mailer::Mailer;
 use crate::config::Config;
+use crate::realtime::Hub;
 
 /// Handles to the datastores and configuration that handlers need.
 #[derive(Clone)]
@@ -29,6 +30,8 @@ pub struct AppState {
     pub secret_key: Arc<[u8; 32]>,
     /// WebAuthn relying party, driving the passkey ceremonies.
     pub webauthn: Arc<Webauthn>,
+    /// Real-time hub: local connection registry plus the Valkey pub/sub fan-out bridge.
+    pub hub: Arc<Hub>,
     /// Fully resolved runtime configuration.
     pub config: Arc<Config>,
 }
