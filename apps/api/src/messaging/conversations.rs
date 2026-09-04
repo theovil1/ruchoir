@@ -21,12 +21,51 @@ use uuid::Uuid;
 use crate::auth::extract::AuthSession;
 use crate::entities::{
     channel_members, channels, conversations, dm_conversations, dm_participants, messages,
-    read_cursors, space_members, users,
+    read_cursors, space_members, spaces, users,
 };
 use crate::state::AppState;
 
-use super::dto::{ChannelDto, ConversationRef, CreateDmRequest, DirectMessageDto};
+use super::dto::{ChannelDto, ConversationRef, CreateDmRequest, DirectMessageDto, SpaceDto};
 use super::error::ApiError;
+
+/// `GET /api/v1/me/spaces`: the spaces the caller belongs to, with their role in each.
+///
+/// This is the SPA bootstrap: channels and DMs are queried per space, so the client first needs
+/// the set of spaces it can enter. Ordered by name for a stable workspace switcher.
+#[utoipa::path(
+    get,
+    path = "/api/v1/me/spaces",
+    tag = "messaging",
+    responses((status = 200, description = "Spaces the caller belongs to", body = [SpaceDto]))
+)]
+pub async fn list_my_spaces(
+    State(state): State<AppState>,
+    session: AuthSession,
+) -> Result<Json<Vec<SpaceDto>>, ApiError> {
+    let memberships = space_members::Entity::find()
+        .filter(space_members::Column::UserId.eq(session.user_id))
+        .all(&state.db)
+        .await?;
+
+    let mut out = Vec::with_capacity(memberships.len());
+    for membership in memberships {
+        // A membership row can outlive its space only through a bug; skip rather than fail the list.
+        let Some(space) = spaces::Entity::find_by_id(membership.space_id)
+            .one(&state.db)
+            .await?
+        else {
+            continue;
+        };
+        out.push(SpaceDto {
+            id: space.id,
+            name: space.name,
+            slug: space.slug,
+            role: membership.role,
+        });
+    }
+    out.sort_by_key(|space| space.name.to_lowercase());
+    Ok(Json(out))
+}
 
 /// `GET /api/v1/spaces/{space_id}/channels`: channels the caller can see, with unread counts.
 #[utoipa::path(

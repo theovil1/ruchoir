@@ -57,6 +57,15 @@ bottom-tab list, so the audit can reach the mobile conversation/content views. I
 so the static export ignores it. Used by the responsive audit to reach every state without click
 scripting.
 
+## Wiring smoke test
+
+`app/wiring/page.tsx` (route `/wiring`) is a **development-only** probe, isolated from the app shell.
+It drives the real API path the seam will eventually use (login, then `GET /me/spaces` ->
+`GET /spaces/{id}/channels` -> `GET /conversations/{id}/messages`), rendering each step's HTTP status
+and raw JSON so seam/DTO mismatches (`lib/data/types.ts` vs the API DTOs) surface before the seam is
+wired for real. All fetches are same-origin and relative (the CSP forbids cross-origin). Delete it
+once the seam is wired.
+
 ## Responsive shell
 
 Below ~960px (`useCompact()`), `AppRoot` switches from the desktop three-column shell to a compact
