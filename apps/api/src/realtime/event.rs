@@ -113,6 +113,12 @@ impl RealtimeEnvelope {
     pub fn presence(payload: impl Serialize) -> Self {
         Self::global("presence", payload)
     }
+
+    /// A new in-app notification was created for a user (delivered only to that user; user-scoped,
+    /// not tied to a conversation the recipient may not otherwise be watching).
+    pub fn notification_created(payload: impl Serialize) -> Self {
+        Self::global("notification.created", payload)
+    }
 }
 
 /// The wire type carried between API instances over the `rt:fanout` Valkey channel.

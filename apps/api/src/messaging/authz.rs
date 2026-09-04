@@ -11,13 +11,15 @@
 //! The audience helpers compute *who receives a push* for a conversation, evaluated once at publish
 //! time so the real-time fan-out never queries the database on delivery.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
 use super::error::ApiError;
-use crate::entities::{channel_members, channels, conversations, dm_participants, space_members};
+use crate::entities::{
+    channel_members, channels, conversations, dm_conversations, dm_participants, space_members,
+};
 
 /// Whether a conversation is a channel or a direct message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -171,6 +173,57 @@ pub async fn space_co_members(
         .collect();
     co.insert(user_id);
     Ok(co.into_iter().collect())
+}
+
+/// The ids of every conversation in a space the caller may read: visible channels (public and
+/// archived, plus private channels they have joined) and their direct messages. Used to scope
+/// search to what the caller can already see. Fails `403` if they are not a member of the space.
+pub async fn accessible_conversation_ids(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<Vec<Uuid>, ApiError> {
+    if !is_space_member(db, space_id, user_id).await? {
+        return Err(ApiError::Forbidden);
+    }
+    let mut ids = Vec::new();
+
+    let joined_channels: HashSet<Uuid> = channel_members::Entity::find()
+        .filter(channel_members::Column::UserId.eq(user_id))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|m| m.channel_id)
+        .collect();
+    let channels = channels::Entity::find()
+        .filter(channels::Column::SpaceId.eq(space_id))
+        .all(db)
+        .await?;
+    for channel in channels {
+        if channel.channel_type != "private" || joined_channels.contains(&channel.id) {
+            ids.push(channel.id);
+        }
+    }
+
+    let joined_dms: Vec<Uuid> = dm_participants::Entity::find()
+        .filter(dm_participants::Column::UserId.eq(user_id))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|p| p.dm_id)
+        .collect();
+    if !joined_dms.is_empty() {
+        let dms = dm_conversations::Entity::find()
+            .filter(dm_conversations::Column::Id.is_in(joined_dms))
+            .filter(dm_conversations::Column::SpaceId.eq(space_id))
+            .all(db)
+            .await?;
+        for dm in dms {
+            ids.push(dm.id);
+        }
+    }
+
+    Ok(ids)
 }
 
 /// The user ids of a space's members (used for a presence snapshot).

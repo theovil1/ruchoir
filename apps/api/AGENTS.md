@@ -30,8 +30,12 @@ context and takes precedence here.
 - `src/messaging/` - the REST surface over the collaboration schema: `authz` (the conversation
   membership choke point plus audience computation), `error` (`ApiError`), `dto` (response/request
   shapes, kept close to the web data seam), `mentions` (`@`-parsing + resolution), and the handlers
-  `messages`/`reactions`/`read`/`pins`/`saved`/`conversations`. Every mutation authorizes server-
-  side, commits, then hands the resulting event to `realtime` for fan-out.
+  `messages`/`reactions`/`read`/`pins`/`saved`/`conversations`/`search`/`notifications`. `search` is
+  native-Postgres full-text over messages and file names (a generated `tsvector` with a French
+  accent-folding config, plus `pg_trgm` trigram indexes for partial/fuzzy matches), scoped by
+  membership. `notifications` is a persisted per-user inbox (mentions, DMs, thread replies) written
+  inside the send transaction and pushed over the hub. Every mutation authorizes server-side,
+  commits, then hands the resulting event to `realtime` for fan-out.
 - `src/realtime/`  - real-time transport and presence: `event` (the versioned push envelope + the
   fan-out wire type), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
   `SubscriberClient` on `rt:fanout`, delivery gated by a publish-time audience), `presence`

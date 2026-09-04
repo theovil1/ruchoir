@@ -27,6 +27,7 @@ pub mod message_link_previews;
 pub mod message_mentions;
 pub mod message_reactions;
 pub mod messages;
+pub mod notifications;
 pub mod read_cursors;
 pub mod user_saved_messages;
 

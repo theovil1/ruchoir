@@ -34,6 +34,7 @@ use super::authz::{self, ConversationKind};
 use super::dto::{rfc3339, MessageDto, MessagePage, ReactionDto, SendMessageRequest};
 use super::error::ApiError;
 use super::mentions;
+use super::notifications;
 
 /// Default and maximum page sizes for message history.
 const DEFAULT_LIMIT: u64 = 50;
@@ -179,7 +180,8 @@ pub async fn send_message(
         return Err(ApiError::BadRequest("message body is too long"));
     }
 
-    // A reply must target a message in the same conversation.
+    // A reply must target a message in the same conversation; remember its author to notify them.
+    let mut reply_target: Option<Uuid> = None;
     if let Some(parent_id) = body.parent_message_id {
         let parent = load_message(&state.db, parent_id).await?;
         if parent.conversation_id != conversation_id {
@@ -187,12 +189,32 @@ pub async fn send_message(
                 "parent message is in another conversation",
             ));
         }
+        reply_target = parent.author_id;
     }
 
     let audience = authz::conversation_audience(&state.db, &access).await?;
     let tokens = mentions::extract_mention_tokens(text);
     let resolved =
         mentions::resolve_mentions(&state.db, session.user_id, &audience, &tokens).await?;
+
+    // Who to notify: mentions, the other DM participants, and the replied-to author (deduped by
+    // priority, never the sender).
+    let mention_ids: Vec<Uuid> = resolved.iter().map(|m| m.user_id).collect();
+    let dm_recipients: Vec<Uuid> = if access.kind == ConversationKind::Direct {
+        audience
+            .iter()
+            .copied()
+            .filter(|user_id| *user_id != session.user_id)
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let recipients = notifications::compute_recipients(
+        session.user_id,
+        &mention_ids,
+        &dm_recipients,
+        reply_target,
+    );
 
     let message_id = Uuid::new_v4();
     let now = OffsetDateTime::now_utc();
@@ -220,6 +242,16 @@ pub async fn send_message(
         .insert(&txn)
         .await?;
     }
+
+    // Persist the notifications alongside the message so they commit atomically.
+    let notif_rows = notifications::create_for_message(
+        &txn,
+        session.user_id,
+        conversation_id,
+        message_id,
+        &recipients,
+    )
+    .await?;
 
     // Link any attachments. Each must be a live file in the conversation's space; a space member
     // (which conversation access implies) may read any file in that space, so no further ACL check
@@ -281,6 +313,18 @@ pub async fn send_message(
             RealtimeEnvelope::message_created(conversation_id, dto.clone()),
         )
         .await;
+
+    // Push each notification to its recipient (user-scoped, one audience per row).
+    if !notif_rows.is_empty() {
+        let targets: Vec<Uuid> = notif_rows.iter().map(|row| row.user_id).collect();
+        let notif_dtos = notifications::hydrate(&state.db, notif_rows).await?;
+        for (user_id, notif) in targets.into_iter().zip(notif_dtos) {
+            state
+                .hub
+                .publish(vec![user_id], RealtimeEnvelope::notification_created(notif))
+                .await;
+        }
+    }
 
     Ok((StatusCode::CREATED, Json(dto)))
 }

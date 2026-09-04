@@ -9,7 +9,7 @@ use axum::Router;
 
 use crate::state::AppState;
 
-use super::{conversations, messages, pins, reactions, read, saved};
+use super::{conversations, messages, notifications, pins, reactions, read, saved, search};
 
 /// Build the messaging sub-router.
 pub fn router() -> Router<AppState> {
@@ -63,5 +63,20 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/v1/spaces/{space_id}/dm",
             post(conversations::create_dm),
+        )
+        // Full-text search over messages and file names.
+        .route("/api/v1/search", get(search::search))
+        // In-app notification feed.
+        .route(
+            "/api/v1/notifications",
+            get(notifications::list_notifications),
+        )
+        .route(
+            "/api/v1/notifications/read",
+            put(notifications::mark_all_read),
+        )
+        .route(
+            "/api/v1/notifications/{id}/read",
+            put(notifications::mark_read),
         )
 }
