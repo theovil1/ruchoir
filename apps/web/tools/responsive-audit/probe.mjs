@@ -352,6 +352,9 @@ export const PROBE = ({ isTouch, tolerance = 2, maxPerRule = 30 }) => {
   for (const svg of document.querySelectorAll("svg")) {
     if (iconCount >= maxPerRule) break;
     if (!isVisible(svg)) continue;
+    // WCAG 1.4.11 exempts inactive/disabled components (a dimmed icon on a disabled control is
+    // expected), consistent with the disabled exemption in the text-contrast check above.
+    if (svg.closest(":disabled, [aria-disabled='true']")) continue;
     if (svg.getAttribute("aria-hidden") === "true") {
       const ctrl = svg.closest('a[href], button, [role="button"]');
       const ctrlText = ctrl ? (ctrl.textContent || "").replace(/\s+/g, "").trim() : "";

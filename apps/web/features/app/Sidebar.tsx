@@ -334,7 +334,15 @@ export function Sidebar({
         <>
           <Wordmark />
           <div style={styles.head}>
-            <button ref={wsRef} style={styles.wsName} onClick={() => setWsMenu((o) => !o)} aria-expanded={wsMenu}>
+            <button
+              ref={wsRef}
+              style={styles.wsName}
+              onClick={() => setWsMenu((o) => !o)}
+              aria-expanded={wsMenu}
+              // The visible label is the workspace name; give the control a stable accessible name so
+              // it is announced even before a workspace has loaded (empty name).
+              aria-label={workspace?.name ? `Espace ${workspace.name}, changer d'espace` : "Changer d'espace"}
+            >
               {workspace?.name}
               <Icon name="chevron-down" size={14} />
             </button>
