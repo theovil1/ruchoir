@@ -24,7 +24,8 @@ use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
 use crate::entities::{
-    channel_pins, message_mentions, message_reactions, messages, user_saved_messages, users,
+    channel_pins, files, message_attachments, message_mentions, message_reactions, messages,
+    user_saved_messages, users,
 };
 use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
@@ -218,6 +219,39 @@ pub async fn send_message(
         }
         .insert(&txn)
         .await?;
+    }
+
+    // Link any attachments. Each must be a live file in the conversation's space; a space member
+    // (which conversation access implies) may read any file in that space, so no further ACL check
+    // is needed here. Duplicates are dropped, order preserved.
+    if !body.attachments.is_empty() {
+        let mut seen: HashSet<Uuid> = HashSet::new();
+        let mut position = 0;
+        for file_id in &body.attachments {
+            if !seen.insert(*file_id) {
+                continue;
+            }
+            let file = files::Entity::find_by_id(*file_id)
+                .one(&txn)
+                .await?
+                .ok_or(ApiError::BadRequest("attachment not found"))?;
+            if file.space_id != access.space_id
+                || file.deleted_at.is_some()
+                || file.kind == "folder"
+            {
+                return Err(ApiError::BadRequest("invalid attachment"));
+            }
+            message_attachments::ActiveModel {
+                message_id: Set(message_id),
+                file_id: Set(*file_id),
+                file_version_id: Set(file.current_version_id),
+                position: Set(position),
+                ..Default::default()
+            }
+            .insert(&txn)
+            .await?;
+            position += 1;
+        }
     }
 
     // Bump the denormalized reply counter on the parent.
@@ -483,6 +517,11 @@ pub async fn hydrate_messages(
         .map(|s| s.message_id)
         .collect();
 
+    // Attachments, grouped by message (batch-loaded through the files module).
+    let mut attachments = crate::files::attachments_for_messages(db, &ids)
+        .await
+        .map_err(|_| ApiError::Internal)?;
+
     // Author display names.
     let author_ids: Vec<Uuid> = rows.iter().filter_map(|m| m.author_id).collect();
     let mut names: HashMap<Uuid, String> = HashMap::new();
@@ -502,6 +541,7 @@ pub async fn hydrate_messages(
             author_name: m.author_id.and_then(|id| names.get(&id).cloned()),
             reactions: reactions.remove(&m.id).unwrap_or_default(),
             mentions: mentions_by_msg.remove(&m.id).unwrap_or_default(),
+            attachments: attachments.remove(&m.id).unwrap_or_default(),
             pinned: pinned.contains(&m.id),
             saved: saved.contains(&m.id),
             edited: m.edited_at.is_some(),

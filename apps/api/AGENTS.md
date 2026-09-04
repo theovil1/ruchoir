@@ -39,9 +39,24 @@ context and takes precedence here.
   ephemeral), and the two transports `ws` (WebSocket) / `sse` (read-only fallback + typing POST).
   State-changing operations are never accepted over the socket; they are REST handlers in
   `messaging`.
+- `src/files/`    - the files feature over the collaboration schema: `authz` (space-membership read
+  access; owner/space-admin for mutations), `mime` (magic-byte sniffing + kind mapping), `thumbnail`
+  (image decode/resize), `tree` (folder listing, create, rename/move, recursive soft-delete),
+  `uploads` (multipart upload + versions), `download` (download/preview/thumbnail, streamed back
+  through the API), `shares`, and `routes`. Bytes are proxied through the API (the browser never
+  contacts the object store), validated server-side (size + sniffed type), stored under opaque keys
+  (`spaces/{space}/{file}/{version}`); image uploads get intrinsic dimensions and a stored thumbnail.
+- `src/storage/`  - the S3 object-store boundary (`S3Store` over `rust-s3`, path-style addressing).
+  Built once at startup and held as `AppState.storage: Option<Arc<S3Store>>`: absent when no
+  credentials are configured, in which case file metadata still works and the byte endpoints return
+  503. Swapping the backend is a config change (`S3_ENDPOINT`/`S3_REGION`/`S3_BUCKET`/
+  `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY`), never a code change. Dev talks plaintext to Garage over
+  the Docker network; `rust-s3` is built without any TLS backend (no `aws-lc-rs`, no OpenSSL), so
+  TLS-to-store is a later hardening step (the `ring` path).
 - `src/http.rs`   - router, health endpoints (incl. DB/Valkey readiness probe), static web
-  hosting (SPA fallback), security headers. The `messaging` and `realtime` routers use absolute
-  `/api/v1/...` paths and are merged in (not a second `/api/v1` nest) to avoid path overlap.
+  hosting (SPA fallback), security headers. The `messaging`, `realtime` and `files` routers use
+  absolute `/api/v1/...` paths and are merged in (not a second `/api/v1` nest) to avoid path overlap.
+  The files router carries a raised request-body limit (`RUCHOIR_UPLOAD_MAX_BYTES`, default 100 MiB).
 - `src/openapi.rs`- OpenAPI document generated from the code with `utoipa`.
 
 The API needs PostgreSQL and Valkey at startup (see `docker-compose.yml`). Migrations live in the

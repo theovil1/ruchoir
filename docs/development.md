@@ -114,6 +114,12 @@ Garage's CLI flags can change between versions; if a command is rejected, check
 `docker compose exec garage /garage <subcommand> --help`. Object storage is only exercised
 from the file-storage work on, so this setup is optional until then.
 
+When you run the API from Docker Compose, `S3_ENDPOINT` resolves to `http://garage:3900` on the
+internal network. When you run the API with `cargo run` on the host (Garage still in Docker),
+override the endpoint to the published port instead: `S3_ENDPOINT=http://localhost:3900`. With no S3
+credentials set, the API still serves file metadata and the folder tree, and returns `503` for file
+bytes (upload, download, preview, thumbnail).
+
 ## Troubleshooting
 
 - **`postgres` exits with a `/var/lib/postgresql/data (unused mount/volume)` error.** Postgres

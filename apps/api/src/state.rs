@@ -13,6 +13,7 @@ use crate::auth::breach::BreachFilter;
 use crate::auth::mailer::Mailer;
 use crate::config::Config;
 use crate::realtime::Hub;
+use crate::storage::S3Store;
 
 /// Handles to the datastores and configuration that handlers need.
 #[derive(Clone)]
@@ -32,6 +33,9 @@ pub struct AppState {
     pub webauthn: Arc<Webauthn>,
     /// Real-time hub: local connection registry plus the Valkey pub/sub fan-out bridge.
     pub hub: Arc<Hub>,
+    /// Object store for file bytes (Garage/S3). `None` when no credentials are configured: file
+    /// metadata still works, but byte upload/download/preview/thumbnail return 503.
+    pub storage: Option<Arc<S3Store>>,
     /// Fully resolved runtime configuration.
     pub config: Arc<Config>,
 }

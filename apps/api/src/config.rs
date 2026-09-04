@@ -93,6 +93,22 @@ pub struct Config {
     /// Capacity of the per-connection outbound event buffer. When a slow client fills it, the
     /// oldest events are dropped rather than blocking the fan-out (the client resyncs over REST).
     pub realtime_send_buffer: usize,
+    /// S3 endpoint of the object store (Garage by default). Dev uses plaintext HTTP over the trusted
+    /// Docker network, like PostgreSQL/Valkey; TLS-to-store is later hardening.
+    pub s3_endpoint: String,
+    /// S3 region label. Garage accepts any value; it is part of the request signature.
+    pub s3_region: String,
+    /// Bucket that holds every space's file objects.
+    pub s3_bucket: String,
+    /// S3 access key. When unset (with the secret), object storage is disabled and byte endpoints
+    /// return 503 while file metadata keeps working (mirrors the optional mailer/breach filter).
+    pub s3_access_key: Option<String>,
+    /// S3 secret key. See [`Config::s3_access_key`].
+    pub s3_secret_key: Option<String>,
+    /// Maximum accepted upload size, in bytes. Uploads above this are rejected with 413.
+    pub upload_max_bytes: u64,
+    /// Longest edge, in pixels, of a generated image thumbnail (aspect ratio preserved).
+    pub thumbnail_max_px: u32,
 }
 
 impl Config {
@@ -217,6 +233,22 @@ impl Config {
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_REALTIME_SEND_BUFFER"))?;
 
+        // Object store (Garage by default). Endpoint/region/bucket have dev defaults so `cargo run`
+        // works against a local Garage; credentials have no default (a secret is never hard-coded),
+        // and when they are unset object storage is simply disabled.
+        let s3_endpoint = env_or("S3_ENDPOINT", "http://localhost:3900");
+        let s3_region = env_or("S3_REGION", "garage");
+        let s3_bucket = env_or("S3_BUCKET", "ruchoir");
+        let s3_access_key = env_opt("S3_ACCESS_KEY_ID");
+        let s3_secret_key = env_opt("S3_SECRET_ACCESS_KEY");
+        // Default cap: 100 MiB per upload.
+        let upload_max_bytes: u64 = env_or("RUCHOIR_UPLOAD_MAX_BYTES", "104857600")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_UPLOAD_MAX_BYTES"))?;
+        let thumbnail_max_px: u32 = env_or("RUCHOIR_THUMBNAIL_MAX_PX", "512")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_THUMBNAIL_MAX_PX"))?;
+
         Ok(Self {
             addr: SocketAddr::new(host, port),
             web_dist,
@@ -256,7 +288,20 @@ impl Config {
             presence_heartbeat_secs,
             typing_min_interval_ms,
             realtime_send_buffer,
+            s3_endpoint,
+            s3_region,
+            s3_bucket,
+            s3_access_key,
+            s3_secret_key,
+            upload_max_bytes,
+            thumbnail_max_px,
         })
+    }
+
+    /// Whether object-store credentials are configured. When false, byte endpoints return 503 and
+    /// file metadata (the tree) keeps working.
+    pub fn s3_enabled(&self) -> bool {
+        self.s3_access_key.is_some() && self.s3_secret_key.is_some()
     }
 
     /// Whether TLS material is configured. Actual TLS serving also requires the

@@ -11,6 +11,8 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use crate::files::AttachmentDto;
+
 /// A reaction bucket on a message: the emoji, how many reacted, and whether the caller did.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ReactionDto {
@@ -62,6 +64,8 @@ pub struct MessageDto {
     pub reactions: Vec<ReactionDto>,
     /// Resolved mention target user ids.
     pub mentions: Vec<Uuid>,
+    /// Files attached to the message, in attachment order.
+    pub attachments: Vec<AttachmentDto>,
 }
 
 /// A page of messages, newest-last, with an opaque cursor for the previous (older) page.
@@ -119,6 +123,10 @@ pub struct SendMessageRequest {
     pub body: String,
     #[serde(default)]
     pub parent_message_id: Option<Uuid>,
+    /// Ids of already-uploaded files to attach (the caller must be able to read each, and each must
+    /// belong to the conversation's space).
+    #[serde(default)]
+    pub attachments: Vec<Uuid>,
 }
 
 /// Edit an existing message.

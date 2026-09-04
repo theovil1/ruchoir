@@ -13,6 +13,7 @@ mod m20260902_000003_messaging;
 mod m20260902_000004_user_profiles;
 mod m20260902_000005_preferences_and_media;
 mod m20260903_000001_user_manual_presence;
+mod m20260903_000002_file_thumbnails;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -28,6 +29,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260902_000004_user_profiles::Migration),
             Box::new(m20260902_000005_preferences_and_media::Migration),
             Box::new(m20260903_000001_user_manual_presence::Migration),
+            Box::new(m20260903_000002_file_thumbnails::Migration),
         ]
     }
 }

@@ -153,7 +153,14 @@ pub fn router(state: AppState) -> Router {
         // blanket auth layer is needed. Merging (not a second `/api/v1` nest) avoids path overlap
         // with the health route and the auth nest above.
         .merge(crate::messaging::routes::router())
-        .merge(crate::realtime::routes::router());
+        .merge(crate::realtime::routes::router())
+        // The files surface (tree, upload/versions, download/preview/thumbnail, shares). Its upload
+        // routes carry a raised request-body limit sized from the configured cap plus a small
+        // multipart overhead; the byte responses are proxied through the API so the object store is
+        // never exposed to the browser.
+        .merge(crate::files::router(
+            state.config.upload_max_bytes.saturating_add(1 << 20) as usize,
+        ));
 
     // Optional self-hosted emoji pack. `ServeDir` handles path traversal safely and returns 404
     // for missing files, which the client treats as "no asset" and renders the native glyph. The
