@@ -5,7 +5,7 @@
 //! for opening a direct message. Each row carries an unread count derived from the caller's read
 //! cursor, so the sidebar badges come straight from the API.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -25,7 +25,9 @@ use crate::entities::{
 };
 use crate::state::AppState;
 
-use super::dto::{ChannelDto, ConversationRef, CreateDmRequest, DirectMessageDto, SpaceDto};
+use super::dto::{
+    ChannelDto, ConversationRef, CreateDmRequest, DirectMessageDto, MemberDto, SpaceDto,
+};
 use super::error::ApiError;
 
 /// `GET /api/v1/me/spaces`: the spaces the caller belongs to, with their role in each.
@@ -56,11 +58,16 @@ pub async fn list_my_spaces(
         else {
             continue;
         };
+        let members = space_members::Entity::find()
+            .filter(space_members::Column::SpaceId.eq(space.id))
+            .count(&state.db)
+            .await? as i64;
         out.push(SpaceDto {
             id: space.id,
             name: space.name,
             slug: space.slug,
             role: membership.role,
+            members,
         });
     }
     out.sort_by_key(|space| space.name.to_lowercase());
@@ -114,6 +121,54 @@ pub async fn list_channels(
     Ok(Json(out))
 }
 
+/// `GET /api/v1/spaces/{space_id}/members`: the members of a space, for the member list, the
+/// `@`-mention directory and the people section of search. Presence is overlaid client-side.
+#[utoipa::path(
+    get,
+    path = "/api/v1/spaces/{space_id}/members",
+    tag = "messaging",
+    params(("space_id" = Uuid, Path, description = "Space id")),
+    responses(
+        (status = 200, description = "The space's members", body = [MemberDto]),
+        (status = 403, description = "Not a member of the space")
+    )
+)]
+pub async fn list_members(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(space_id): Path<Uuid>,
+) -> Result<Json<Vec<MemberDto>>, ApiError> {
+    ensure_space_member(&state.db, space_id, session.user_id).await?;
+
+    let memberships = space_members::Entity::find()
+        .filter(space_members::Column::SpaceId.eq(space_id))
+        .all(&state.db)
+        .await?;
+    let ids: Vec<Uuid> = memberships.iter().map(|m| m.user_id).collect();
+    let by_id: HashMap<Uuid, users::Model> = users::Entity::find()
+        .filter(users::Column::Id.is_in(ids))
+        .all(&state.db)
+        .await?
+        .into_iter()
+        .map(|u| (u.id, u))
+        .collect();
+
+    let mut out = Vec::with_capacity(memberships.len());
+    for membership in memberships {
+        if let Some(user) = by_id.get(&membership.user_id) {
+            out.push(MemberDto {
+                user_id: user.id,
+                display_name: user.display_name.clone(),
+                title: user.title.clone(),
+                role: membership.role,
+                is_bot: user.is_bot,
+            });
+        }
+    }
+    out.sort_by_key(|m| m.display_name.to_lowercase());
+    Ok(Json(out))
+}
+
 /// `GET /api/v1/spaces/{space_id}/dms`: the caller's direct-message conversations in a space.
 #[utoipa::path(
     get,
@@ -160,11 +215,13 @@ pub async fn list_dms(
             .collect::<Vec<_>>()
             .join(", ");
         let bot = counterparts.len() == 1 && counterparts[0].is_bot;
+        let user_id = (counterparts.len() == 1).then(|| counterparts[0].id);
         let unread = unread_count(&state.db, dm.id, session.user_id).await?;
         out.push(DirectMessageDto {
             id: dm.id,
             name,
             is_group: dm.is_group,
+            user_id,
             bot,
             unread,
         });

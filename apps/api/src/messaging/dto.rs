@@ -22,6 +22,8 @@ pub struct ReactionDto {
     pub count: i64,
     /// Whether the current caller is one of them (drives the toggle highlight).
     pub mine: bool,
+    /// Display names of the reactors, in first-reaction order (for the "who reacted" tooltip).
+    pub users: Vec<String>,
 }
 
 /// A message as returned to clients, with its satellites folded in.
@@ -86,6 +88,8 @@ pub struct SpaceDto {
     pub slug: String,
     /// The caller's role in the space: `owner`, `admin`, `member` or `guest`.
     pub role: String,
+    /// Total members in the space (drives the workspace member count in the UI).
+    pub members: i64,
 }
 
 /// A channel in a space's sidebar list.
@@ -113,6 +117,10 @@ pub struct DirectMessageDto {
     /// Display label: the other participant, or a comma-joined list for a group.
     pub name: String,
     pub is_group: bool,
+    /// The sole counterpart's user id for a 1:1 DM, so the client can overlay their live presence;
+    /// `None` for a group DM (no single counterpart to track).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<Uuid>,
     /// Whether the sole counterpart is a bot account.
     pub bot: bool,
     pub unread: i64,
@@ -124,6 +132,57 @@ pub struct PresenceDto {
     pub user_id: Uuid,
     /// `active`, `away`, `dnd` or `offline`.
     pub presence: String,
+}
+
+/// A member's global profile, as shown in the profile card and member list. Presence is not folded
+/// in here: it is volatile and sourced separately (`GET /spaces/{id}/presence` and realtime events),
+/// so this stays the stable, self-editable profile. Returned only for a user who shares a space with
+/// the caller.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct UserProfileDto {
+    pub id: Uuid,
+    pub display_name: String,
+    pub email: String,
+    /// Free-text job title / role label (e.g. "Gérante"); `None` if unset.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pronouns: Option<String>,
+    /// IANA timezone (e.g. "Europe/Paris"); the client derives the local time from it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timezone: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bio: Option<String>,
+    /// Whether this is a service account (e.g. the import assistant).
+    pub is_bot: bool,
+}
+
+/// A space member row: identity plus the caller-independent role in the space. Presence is overlaid
+/// client-side from the presence map, so it is not carried here.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct MemberDto {
+    pub user_id: Uuid,
+    pub display_name: String,
+    /// Free-text job title / role label; `None` if unset.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// Membership role in the space: `owner`, `admin`, `member` or `guest`.
+    pub role: String,
+    pub is_bot: bool,
+}
+
+/// Edit the caller's own profile. Absent fields are left unchanged; an empty string clears the field
+/// (except `display_name`, which is required and ignored when blank).
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateProfileRequest {
+    #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub pronouns: Option<String>,
+    #[serde(default)]
+    pub bio: Option<String>,
 }
 
 // --- Search & notifications ---

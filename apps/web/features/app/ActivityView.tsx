@@ -63,7 +63,7 @@ const styles: Record<string, CSSProperties> = {
 export type ActivityViewProps = {
   kind: ActivityKind;
   items: ActivityItem[];
-  onOpen: (channelId: string, messageId: number) => void;
+  onOpen: (channelId: string, messageId: string) => void;
 };
 
 /** Filtered cross-channel list for the Threads, Mentions and Saved views. */

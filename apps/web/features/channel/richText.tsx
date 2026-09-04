@@ -56,7 +56,14 @@ function matchMention(text: string, from: number, names: string[]): string | nul
   return best;
 }
 
-function renderInline(text: string, names: string[], keyBase: string, emojiSize = EMOJI_SIZE): ReactNode[] {
+function renderInline(
+  text: string,
+  names: string[],
+  keyBase: string,
+  emojiSize = EMOJI_SIZE,
+  onMention?: (name: string) => void,
+  meName?: string,
+): ReactNode[] {
   const nodes: ReactNode[] = [];
   let buf = "";
   let i = 0;
@@ -93,7 +100,7 @@ function renderInline(text: string, names: string[], keyBase: string, emojiSize 
       const end = text.indexOf("**", i + 2);
       if (end > i + 1) {
         flush();
-        nodes.push(<strong key={`${keyBase}-b${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-b${k}`, emojiSize)}</strong>);
+        nodes.push(<strong key={`${keyBase}-b${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-b${k}`, emojiSize, onMention, meName)}</strong>);
         i = end + 2;
         continue;
       }
@@ -120,10 +127,25 @@ function renderInline(text: string, names: string[], keyBase: string, emojiSize 
       const name = matchMention(text, i + 1, names);
       if (name) {
         flush();
+        const mkey = `${keyBase}-m${k++}`;
+        const isMe = !!meName && (name === meName || name === meName.split(" ")[0]);
+        const cls = isMe ? "wc-mention wc-mention--me" : "wc-mention";
         nodes.push(
-          <span key={`${keyBase}-m${k++}`} className="wc-mention">
-            @{name}
-          </span>,
+          onMention ? (
+            <button
+              key={mkey}
+              type="button"
+              className={cls}
+              onClick={() => onMention(name)}
+              style={{ border: 0, padding: "0 3px", font: "inherit", cursor: "pointer" }}
+            >
+              @{name}
+            </button>
+          ) : (
+            <span key={mkey} className={cls}>
+              @{name}
+            </span>
+          ),
         );
         i = i + 1 + name.length;
         continue;
@@ -151,7 +173,14 @@ function renderInline(text: string, names: string[], keyBase: string, emojiSize 
 }
 
 /** Render a plain-text block (no fenced code): lists, line breaks, and inline formatting. */
-function renderTextBlock(text: string, names: string[], keyBase: string, emojiSize = EMOJI_SIZE): ReactNode[] {
+function renderTextBlock(
+  text: string,
+  names: string[],
+  keyBase: string,
+  emojiSize = EMOJI_SIZE,
+  onMention?: (name: string) => void,
+  meName?: string,
+): ReactNode[] {
   const lines = text.split("\n");
   const blocks: ReactNode[] = [];
   let list: ReactNode[] | null = null;
@@ -171,12 +200,12 @@ function renderTextBlock(text: string, names: string[], keyBase: string, emojiSi
   lines.forEach((line, idx) => {
     if (line.startsWith("- ")) {
       list ??= [];
-      list.push(<li key={`${keyBase}-li${idx}`}>{renderInline(line.slice(2), names, `${keyBase}li${idx}`, emojiSize)}</li>);
+      list.push(<li key={`${keyBase}-li${idx}`}>{renderInline(line.slice(2), names, `${keyBase}li${idx}`, emojiSize, onMention, meName)}</li>);
     } else {
       closeList();
       blocks.push(
         <span key={`${keyBase}-ln${idx}`}>
-          {renderInline(line, names, `${keyBase}ln${idx}`, emojiSize)}
+          {renderInline(line, names, `${keyBase}ln${idx}`, emojiSize, onMention, meName)}
           {idx < lines.length - 1 ? "\n" : null}
         </span>,
       );
@@ -186,7 +215,13 @@ function renderTextBlock(text: string, names: string[], keyBase: string, emojiSi
   return blocks;
 }
 
-export function renderRichText(text: string, names: string[], editable = false): ReactNode {
+export function renderRichText(
+  text: string,
+  names: string[],
+  editable = false,
+  onMention?: (name: string) => void,
+  meName?: string,
+): ReactNode {
   // Split on ``` fences: odd segments are fenced code blocks.
   const segments = text.split("```");
   // Emoji-only messages (no fenced code) render larger; the size tapers with the emoji count.
@@ -207,7 +242,7 @@ export function renderRichText(text: string, names: string[], editable = false):
       code = code.replace(/\n$/, "");
       out.push(<CodeBlock key={`pre${i}`} code={code} declaredLang={lang} editable={editable} />);
     } else if (seg) {
-      out.push(...renderTextBlock(replaceShortcodes(seg), names, `s${i}`, emojiSize));
+      out.push(...renderTextBlock(replaceShortcodes(seg), names, `s${i}`, emojiSize, onMention, meName));
     }
   });
   return out;

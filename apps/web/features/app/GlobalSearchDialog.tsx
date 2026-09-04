@@ -1,10 +1,9 @@
 "use client";
 
-import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Avatar, Dialog, EmptyState, Icon } from "@/components/ds";
 import type { Presence } from "@/components/ds";
-import type { SpaceFile } from "@/lib/data";
-import type { ActivityItem } from "./activity";
+import { type FileHit, search, type SearchMessage } from "@/lib/data/api";
 
 const styles: Record<string, CSSProperties> = {
   label: {
@@ -30,19 +29,19 @@ const styles: Record<string, CSSProperties> = {
 };
 
 export type GlobalSearchDialogProps = {
-  messages: ActivityItem[];
-  files: SpaceFile[];
+  /** The active space to search within (messages and file names). */
+  spaceId: string;
+  /** Directory of members, filtered client-side (there is no people-search endpoint). */
   people: { name: string; presence: Presence; bot?: boolean }[];
   onClose: () => void;
-  onOpenMessage: (channelId: string, messageId: number) => void;
+  onOpenMessage: (channelId: string, messageId: string) => void;
   onOpenFile: () => void;
   onOpenProfile: (name: string) => void;
 };
 
-/** Workspace-wide search across messages, files and people. */
+/** Workspace-wide search across messages, files (API) and people (local directory). */
 export function GlobalSearchDialog({
-  messages,
-  files,
+  spaceId,
   people,
   onClose,
   onOpenMessage,
@@ -51,21 +50,45 @@ export function GlobalSearchDialog({
 }: GlobalSearchDialogProps) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [msgHits, setMsgHits] = useState<SearchMessage[]>([]);
+  const [fileHits, setFileHits] = useState<FileHit[]>([]);
+  const [loading, setLoading] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
-  const q = query.trim().toLowerCase();
+  const q = query.trim();
 
-  const msgHits = useMemo(
-    () =>
-      q
-        ? messages
-            .filter((it) => it.message.body.toLowerCase().includes(q) || it.message.author.toLowerCase().includes(q))
-            .slice(0, 8)
-        : [],
-    [q, messages],
-  );
-  const fileHits = useMemo(() => (q ? files.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 6) : []), [q, files]);
+  // Debounced API search; a new keystroke cancels the in-flight request. Resetting results and the
+  // loading flag as the query changes is the intended synchronization here.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!q) {
+      setMsgHits([]);
+      setFileHits([]);
+      setLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setLoading(true);
+    const handle = setTimeout(() => {
+      search(spaceId, q, controller.signal)
+        .then((hits) => {
+          setMsgHits(hits.messages.slice(0, 8));
+          setFileHits(hits.files.slice(0, 6));
+          setLoading(false);
+        })
+        .catch(() => {
+          // Ignore an aborted or failed search; keep the last results rather than flashing empty.
+          setLoading(false);
+        });
+    }, 250);
+    return () => {
+      clearTimeout(handle);
+      controller.abort();
+    };
+  }, [q, spaceId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   const peopleHits = useMemo(
-    () => (q ? people.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 6) : []),
+    () => (q ? people.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 6) : []),
     [q, people],
   );
   const total = msgHits.length + fileHits.length + peopleHits.length;
@@ -74,7 +97,7 @@ export function GlobalSearchDialog({
   // keys move across every group. The group offsets below map a row back to its global index.
   const actions = useMemo<(() => void)[]>(
     () => [
-      ...msgHits.map((it) => () => onOpenMessage(it.channelId, it.message.id)),
+      ...msgHits.map((m) => () => onOpenMessage(m.conversationId, m.id)),
       ...fileHits.map(() => onOpenFile),
       ...peopleHits.map((p) => () => onOpenProfile(p.name)),
     ],
@@ -151,27 +174,32 @@ export function GlobalSearchDialog({
             description="Tapez pour chercher dans les canaux, les fichiers et l'annuaire."
           />
         ) : total === 0 ? (
-          <EmptyState size="compact" icon="search" title="Aucun résultat" description={`Rien ne correspond à « ${query} ».`} />
+          <EmptyState
+            size="compact"
+            icon="search"
+            title={loading ? "Recherche…" : "Aucun résultat"}
+            description={loading ? "Interrogation du serveur." : `Rien ne correspond à « ${query} ».`}
+          />
         ) : (
           <>
             {msgHits.length > 0 ? (
               <>
                 <div style={styles.label}>Messages</div>
-                {msgHits.map((it, i) => (
+                {msgHits.map((m, i) => (
                   <button
-                    key={`${it.channelId}:${it.message.id}`}
+                    key={`${m.conversationId}:${m.id}`}
                     type="button"
                     className="wc-listrow"
                     data-idx={i}
                     style={rowStyle(i)}
                     onMouseMove={() => setActive(i)}
-                    onClick={() => onOpenMessage(it.channelId, it.message.id)}
+                    onClick={() => onOpenMessage(m.conversationId, m.id)}
                   >
-                    <Avatar name={it.message.author} size={26} />
+                    <Avatar name={m.author} size={26} />
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
-                        {it.message.author}
-                        <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{it.label}</span>
+                        {m.author}
+                        <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{m.time}</span>
                       </span>
                       <span
                         style={{
@@ -183,7 +211,7 @@ export function GlobalSearchDialog({
                           color: "var(--text-body)",
                         }}
                       >
-                        {it.message.body || "(pièce jointe)"}
+                        {m.body || "(pièce jointe)"}
                       </span>
                     </span>
                   </button>
@@ -196,7 +224,7 @@ export function GlobalSearchDialog({
                 <div style={styles.label}>Fichiers</div>
                 {fileHits.map((f, i) => (
                   <button
-                    key={f.name}
+                    key={f.id}
                     type="button"
                     className="wc-listrow"
                     data-idx={fileStart + i}
@@ -204,12 +232,9 @@ export function GlobalSearchDialog({
                     onMouseMove={() => setActive(fileStart + i)}
                     onClick={onOpenFile}
                   >
-                    <Icon name={f.kind} size={18} style={{ color: "var(--text-muted)", marginTop: 1 }} />
+                    <Icon name={f.kind === "folder" ? "folder" : "file"} size={18} style={{ color: "var(--text-muted)", marginTop: 1 }} />
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, color: "var(--text-strong)" }}>{f.name}</span>
-                      <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                        {f.size} · {f.when}
-                      </span>
                     </span>
                   </button>
                 ))}

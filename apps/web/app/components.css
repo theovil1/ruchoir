@@ -604,6 +604,12 @@
   padding: 0 3px;
   font-weight: var(--weight-medium);
 }
+/* A mention of the current user: a stronger, filled pill so it stands out in the feed. */
+.wc-mention--me {
+  color: #fff;
+  background: var(--terracotta-600, var(--terracotta-500));
+  font-weight: var(--weight-semibold);
+}
 .wc-codeblock {
   margin: 6px 0;
   border: 1px solid var(--border-subtle);
@@ -1323,4 +1329,54 @@
 /* Generic selectable list row (dialog pickers, search results). */
 .wc-listrow:hover {
   background: var(--surface-hover);
+}
+
+/* Branded boot loader: a terracotta arc spinning around the Ruchoir mark. */
+@keyframes wc-boot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.wc-boot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.wc-boot__ring {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+.wc-boot__ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(198, 93, 69, 0.15);
+}
+.wc-boot__ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: var(--terracotta-500);
+  animation: wc-boot-spin 0.9s linear infinite;
+}
+.wc-boot__mark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wc-boot__mark img {
+  width: 30px;
+  height: 30px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wc-boot__ring::after {
+    animation: none;
+  }
 }

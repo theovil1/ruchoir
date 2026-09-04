@@ -252,7 +252,7 @@ export type SidebarProps = {
   onChannelSettings: (id: string) => void;
   onChannelNotifications: (id: string) => void;
   onMarkRead: (id: string) => void;
-  onOpenNotification: (channelId: string, messageId: number, id: string) => void;
+  onOpenNotification: (channelId: string, messageId: string, id: string) => void;
   onToggleNotifRead: (id: string, read: boolean) => void;
   onMarkAllNotifsRead: () => void;
   onOpenNotifPrefs: () => void;
@@ -334,7 +334,15 @@ export function Sidebar({
         <>
           <Wordmark />
           <div style={styles.head}>
-            <button ref={wsRef} style={styles.wsName} onClick={() => setWsMenu((o) => !o)} aria-expanded={wsMenu}>
+            <button
+              ref={wsRef}
+              style={styles.wsName}
+              onClick={() => setWsMenu((o) => !o)}
+              aria-expanded={wsMenu}
+              // The visible label is the workspace name; give the control a stable accessible name so
+              // it is announced even before a workspace has loaded (empty name).
+              aria-label={workspace?.name ? `Espace ${workspace.name}, changer d'espace` : "Changer d'espace"}
+            >
               {workspace?.name}
               <Icon name="chevron-down" size={14} />
             </button>

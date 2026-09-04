@@ -24,3 +24,4 @@ pub mod read;
 pub mod routes;
 pub mod saved;
 pub mod search;
+pub mod users;

@@ -1,7 +1,9 @@
 import type { CSSProperties } from "react";
 import { Avatar, Button, Icon } from "@/components/ds";
-import { getCurrentUser, getProfile } from "@/lib/data";
+import type { Presence } from "@/components/ds";
+import { getCurrentUser } from "@/lib/data";
 import { presenceLabel } from "./presence";
+import { useProfile } from "./useProfile";
 
 const card: CSSProperties = {
   width: 280,
@@ -22,20 +24,25 @@ const row: CSSProperties = {
 
 export type UserProfileCardProps = {
   name: string;
+  /** User id, when known: enables fetching the real profile. */
+  userId?: string;
+  /** Live presence for the member. */
+  presence?: Presence;
   onViewFull: () => void;
   onEditProfile: () => void;
   onMessage: () => void;
 };
 
 /** Compact profile shown in a popover when a user is clicked in the feed. */
-export function UserProfileCard({ name, onViewFull, onEditProfile, onMessage }: UserProfileCardProps) {
-  const p = getProfile(name);
+export function UserProfileCard({ name, userId, presence, onViewFull, onEditProfile, onMessage }: UserProfileCardProps) {
+  const p = useProfile(userId, name);
+  const dot = presence ?? p.presence;
   const isOwn = name === getCurrentUser().name;
   return (
     <div style={card}>
       <div style={{ height: 44, background: "var(--surface-sunken)", borderBottom: "1px solid var(--border-subtle)" }} />
       <div style={{ padding: "0 16px 14px", marginTop: -22 }}>
-        <Avatar name={p.name} size={56} presence={p.presence} kind={p.bot ? "bot" : "person"} />
+        <Avatar name={p.name} size={56} presence={dot} kind={p.bot ? "bot" : "person"} />
         <div style={{ marginTop: 8, fontSize: 17, fontWeight: 600, color: "var(--text-strong)" }}>
           {p.name}
           {p.pronouns ? (
@@ -48,8 +55,8 @@ export function UserProfileCard({ name, onViewFull, onEditProfile, onMessage }: 
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
           <div style={row}>
-            <span style={{ width: 8, height: 8, borderRadius: "var(--radius-full)", background: `var(--presence-${p.presence})` }} />
-            {presenceLabel(p.presence)}
+            <span style={{ width: 8, height: 8, borderRadius: "var(--radius-full)", background: `var(--presence-${dot})` }} />
+            {presenceLabel(dot)}
           </div>
           <div style={row}>
             <Icon name="clock" size={14} />

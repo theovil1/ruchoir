@@ -1,8 +1,9 @@
 "use client";
 
-import { type CSSProperties, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, IconButton, Input, Tabs, Tag } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
+import { createFolder as apiCreateFolder, fileDownloadUrl, filePreviewUrl, getFolder, uploadFile } from "@/lib/data/api";
 import type { Toast } from "../app/types";
 
 const styles: Record<string, CSSProperties> = {
@@ -93,30 +94,32 @@ function isImage(name: string): boolean {
   return /\.(jpe?g|png|gif|webp|svg|heic)$/i.test(name);
 }
 
-/** Mock contents for folders, so opening one shows real files. Created folders are empty. */
-const FOLDER_CONTENTS: Record<string, SpaceFile[]> = {
-  Photos_chantier: [
-    { name: "facade_avant.jpg", kind: "file", size: "2,4 Mo", by: "Yanis Berthier", when: "18 août", source: "Nextcloud", version: "v1" },
-    { name: "charpente_pose.jpg", kind: "file", size: "3,1 Mo", by: "Adèle Fournier", when: "18 août", source: "Nextcloud", version: "v1" },
-    { name: "plan_implantation.pdf", kind: "file", size: "640 Ko", by: "Camille Roussel", when: "17 août", source: "Nextcloud", version: "v2" },
-    { name: "reception_materiaux.jpg", kind: "file", size: "1,8 Mo", by: "Marc Lévêque", when: "16 août", source: "Nextcloud", version: "v1" },
-  ],
-};
+/** Trigger a same-origin download without navigating away from the app. */
+function download(fileId: string, name: string) {
+  const a = document.createElement("a");
+  a.href = fileDownloadUrl(fileId);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 
 export type FilesScreenProps = {
-  files: SpaceFile[];
+  /** The space whose files are shown. */
+  spaceId: string;
   workspaceName: string;
   currentUser: string;
-  onNewFolder: (name: string) => void;
-  onUpload: (file: SpaceFile) => void;
   onNotify: (toast: Toast) => void;
   /** Compact (mobile) mode: force the card grid (the wide table cannot fit) and let the toolbar wrap. */
   compact?: boolean;
 };
 
-/** The space files view. Faithful to the design-system `screen-files` mockup, with working
- * filtering, selection, list/grid toggle, folder creation and file upload. */
-export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, onUpload, onNotify, compact = false }: FilesScreenProps) {
+/** The space files view, backed by the API (folder tree, upload, download, preview). */
+export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false }: FilesScreenProps) {
+  const [entries, setEntries] = useState<SpaceFile[]>([]);
+  const [breadcrumb, setBreadcrumb] = useState<{ id: string; name: string }[]>([]);
+  const [folderId, setFolderId] = useState<string | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [tab, setTab] = useState("Tous");
   const [layout, setLayout] = useState<"list" | "grid">("list");
@@ -125,62 +128,99 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [folderOpen, setFolderOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
-  const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [preview, setPreview] = useState<SpaceFile | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
 
-  const baseFiles = currentFolder ? FOLDER_CONTENTS[currentFolder] ?? [] : files;
-  const rows = baseFiles
-    .filter((f) => f.name.toLowerCase().includes(q.toLowerCase()))
-    .filter((f) => tab === "Tous" || (tab === "Importés" ? f.source !== "Ruchoir" : f.kind === "folder"));
+  // `onNotify` (AppRoot's toast) is a fresh function each parent render; keep the latest in a ref so
+  // `load` stays stable across renders (otherwise the load effect below refires every render, which
+  // loops a failing fetch and never lets the network go idle).
+  const onNotifyRef = useRef(onNotify);
+  useEffect(() => {
+    onNotifyRef.current = onNotify;
+  });
 
-  const openFolder = (name: string) => {
-    setCurrentFolder(name);
-    setSelected(new Set());
+  /** Load a folder (the space root when `id` is undefined) and reset the local view state. */
+  const load = useCallback(
+    (id?: string) => {
+      setLoading(true);
+      getFolder(spaceId, id)
+        .then((listing) => {
+          setEntries(listing.entries);
+          setBreadcrumb(listing.breadcrumb);
+          setFolderId(listing.folderId);
+          setSelected(new Set());
+          setLoading(false);
+        })
+        .catch(() => {
+          setEntries([]);
+          setLoading(false);
+          onNotifyRef.current({ tone: "danger", title: "Chargement des fichiers impossible" });
+        });
+    },
+    [spaceId],
+  );
+
+  useEffect(() => {
+    // Load the space root on mount (and when the space changes). Data fetch on mount is the point.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    load(undefined);
     setQ("");
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [load]);
+
+  const currentFolderName = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].name : null;
+  const parentId = breadcrumb.length > 1 ? breadcrumb[breadcrumb.length - 2].id : undefined;
+
+  const rows = entries
+    .filter((f) => f.name.toLowerCase().includes(q.toLowerCase()))
+    .filter((f) => tab === "Tous" || (tab === "Importés" ? !!f.imported : f.kind === "folder"));
+
+  const openEntry = (f: SpaceFile) => {
+    if (f.kind === "folder") {
+      if (f.id) load(f.id);
+    } else {
+      setPreview(f);
+    }
   };
 
   const totalBytes = rows.reduce((sum, f) => sum + sizeToBytes(f.size), 0);
-  const allSelected = rows.length > 0 && rows.every((f) => selected.has(f.name));
+  const rowKey = (f: SpaceFile) => f.id ?? f.name;
+  const allSelected = rows.length > 0 && rows.every((f) => selected.has(rowKey(f)));
 
-  const toggle = (name: string) =>
+  const toggle = (key: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
 
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(rows.map((f) => f.name)));
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(rows.map(rowKey)));
 
   const createFolder = () => {
     const name = folderName.trim();
     if (!name) return;
-    onNewFolder(name);
-    onNotify({ tone: "success", title: "Dossier créé", description: name });
     setFolderName("");
     setFolderOpen(false);
+    apiCreateFolder(spaceId, name, folderId)
+      .then(() => {
+        onNotify({ tone: "success", title: "Dossier créé", description: name });
+        load(folderId);
+      })
+      .catch(() => onNotify({ tone: "danger", title: "Création du dossier impossible" }));
   };
 
   const onFilePicked = (fileList: FileList | null) => {
     const file = fileList?.[0];
     if (!file) return;
-    const kind: SpaceFile["kind"] = file.type.includes("spreadsheet")
-      ? "file-spreadsheet"
-      : file.type.startsWith("text")
-        ? "file-text"
-        : "file";
-    onUpload({
-      name: file.name,
-      kind,
-      size: bytesToSize(file.size),
-      by: currentUser,
-      when: "À l'instant",
-      source: "Ruchoir",
-      version: "v1",
-    });
-    onNotify({ tone: "success", title: "Fichier déposé", description: file.name });
     if (uploadRef.current) uploadRef.current.value = "";
+    onNotify({ tone: "info", title: "Dépôt en cours", description: file.name });
+    uploadFile(spaceId, file, folderId)
+      .then(() => {
+        onNotify({ tone: "success", title: "Fichier déposé", description: file.name });
+        load(folderId);
+      })
+      .catch(() => onNotify({ tone: "danger", title: "Dépôt impossible", description: file.name }));
   };
 
   return (
@@ -195,10 +235,10 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
         {/* Page heading: the file location, as a breadcrumb. */}
         <h1 style={styles.crumb}>
           <Icon name="hard-drive" size={15} style={{ color: "var(--text-muted)" }} />
-          {currentFolder ? (
+          {currentFolderName ? (
             <button
               type="button"
-              onClick={() => setCurrentFolder(null)}
+              onClick={() => load(undefined)}
               style={{ border: 0, background: "none", padding: 0, cursor: "pointer", font: "inherit", color: "var(--text-muted)", fontWeight: 400 }}
             >
               {workspaceName}
@@ -210,10 +250,10 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
               <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>{workspaceName}</span>
             </>
           )}
-          {currentFolder ? (
+          {currentFolderName ? (
             <>
               <Icon name="chevron-right" size={13} style={{ color: "var(--text-subtle)" }} />
-              <span>{currentFolder}</span>
+              <span>{currentFolderName}</span>
             </>
           ) : null}
         </h1>
@@ -224,16 +264,11 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
         <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()}>
           Déposer un fichier
         </Button>
-        <input
-          ref={uploadRef}
-          type="file"
-          style={{ display: "none" }}
-          onChange={(e) => onFilePicked(e.target.files)}
-        />
+        <input ref={uploadRef} type="file" style={{ display: "none" }} onChange={(e) => onFilePicked(e.target.files)} />
       </div>
 
       <div style={styles.body}>
-        {currentFolder ? (
+        {currentFolderName ? (
           <div
             style={{
               display: "flex",
@@ -246,11 +281,11 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
               background: "var(--surface-sunken)",
             }}
           >
-            <Button size="sm" variant="secondary" iconLeft="arrow-left" onClick={() => setCurrentFolder(null)}>
+            <Button size="sm" variant="secondary" iconLeft="arrow-left" onClick={() => load(parentId)}>
               Retour
             </Button>
             <Icon name="folder" size={18} style={{ color: "var(--terracotta-500)" }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{currentFolder}</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{currentFolderName}</span>
             <span style={{ fontSize: 12, color: "var(--text-muted)" }}>· {rows.length} élément{rows.length > 1 ? "s" : ""}</span>
           </div>
         ) : null}
@@ -275,20 +310,8 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
           </span>
           {!compact ? (
             <>
-              <IconButton
-                icon="layout-grid"
-                label="Vue en grille"
-                size="sm"
-                aria-pressed={layout === "grid"}
-                onClick={() => setLayout("grid")}
-              />
-              <IconButton
-                icon="list"
-                label="Vue en liste"
-                size="sm"
-                aria-pressed={layout === "list"}
-                onClick={() => setLayout("list")}
-              />
+              <IconButton icon="layout-grid" label="Vue en grille" size="sm" aria-pressed={layout === "grid"} onClick={() => setLayout("grid")} />
+              <IconButton icon="list" label="Vue en liste" size="sm" aria-pressed={layout === "list"} onClick={() => setLayout("list")} />
             </>
           ) : null}
         </div>
@@ -323,12 +346,11 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
               <tbody>
                 {rows.map((f) => (
                   <FileRow
-                    key={f.name}
+                    key={rowKey(f)}
                     f={f}
-                    checked={selected.has(f.name)}
-                    onToggle={() => toggle(f.name)}
-                    onOpenFolder={() => openFolder(f.name)}
-                    onOpenFile={() => setPreview(f)}
+                    checked={selected.has(rowKey(f))}
+                    onToggle={() => toggle(rowKey(f))}
+                    onOpen={() => openEntry(f)}
                   />
                 ))}
               </tbody>
@@ -338,28 +360,21 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
           <div style={styles.grid}>
             {rows.map((f) => (
               <Card
-                key={f.name}
+                key={rowKey(f)}
                 variant="interactive"
                 padded
-                onClick={() => (f.kind === "folder" ? openFolder(f.name) : setPreview(f))}
+                onClick={() => openEntry(f)}
                 style={{ display: "flex", flexDirection: "column", gap: 8, cursor: "pointer" }}
               >
-                <Icon
-                  name={f.kind}
-                  size={26}
-                  style={{ color: f.kind === "folder" ? "var(--terracotta-500)" : "var(--text-muted)" }}
-                />
-                <div
-                  title={f.name}
-                  style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden" }}
-                >
+                <Icon name={f.kind} size={26} style={{ color: f.kind === "folder" ? "var(--terracotta-500)" : "var(--text-muted)" }} />
+                <div title={f.name} style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden" }}>
                   {truncateMiddle(f.name)}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
                   <Avatar name={f.by} size={18} />
                   {f.size}
                 </div>
-                {f.source !== "Ruchoir" ? <Tag icon="import">{f.source}</Tag> : null}
+                {f.imported ? <Tag icon="import">{f.source !== "Ruchoir" ? f.source : "Importé"}</Tag> : null}
               </Card>
             ))}
           </div>
@@ -367,29 +382,25 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
 
         {rows.length === 0 ? (
           <EmptyState
-            icon={q ? "search" : currentFolder ? "folder-open" : "folder"}
-            title={q ? "Aucun résultat" : currentFolder ? "Dossier vide" : "Aucun fichier"}
+            icon={loading ? "loader" : q ? "search" : currentFolderName ? "folder-open" : "folder"}
+            title={loading ? "Chargement…" : q ? "Aucun résultat" : currentFolderName ? "Dossier vide" : "Aucun fichier"}
             description={
-              q
-                ? `Aucun fichier ne correspond à « ${q} ».`
-                : currentFolder
-                  ? "Ce dossier ne contient aucun fichier pour l'instant."
-                  : "Déposez vos premiers fichiers, ou reprenez-les depuis Slack, Mattermost ou Nextcloud lors d'un import."
+              loading
+                ? "Récupération des fichiers de l'espace."
+                : q
+                  ? `Aucun fichier ne correspond à « ${q} ».`
+                  : currentFolderName
+                    ? "Ce dossier ne contient aucun fichier pour l'instant."
+                    : "Déposez vos premiers fichiers, ou reprenez-les depuis Slack, Mattermost ou Nextcloud lors d'un import."
             }
             action={
-              !q ? (
+              !q && !loading ? (
                 <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()}>
                   Déposer un fichier
                 </Button>
               ) : undefined
             }
           />
-        ) : null}
-        {rows.length > 0 ? (
-          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 12 }}>
-            La colonne « Source » indique l&apos;outil d&apos;origine des fichiers repris lors d&apos;un import (Slack, Mattermost,
-            Nextcloud). Les fichiers créés dans Ruchoir n&apos;affichent pas de badge.
-          </p>
         ) : null}
       </div>
 
@@ -430,7 +441,7 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
         footer={
           preview ? (
             <>
-              {preview.source !== "Ruchoir" ? <Tag icon="import">Importé de {preview.source}</Tag> : null}
+              {preview.imported ? <Tag icon="import">{preview.source !== "Ruchoir" ? preview.source : "Importé"}</Tag> : null}
               {preview.version ? (
                 <Tag mono tone="info">
                   {preview.version}
@@ -441,7 +452,10 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
               <Button
                 variant="primary"
                 iconLeft="download"
-                onClick={() => onNotify({ tone: "success", title: "Téléchargement démarré", description: preview.name })}
+                disabled={!preview.id}
+                onClick={() => {
+                  if (preview.id) download(preview.id, preview.name);
+                }}
               >
                 Télécharger
               </Button>
@@ -460,20 +474,24 @@ export function FilesScreen({ files, workspaceName, currentUser, onNewFolder, on
               gap: 12,
               borderRadius: "var(--radius-md)",
               border: "1px solid var(--border-subtle)",
-              background: isImage(preview.name)
-                ? "linear-gradient(135deg, var(--grey-100), var(--surface-sunken))"
-                : "var(--surface-sunken)",
+              background: "var(--surface-sunken)",
+              overflow: "hidden",
             }}
           >
-            <Icon
-              name={isImage(preview.name) ? "image" : preview.kind === "folder" ? "folder" : preview.kind}
-              size={52}
-              style={{ color: "var(--text-subtle)" }}
-            />
-            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-              {isImage(preview.name) ? "Aperçu de l'image" : "Aperçu du document"}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-subtle)" }}>Ouvert dans Ruchoir, sans téléchargement.</div>
+            {preview.id && isImage(preview.name) ? (
+              // eslint-disable-next-line @next/next/no-img-element -- same-origin API bytes, not a Next asset
+              <img
+                src={filePreviewUrl(preview.id)}
+                alt={preview.name}
+                style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+              />
+            ) : (
+              <>
+                <Icon name={isImage(preview.name) ? "image" : preview.kind === "folder" ? "folder" : preview.kind} size={52} style={{ color: "var(--text-subtle)" }} />
+                <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Aperçu indisponible</div>
+                <div style={{ fontSize: 12, color: "var(--text-subtle)" }}>Téléchargez le fichier pour l&apos;ouvrir.</div>
+              </>
+            )}
           </div>
         ) : null}
       </Dialog>
@@ -485,18 +503,15 @@ function FileRow({
   f,
   checked,
   onToggle,
-  onOpenFolder,
-  onOpenFile,
+  onOpen,
 }: {
   f: SpaceFile;
   checked: boolean;
   onToggle: () => void;
-  onOpenFolder: () => void;
-  onOpenFile: () => void;
+  onOpen: () => void;
 }) {
   const [hover, setHover] = useState(false);
   const isFolder = f.kind === "folder";
-  const open = isFolder ? onOpenFolder : onOpenFile;
   return (
     <tr
       style={{ background: hover || checked ? "var(--surface-hover)" : "transparent" }}
@@ -512,30 +527,12 @@ function FileRow({
         <span
           role="button"
           tabIndex={0}
-          onClick={open}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && open()}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            minWidth: 0,
-            cursor: "pointer",
-          }}
+          onClick={onOpen}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
+          style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, cursor: "pointer" }}
         >
-          <Icon
-            name={f.kind}
-            size={17}
-            style={{ flex: "none", color: isFolder ? "var(--terracotta-500)" : "var(--text-muted)" }}
-          />
-          <span
-            style={{
-              fontWeight: 500,
-              color: "var(--text-strong)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
+          <Icon name={f.kind} size={17} style={{ flex: "none", color: isFolder ? "var(--terracotta-500)" : "var(--text-muted)" }} />
+          <span style={{ fontWeight: 500, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {f.name}
           </span>
         </span>
@@ -549,11 +546,7 @@ function FileRow({
       </td>
       <td style={{ ...styles.td, color: "var(--text-muted)", fontSize: 12 }}>{f.when}</td>
       <td style={styles.td}>
-        {f.source === "Ruchoir" ? (
-          <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>-</span>
-        ) : (
-          <Tag icon="import">{f.source}</Tag>
-        )}
+        {f.imported ? <Tag icon="import">{f.source !== "Ruchoir" ? f.source : "Importé"}</Tag> : <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>-</span>}
       </td>
       <td style={styles.td}>
         <span style={{ ...styles.checkCell, opacity: hover ? 1 : 0, transition: "opacity var(--duration-fast) var(--ease-out)" }}>
@@ -562,7 +555,7 @@ function FileRow({
             label={isFolder ? `Ouvrir ${f.name}` : `Aperçu de ${f.name}`}
             size="sm"
             tabIndex={hover ? 0 : -1}
-            onClick={open}
+            onClick={onOpen}
           />
         </span>
       </td>

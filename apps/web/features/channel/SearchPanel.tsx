@@ -53,7 +53,7 @@ export type SearchPanelProps = {
   messages: Message[];
   files: SpaceFile[];
   onClose: () => void;
-  onJump: (messageId: number) => void;
+  onJump: (messageId: string) => void;
   onJumpFile: (fileName: string) => void;
 };
 

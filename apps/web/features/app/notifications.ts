@@ -22,7 +22,7 @@ export type AppNotification = {
   /** Who triggered the notification (drives the avatar). */
   actor: string;
   /** The message to jump to when the notification is opened. */
-  messageId: number;
+  messageId: string;
   /** Short one-line preview of the triggering message. */
   preview: string;
   /** Human time carried from the source message (e.g. "10:24"). */

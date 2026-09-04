@@ -64,7 +64,7 @@ export type SidePanelProps = {
   highlightFile?: string | null;
   onClose: () => void;
   onSelectMember: (name: string) => void;
-  onJump: (messageId: number) => void;
+  onJump: (messageId: string) => void;
   onNotify: (toast: import("../app/types").Toast) => void;
 };
 
