@@ -49,6 +49,8 @@ pub fn router() -> Router<AppState> {
             "/api/v1/messages/{message_id}/save",
             put(saved::save_message).delete(saved::unsave_message),
         )
+        // Spaces the caller belongs to (SPA bootstrap).
+        .route("/api/v1/me/spaces", get(conversations::list_my_spaces))
         // Channels, DMs and DM creation.
         .route(
             "/api/v1/spaces/{space_id}/channels",

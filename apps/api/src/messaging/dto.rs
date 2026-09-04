@@ -77,6 +77,17 @@ pub struct MessagePage {
     pub next_before: Option<Uuid>,
 }
 
+/// A space the caller belongs to: the workspace-switcher entry and the bootstrap the SPA needs to
+/// discover its channels (which are queried per space).
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct SpaceDto {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    /// The caller's role in the space: `owner`, `admin`, `member` or `guest`.
+    pub role: String,
+}
+
 /// A channel in a space's sidebar list.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ChannelDto {
