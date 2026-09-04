@@ -79,6 +79,9 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | totp-rs / aes-gcm / zeroize | 6 / 0.11 / 1.9 | `Cargo.toml` |
 | qrcodegen | 1.8 | `Cargo.toml` |
 | webauthn-rs | 0.5.5 | `Cargo.toml` |
+| rust-s3 (S3 client, no TLS backend) | 0.37.2 | `Cargo.toml` |
+| image (thumbnails) | 0.25.10 | `Cargo.toml` |
+| infer (MIME sniffing) | 0.22.0 | `Cargo.toml` |
 | Node (build only) | 24 (LTS) | `.nvmrc` |
 | pnpm | 11.24.0 | root `package.json` (`packageManager`) |
 | Next.js / React | 16.3.3 / 19.2 | `apps/web/package.json` |

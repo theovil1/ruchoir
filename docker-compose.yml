@@ -54,6 +54,10 @@ services:
       - ./infra/garage/garage.toml:/etc/garage.toml:ro
       - garage-meta:/var/lib/garage/meta
       - garage-data:/var/lib/garage/data
+    ports:
+      # S3 API published so the API can run on the host (cargo run) against localhost:3900. Change
+      # the host port if 3900 is already taken. The RPC port (3901) stays internal to the network.
+      - "${GARAGE_S3_HOST_PORT:-3900}:3900"
     restart: unless-stopped
 
   api:
@@ -70,6 +74,12 @@ services:
       S3_ENDPOINT: http://garage:3900
       S3_REGION: ${S3_REGION:-garage}
       S3_BUCKET: ${S3_BUCKET:-ruchoir}
+      # Credentials issued by Garage after key/bucket setup. When unset, the API still serves file
+      # metadata and reports 503 for file bytes (see .env.example and docs/development.md).
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      RUCHOIR_UPLOAD_MAX_BYTES: ${RUCHOIR_UPLOAD_MAX_BYTES:-104857600}
+      RUCHOIR_THUMBNAIL_MAX_PX: ${RUCHOIR_THUMBNAIL_MAX_PX:-512}
     ports:
       # Host port is configurable (default 8080) to avoid clashes with other local projects.
       # Only the published host port changes; the container still listens on 8080.

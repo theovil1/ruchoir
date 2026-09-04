@@ -57,7 +57,19 @@ use utoipa::OpenApi;
         crate::realtime::presence::set_my_presence,
         crate::realtime::ws::ws_handler,
         crate::realtime::sse::sse_handler,
-        crate::realtime::sse::typing_handler
+        crate::realtime::sse::typing_handler,
+        crate::files::tree::list_folder,
+        crate::files::tree::create_folder,
+        crate::files::tree::update_file,
+        crate::files::tree::delete_file,
+        crate::files::uploads::upload_file,
+        crate::files::uploads::upload_version,
+        crate::files::download::download_file,
+        crate::files::download::preview_file,
+        crate::files::download::thumbnail_file,
+        crate::files::shares::list_shares,
+        crate::files::shares::create_share,
+        crate::files::shares::delete_share
     ),
     components(schemas(
         crate::http::Health,
@@ -86,13 +98,22 @@ use utoipa::OpenApi;
         crate::messaging::dto::CreateDmRequest,
         crate::messaging::dto::ConversationRef,
         crate::messaging::dto::SetPresenceRequest,
-        crate::messaging::dto::TypingRequest
+        crate::messaging::dto::TypingRequest,
+        crate::files::dto::FileDto,
+        crate::files::dto::FolderListing,
+        crate::files::dto::Breadcrumb,
+        crate::files::dto::AttachmentDto,
+        crate::files::dto::ShareDto,
+        crate::files::dto::CreateFolderRequest,
+        crate::files::dto::UpdateFileRequest,
+        crate::files::dto::CreateShareRequest
     )),
     tags(
         (name = "health", description = "Liveness and health checks"),
         (name = "auth", description = "Registration, login, sessions"),
         (name = "messaging", description = "Channels, direct messages, messages, threads, reactions, pins, saved"),
-        (name = "realtime", description = "WebSocket / SSE transport, typing and presence")
+        (name = "realtime", description = "WebSocket / SSE transport, typing and presence"),
+        (name = "files", description = "File tree, upload and versions, download, preview, thumbnails, shares")
     )
 )]
 pub struct ApiDoc;

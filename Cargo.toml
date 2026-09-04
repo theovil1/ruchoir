@@ -14,7 +14,7 @@ repository = "https://github.com/theovil1/ruchoir"
 [workspace.dependencies]
 tokio = { version = "1.53", features = ["rt-multi-thread", "net", "macros", "signal", "time", "sync"] }
 # `ws` powers the real-time WebSocket transport; SSE is in axum core.
-axum = { version = "0.8", features = ["ws"] }
+axum = { version = "0.8", features = ["ws", "multipart"] }
 tower = "0.5"
 # Stream utilities: split a WebSocket into sink/stream and combine event streams. `futures-util`
 # is the rust-lang community async foundation (neutral governance, per the no-US-dependency rule).
@@ -106,6 +106,26 @@ qrcodegen = "1.8"
 # feature is required (and safe here) to persist ceremony state server-side in Valkey between the
 # start and finish steps, as the crate documents.
 webauthn-rs = { version = "0.5.5", features = ["danger-allow-state-serialisation"] }
+
+# --- Files / object storage ---
+# S3 client for the object store (Garage by default). Community crate, recommended for sovereign S3
+# access over the Amazon `aws-sdk-s3` (no-US-dependency rule). `default-features = false` with only
+# `with-tokio` + `fail-on-err` pulls `reqwest` WITHOUT any TLS backend, so neither `aws-lc-rs` (AWS)
+# nor OpenSSL enters the tree: dev talks plaintext to Garage over the trusted Docker network, exactly
+# like PostgreSQL/Valkey. TLS-to-Garage is later hardening (the `ring` path, never aws-lc-rs).
+# `aws-creds` is pulled transitively (part of the rust-s3 project; credential structs only).
+rust-s3 = { version = "0.37.2", default-features = false, features = ["with-tokio", "fail-on-err"] }
+# Image decode/resize/encode for server-side thumbnails (community image-rs org). Restricted to the
+# web formats we accept so no heavy/native codec (avif/openexr) is pulled.
+image = { version = "0.25.10", default-features = false, features = [
+    "jpeg",
+    "png",
+    "gif",
+    "webp",
+    "rayon",
+] }
+# Magic-byte MIME sniffing so the stored content type never trusts the client (community, MIT).
+infer = "0.22.0"
 
 [profile.release]
 # Lean, fast production binary.

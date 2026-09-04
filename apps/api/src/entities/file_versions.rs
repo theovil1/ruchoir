@@ -15,6 +15,8 @@ pub struct Model {
     pub size_bytes: i64,
     pub content_hash: Option<Vec<u8>>,
     pub storage_key: Option<String>,
+    /// Object key of the downscaled thumbnail for image versions; `None` otherwise.
+    pub thumbnail_key: Option<String>,
     pub mime_type: String,
     /// Intrinsic pixel dimensions for image versions (used to reserve layout space; `None` for
     /// non-image files).

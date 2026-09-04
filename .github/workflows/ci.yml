@@ -149,9 +149,18 @@ jobs:
         # code never deserializes rkyv archives, so the vulnerable path is unreachable, and there is
         # no fix on the 0.7 line (0.8 is a breaking change rust_decimal 1.x does not support). Remove
         # this ignore once sea-orm / rust_decimal move to rkyv >= 0.8.17.
+        #
+        # RUSTSEC-2026-0194 / RUSTSEC-2026-0195 (quick-xml 0.38 quadratic start-tag scan and unbounded
+        # namespace allocation, both denial-of-service on crafted XML): transitive only, via the S3
+        # client (rust-s3 / aws-creds), which uses quick-xml solely to parse responses from the
+        # configured object store. That store is the operator's own trusted, non-public backend
+        # (Garage by default), not an attacker-controlled source, so the crafted-input path is not
+        # reachable from untrusted callers. The fix landed in quick-xml >= 0.41, but rust-s3 and
+        # aws-creds both cap it at ^0.38, so it cannot be updated in range. Remove these ignores once
+        # the S3 client moves to quick-xml >= 0.41.
         run: |
           cargo install cargo-audit --locked
-          cargo audit --ignore RUSTSEC-2026-0235
+          cargo audit --ignore RUSTSEC-2026-0235 --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195
       - name: Set up Node
         uses: actions/setup-node@v4
         with:

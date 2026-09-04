@@ -10,12 +10,14 @@ mod cache;
 mod config;
 mod db;
 mod entities;
+mod files;
 mod http;
 mod messaging;
 mod openapi;
 mod realtime;
 mod seed;
 mod state;
+mod storage;
 
 #[cfg(test)]
 mod tests_integration;
@@ -137,6 +139,24 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
             .map_err(|e| format!("webauthn configuration: {e}"))?
     };
 
+    // Object store for file bytes. Optional: with no credentials the API still serves metadata and
+    // the file tree, and the byte endpoints report 503 (like the optional mailer / breach filter).
+    let storage = if config.s3_enabled() {
+        match storage::S3Store::from_config(&config) {
+            Ok(store) => {
+                tracing::info!(endpoint = %config.s3_endpoint, bucket = %config.s3_bucket, "object store configured");
+                Some(Arc::new(store))
+            }
+            Err(err) => {
+                tracing::error!(error = %err, "could not configure object store; file bytes disabled");
+                None
+            }
+        }
+    } else {
+        tracing::warn!("no S3 credentials configured; file byte storage disabled (metadata only)");
+        None
+    };
+
     let state = AppState {
         db,
         valkey,
@@ -145,6 +165,7 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         secret_key: Arc::new(secret_key),
         webauthn: Arc::new(webauthn),
         hub,
+        storage,
         config: Arc::new(config),
     };
 

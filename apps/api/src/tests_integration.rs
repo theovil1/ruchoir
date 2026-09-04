@@ -101,6 +101,8 @@ async fn boot() -> Option<TestApp> {
         secret_key: Arc::new([0x11u8; 32]),
         webauthn: Arc::new(webauthn),
         hub,
+        // Object storage is not exercised by these tests; file byte endpoints report 503.
+        storage: None,
         config: Arc::new(config.clone()),
     };
 
