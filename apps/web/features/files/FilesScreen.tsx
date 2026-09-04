@@ -131,6 +131,14 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
   const [preview, setPreview] = useState<SpaceFile | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
 
+  // `onNotify` (AppRoot's toast) is a fresh function each parent render; keep the latest in a ref so
+  // `load` stays stable across renders (otherwise the load effect below refires every render, which
+  // loops a failing fetch and never lets the network go idle).
+  const onNotifyRef = useRef(onNotify);
+  useEffect(() => {
+    onNotifyRef.current = onNotify;
+  });
+
   /** Load a folder (the space root when `id` is undefined) and reset the local view state. */
   const load = useCallback(
     (id?: string) => {
@@ -146,10 +154,10 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
         .catch(() => {
           setEntries([]);
           setLoading(false);
-          onNotify({ tone: "danger", title: "Chargement des fichiers impossible" });
+          onNotifyRef.current({ tone: "danger", title: "Chargement des fichiers impossible" });
         });
     },
-    [spaceId, onNotify],
+    [spaceId],
   );
 
   useEffect(() => {

@@ -12,6 +12,8 @@
 const nextConfig = {
   output: "export",
   reactStrictMode: true,
+  // Do not auto-generate an AGENTS.md: this repo maintains it by hand.
+  agentRules: false,
   // Emit `foo/index.html` so paths resolve cleanly when served as static files.
   trailingSlash: true,
   // The static export cannot use the server image optimizer.
