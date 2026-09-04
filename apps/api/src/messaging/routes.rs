@@ -9,7 +9,7 @@ use axum::Router;
 
 use crate::state::AppState;
 
-use super::{conversations, messages, notifications, pins, reactions, read, saved, search};
+use super::{conversations, messages, notifications, pins, reactions, read, saved, search, users};
 
 /// Build the messaging sub-router.
 pub fn router() -> Router<AppState> {
@@ -51,6 +51,9 @@ pub fn router() -> Router<AppState> {
         )
         // Spaces the caller belongs to (SPA bootstrap).
         .route("/api/v1/me/spaces", get(conversations::list_my_spaces))
+        // A member's profile (profile card, member list), and editing one's own.
+        .route("/api/v1/users/me", patch(users::update_my_profile))
+        .route("/api/v1/users/{user_id}", get(users::get_user_profile))
         // Channels, DMs and DM creation.
         .route(
             "/api/v1/spaces/{space_id}/channels",
@@ -59,6 +62,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/v1/spaces/{space_id}/dms",
             get(conversations::list_dms),
+        )
+        .route(
+            "/api/v1/spaces/{space_id}/members",
+            get(conversations::list_members),
         )
         .route(
             "/api/v1/spaces/{space_id}/dm",

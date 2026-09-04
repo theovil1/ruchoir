@@ -42,6 +42,9 @@ pub struct FileDto {
     pub image_height: Option<i32>,
     /// Whether the file was migrated from another tool.
     pub imported: bool,
+    /// The source connector a migrated file came from (e.g. "nextcloud"); absent for native files.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub imported_source: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -70,6 +73,7 @@ impl FileDto {
             image_width: version.and_then(|v| v.image_width),
             image_height: version.and_then(|v| v.image_height),
             imported: file.imported_source.is_some(),
+            imported_source: file.imported_source.clone(),
             created_at: rfc3339(file.created_at),
             updated_at: rfc3339(file.updated_at),
         }
