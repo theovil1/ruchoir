@@ -22,6 +22,8 @@ pub struct ReactionDto {
     pub count: i64,
     /// Whether the current caller is one of them (drives the toggle highlight).
     pub mine: bool,
+    /// Display names of the reactors, in first-reaction order (for the "who reacted" tooltip).
+    pub users: Vec<String>,
 }
 
 /// A message as returned to clients, with its satellites folded in.

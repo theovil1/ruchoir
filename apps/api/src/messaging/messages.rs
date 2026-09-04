@@ -514,17 +514,32 @@ pub async fn hydrate_messages(
         .order_by_asc(message_reactions::Column::CreatedAt)
         .all(db)
         .await?;
+    // Resolve reactor display names so each bucket can name who reacted.
+    let reactor_ids: Vec<Uuid> = reaction_rows.iter().map(|r| r.user_id).collect();
+    let mut reactor_names: HashMap<Uuid, String> = HashMap::new();
+    if !reactor_ids.is_empty() {
+        for user in users::Entity::find()
+            .filter(users::Column::Id.is_in(reactor_ids))
+            .all(db)
+            .await?
+        {
+            reactor_names.insert(user.id, user.display_name);
+        }
+    }
     let mut reactions: HashMap<Uuid, Vec<ReactionDto>> = HashMap::new();
     for row in reaction_rows {
+        let reactor = reactor_names.get(&row.user_id).cloned().unwrap_or_default();
         let bucket = reactions.entry(row.message_id).or_default();
         if let Some(existing) = bucket.iter_mut().find(|r| r.emoji == row.emoji) {
             existing.count += 1;
             existing.mine = existing.mine || row.user_id == caller;
+            existing.users.push(reactor);
         } else {
             bucket.push(ReactionDto {
                 emoji: row.emoji,
                 count: 1,
                 mine: row.user_id == caller,
+                users: vec![reactor],
             });
         }
     }
