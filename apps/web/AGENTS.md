@@ -57,14 +57,44 @@ bottom-tab list, so the audit can reach the mobile conversation/content views. I
 so the static export ignores it. Used by the responsive audit to reach every state without click
 scripting.
 
-## Wiring smoke test
+## Data seam (real API)
 
-`app/wiring/page.tsx` (route `/wiring`) is a **development-only** probe, isolated from the app shell.
-It drives the real API path the seam will eventually use (login, then `GET /me/spaces` ->
-`GET /spaces/{id}/channels` -> `GET /conversations/{id}/messages`), rendering each step's HTTP status
-and raw JSON so seam/DTO mismatches (`lib/data/types.ts` vs the API DTOs) surface before the seam is
-wired for real. All fetches are same-origin and relative (the CSP forbids cross-origin). Delete it
-once the seam is wired.
+Screens read domain data only through the seam in `lib/data`. Two layers back it:
+- `lib/data/http.ts` is the one sovereign fetch client: same-origin, relative paths, the session
+  cookie sent automatically, and a typed `ApiError` carrying the HTTP status. The strict CSP
+  (`connect-src 'self'`) forbids any cross-origin call, so every path is API-relative.
+- `lib/data/api.ts` maps the Rust DTOs (snake_case, UUIDs, RFC 3339, raw byte sizes) to the front
+  shapes in `lib/data/types.ts`. It backs auth/session, the space bootstrap
+  (`/me/spaces` -> channels/DMs/presence/profiles), the message operations, files, search, the
+  notification feed and the realtime channel (`connectRealtime`). `lib/data/index.ts` (the mock seam)
+  still serves the surfaces with no API endpoint: the channel member list and the mock-by-name profile
+  fallback.
+
+`AppRoot` boots against the API: it checks the session (`GET /auth/session`), and on success loads
+the first space's channels, DMs, presence, per-conversation feeds and the notification feed before
+showing the app; a 401 lands on the real login (`POST /auth/login`, MFA-gated accounts are reported,
+not yet handled), and an unreachable API shows a boot error. Message ids are UUID strings end to end
+(`Message.id: string`).
+
+**Realtime.** `connectRealtime` opens the WebSocket (`/api/v1/realtime/ws`, cookie-authenticated on
+the upgrade), reconnects with a capped backoff, pings to hold presence, and dispatches decoded
+`RealtimeEnvelope` frames into `AppRoot` state: `message.created/updated/deleted` (upserted, de-duped
+by id against the optimistic row), `reaction.added/removed` (other users' deltas only; our own are
+optimistic), `presence`, `notification.created`, and `typing`. Mutations still go through REST; the
+socket only receives, plus sends typing/ping. The composer emits a throttled typing signal via
+`rtRef.current.sendTyping`.
+
+The member roster is loaded from `GET /spaces/{id}/members` and published into the mock seam via
+`setChannelMembers`, so the member list, the `@`-mention autocomplete and the people search read the
+real members synchronously through `getChannelMembers`/`getMentionNames`. Opening a new DM by name
+uses the get-or-create `POST /spaces/{id}/dm`; editing one's own profile persists via
+`PATCH /users/me`; a file's import badge shows the real connector (`FileDto.imported_source`).
+
+**Remaining gaps are architecture decisions, not wiring.** `readBy` per-message receipts are not
+shown (the backend deliberately keeps a light per-conversation read cursor instead); link unfurls are
+not rendered (the `message_link_previews` table exists but nothing populates or exposes it, and
+server-side link fetching needs a sovereignty/SSRF design first). A member profile still falls back to
+the mock by name only when no user id is resolvable for them (the member list now supplies ids).
 
 ## Responsive shell
 

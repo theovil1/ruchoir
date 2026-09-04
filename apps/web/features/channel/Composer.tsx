@@ -56,15 +56,27 @@ export type ComposerProps = {
   channelName: string;
   onSend: (text: string, attachment?: MessageAttachment) => void;
   onNotify: (toast: Toast) => void;
+  /** Emit a typing signal as the user composes (throttled here; the server throttles again). */
+  onTyping?: () => void;
 };
 
-/** Message composer with a working formatting toolbar and file attachment. Simulated send (no network). */
-export function Composer({ channelName, onSend, onNotify }: ComposerProps) {
+/** Message composer with a working formatting toolbar and file attachment. */
+export function Composer({ channelName, onSend, onNotify, onTyping }: ComposerProps) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [pending, setPending] = useState<MessageAttachment | null>(null);
   const editorRef = useRef<MessageEditorHandle>(null);
   const emojiRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const lastTyping = useRef(0);
+
+  // Fire a typing signal at most every 2s while composing; input events bubble up from the editor.
+  const signalTyping = () => {
+    if (!onTyping) return;
+    const now = Date.now();
+    if (now - lastTyping.current < 2000) return;
+    lastTyping.current = now;
+    onTyping();
+  };
 
   const sendWith = (text: string) => {
     onSend(text, pending ?? undefined);
@@ -94,7 +106,7 @@ export function Composer({ channelName, onSend, onNotify }: ComposerProps) {
 
   return (
     <div style={styles.wrap}>
-      <div style={styles.composer}>
+      <div style={styles.composer} onInput={signalTyping}>
         {pending ? (
           <div style={styles.chip}>
             <Icon name={pending.kind} size={16} style={{ color: "var(--text-muted)" }} />

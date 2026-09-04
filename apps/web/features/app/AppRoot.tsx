@@ -1,19 +1,38 @@
 "use client";
 
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getChannelMembers, getPresence, setChannelMembers, setUserPresence } from "@/lib/data";
 import {
-  getChannelMembers,
-  getChannelMessages,
+  addReaction,
+  type ApiNotification,
+  connectRealtime,
+  createDm,
+  deleteMessage,
+  editMessage,
   getChannels,
-  getCurrentUser,
+  getChannelMessages,
   getDirectMessages,
-  getPresence,
-  getSpaceFiles,
-  getWorkspace,
+  getNotifications,
+  getSession,
+  getSpaceMembers,
+  getSpacePresence,
   getWorkspaces,
-  setUserPresence,
-} from "@/lib/data";
-import type { Channel, DirectMessage, Message, SpaceFile, Workspace } from "@/lib/data";
+  type Member,
+  login as apiLogin,
+  logout as apiLogout,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type RealtimeConnection,
+  type RealtimeReaction,
+  removeReaction,
+  sendMessage,
+  setMessagePinned,
+  setMessageSaved,
+  setReadCursor,
+  type SessionUser,
+} from "@/lib/data/api";
+import { isApiError } from "@/lib/data/http";
+import type { Channel, DirectMessage, Message, Workspace } from "@/lib/data";
 import { Button, Dialog, Drawer, Textarea } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
@@ -25,7 +44,7 @@ import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
 import { ImportDialog } from "@/features/import/ImportDialog";
 import { ActivityView } from "./ActivityView";
-import { collectMentions, collectSaved, collectThreads, flattenMessages, type MessageMap } from "./activity";
+import { collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
 import { HelpDialog, InviteDialog, NewChannelDialog, NewMessageDialog, NewWorkspaceDialog } from "./dialogs";
 import { GettingStarted } from "./GettingStarted";
 import { GlobalSearchDialog } from "./GlobalSearchDialog";
@@ -33,9 +52,10 @@ import { QuickSwitcher } from "./QuickSwitcher";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
 import { useMountAnimation } from "./useMountAnimation";
 import {
-  buildNotifications,
+  type AppNotification,
   type ChannelNotifPref,
   DEFAULT_CHANNEL_PREF,
+  type NotifKind,
   passesPref,
 } from "./notifications";
 import { PreferencesScreen, type PrefTab } from "./PreferencesScreen";
@@ -77,6 +97,49 @@ const toastStyle: Record<string, CSSProperties> = {
   desc: { fontSize: 12, color: "var(--grey-300)" },
 };
 
+/** A message that only exists client-side: an optimistic send not yet acknowledged by the API. */
+function isPendingId(id: string): boolean {
+  return id.startsWith("tmp-");
+}
+
+/** Insert or replace a message in a conversation's list (realtime `message.created`, de-duped by id). */
+function upsertMessage(map: MessageMap, conv: string, m: Message): MessageMap {
+  const list = map[conv] ?? [];
+  const idx = list.findIndex((x) => x.id === m.id);
+  if (idx === -1) return { ...map, [conv]: [...list, m] };
+  const next = list.slice();
+  next[idx] = m;
+  return { ...map, [conv]: next };
+}
+
+/** Replace a message already present in a conversation (realtime `message.updated`/`deleted`). */
+function replaceMessage(map: MessageMap, conv: string, m: Message): MessageMap {
+  const list = map[conv] ?? [];
+  if (!list.some((x) => x.id === m.id)) return map;
+  return { ...map, [conv]: list.map((x) => (x.id === m.id ? m : x)) };
+}
+
+/** Apply another user's reaction delta to a message's buckets (our own deltas are already optimistic). */
+function applyReactionDelta(map: MessageMap, conv: string, r: RealtimeReaction): MessageMap {
+  const list = map[conv] ?? [];
+  const idx = list.findIndex((x) => x.id === r.messageId);
+  if (idx === -1) return map;
+  const msg = list[idx];
+  const reactions = (msg.reactions ?? []).map((x) => ({ ...x }));
+  const ri = reactions.findIndex((x) => x.emoji === r.emoji);
+  if (r.added) {
+    if (ri === -1) reactions.push({ emoji: r.emoji, count: 1 });
+    else reactions[ri] = { ...reactions[ri], count: reactions[ri].count + 1 };
+  } else if (ri !== -1) {
+    const count = reactions[ri].count - 1;
+    if (count <= 0) reactions.splice(ri, 1);
+    else reactions[ri] = { ...reactions[ri], count };
+  }
+  const next = list.slice();
+  next[idx] = { ...msg, reactions: reactions.length ? reactions : undefined };
+  return { ...map, [conv]: next };
+}
+
 /** Turn a display name or channel name into a URL-safe id, unique against existing ids. */
 function uniqueId(base: string, taken: string[]): string {
   const slug =
@@ -98,23 +161,34 @@ function uniqueId(base: string, taken: string[]): string {
  * through the data seam (@/lib/data), then lifted into state so the UI can mutate it.
  */
 function AppShell() {
-  const currentUser = getCurrentUser().name;
   const settings = useSettings();
+
+  // The signed-in user, resolved from the session at boot. `currentUser` (the display name) is read
+  // throughout the shell; it is empty until the session loads, but the app view is gated behind the
+  // boot below, so nothing renders against an empty name.
+  const [session, setSession] = useState<SessionUser | null>(null);
+  const currentUser = session?.name ?? "";
+  // Boot lifecycle: `booting` covers the initial session check and data load; `bootError` holds a
+  // fatal load failure (the API being unreachable), distinct from a 401 which sends us to the login.
+  const [booting, setBooting] = useState(true);
+  const [bootError, setBootError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginPending, setLoginPending] = useState(false);
 
   const [authStage, setAuthStage] = useState<"login" | "signup" | "onboarding" | "app">("app");
   const [signupFirst, setSignupFirst] = useState("");
-  const [workspaces, setWorkspaces] = useState<Workspace[]>(() => getWorkspaces());
-  const [channels, setChannels] = useState<Channel[]>(() => getChannels());
-  const [dms, setDms] = useState<DirectMessage[]>(() => getDirectMessages());
-  const [files, setFiles] = useState<SpaceFile[]>(() => getSpaceFiles());
-  const [messages, setMessages] = useState<MessageMap>(() => {
-    const map: MessageMap = {};
-    for (const c of getChannels()) map[c.id] = getChannelMessages(c.id);
-    for (const d of getDirectMessages()) map[d.id] = getChannelMessages(d.id);
-    return map;
-  });
-  // Notification inbox, derived once from the seed and then mutated in place (read state).
-  const [notifs, setNotifs] = useState(() => buildNotifications(messages, channels, dms, currentUser));
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [dms, setDms] = useState<DirectMessage[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [messages, setMessages] = useState<MessageMap>({});
+  // Notification inbox, loaded from the API feed and mutated in place (read state); realtime
+  // `notification.created` events prepend to it.
+  const [notifs, setNotifs] = useState<AppNotification[]>([]);
+  // Live presence by user id (space snapshot + realtime events), and who is typing in each
+  // conversation (user id -> last-seen ms, so stale signals expire).
+  const [presence, setPresence] = useState<Record<string, Presence>>({});
+  const [typing, setTyping] = useState<Record<string, Record<string, number>>>({});
   // Per-conversation notification preferences, keyed by channel/DM id. Absent = defaults (all, unmuted).
   const [channelPrefs, setChannelPrefs] = useState<Record<string, ChannelNotifPref>>({});
   const [channelNotifId, setChannelNotifId] = useState<string | null>(null);
@@ -138,15 +212,15 @@ function AppShell() {
   // True once the user closes the right panel by hand, so opening another conversation stops
   // auto-opening its default panel. Reset when they open a panel again.
   const [panelDismissed, setPanelDismissed] = useState(false);
-  const [thread, setThread] = useState<number | null>(null);
+  const [thread, setThread] = useState<string | null>(null);
   const [profile, setProfile] = useState<string | null>(null);
   const [profileEdit, setProfileEdit] = useState(false);
-  const [unreadMarker, setUnreadMarker] = useState<number | null>(null);
-  const [focusMessageId, setFocusMessageId] = useState<number | null>(null);
+  const [unreadMarker, setUnreadMarker] = useState<string | null>(null);
+  const [focusMessageId, setFocusMessageId] = useState<string | null>(null);
   const [myPresence, setMyPresence] = useState<Presence>("online");
   const [modal, setModal] = useState<Modal>(null);
   const [channelSettingsId, setChannelSettingsId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ id: number; body: string } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; body: string } | null>(null);
   // Toast: `toast` holds the content (kept through the exit so it stays rendered while animating out),
   // `toastVisible` drives the enter/exit, and useMountAnimation keeps it mounted for the exit window.
   const [toast, setToast] = useState<Toast | null>(null);
@@ -164,6 +238,181 @@ function AppShell() {
   const [mobileContent, setMobileContent] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  /**
+   * Load the signed-in user's workspace and seed the shell state: the spaces, then the active space's
+   * channels, DMs and per-conversation message feeds (eager-loaded so the cross-conversation views
+   * and the client-derived notifications keep working), and the derived notification inbox.
+   */
+  const loadInitialData = useCallback(async () => {
+    const spaces = await getWorkspaces();
+    setWorkspaces(spaces);
+    const activeWs = spaces[0]?.id ?? "";
+    setWs(activeWs);
+    if (!activeWs) {
+      setChannels([]);
+      setDms([]);
+      setMessages({});
+      setNotifs([]);
+      return;
+    }
+    const [chans, dmList, memberList, presenceMap, feed] = await Promise.all([
+      getChannels(activeWs),
+      getDirectMessages(activeWs),
+      getSpaceMembers(activeWs).catch(() => [] as Member[]),
+      getSpacePresence(activeWs).catch(() => ({}) as Record<string, Presence>),
+      getNotifications().catch(() => ({ notifications: [], unreadCount: 0, nextBefore: undefined })),
+    ]);
+    setChannels(chans);
+    setMembers(memberList);
+    setPresence(presenceMap);
+    // Overlay each 1:1 DM's counterpart presence onto its sidebar row.
+    setDms(dmList.map((d) => (d.userId && presenceMap[d.userId] ? { ...d, presence: presenceMap[d.userId] } : d)));
+    const convIds = [...chans.map((c) => c.id), ...dmList.map((d) => d.id)];
+    const pages = await Promise.all(
+      convIds.map((id) => getChannelMessages(id).catch(() => ({ messages: [], nextBefore: undefined }))),
+    );
+    const map: MessageMap = {};
+    convIds.forEach((id, i) => {
+      map[id] = pages[i].messages;
+    });
+    setMessages(map);
+    const labelOf = (id: string): { label: string; isDm: boolean } => {
+      const c = chans.find((x) => x.id === id);
+      if (c) return { label: `#${c.name}`, isDm: false };
+      const d = dmList.find((x) => x.id === id);
+      if (d) return { label: d.name, isDm: true };
+      return { label: id, isDm: false };
+    };
+    setNotifs(
+      feed.notifications.map((n) => {
+        const { label, isDm } = labelOf(n.conversationId);
+        return {
+          id: n.id,
+          kind: n.kind as NotifKind,
+          channelId: n.conversationId,
+          label,
+          isDm,
+          actor: n.actor,
+          messageId: n.messageId,
+          preview: n.preview,
+          time: n.time,
+          read: n.read,
+        };
+      }),
+    );
+    // Land on the first channel of the space (or the first DM if the space has no visible channel).
+    if (chans[0]) setChannelId(chans[0].id);
+    else if (dmList[0]) setChannelId(dmList[0].id);
+  }, []);
+
+  // Boot: check for an existing session, then load its data. A 401 sends us to the login screen; any
+  // other failure is a fatal boot error (the API being unreachable).
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const user = await getSession();
+        if (!active) return;
+        setSession(user);
+        await loadInitialData();
+        if (!active) return;
+        setAuthStage("app");
+      } catch (err) {
+        if (!active) return;
+        if (isApiError(err, 401)) setAuthStage("login");
+        else setBootError("Le serveur est injoignable. Réessayez plus tard.");
+      } finally {
+        if (active) setBooting(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [loadInitialData]);
+
+  // The realtime handlers read the latest lists/ids through a ref so the socket does not reconnect on
+  // every state change. Updated after each render (not during, to respect the ref rules).
+  const rtRef = useRef<RealtimeConnection | null>(null);
+  const liveRef = useRef({ channels, dms, channelId, myId: session?.id });
+  useEffect(() => {
+    liveRef.current = { channels, dms, channelId, myId: session?.id };
+  });
+
+  // Live realtime channel: connect once per session and dispatch server pushes into state. Mutations
+  // still go through REST; this only receives (and sends typing/ping).
+  useEffect(() => {
+    if (!session) return;
+    const conn = connectRealtime({
+      onMessageCreated: (conv, m) => {
+        setMessages((prev) => upsertMessage(prev, conv, m));
+        const { channelId: active, myId } = liveRef.current;
+        // Someone else posted in a conversation we are not looking at: bump its unread badge.
+        if (conv !== active && m.authorId && m.authorId !== myId) {
+          setChannels((prev) => prev.map((c) => (c.id === conv ? { ...c, unread: c.unread + 1 } : c)));
+          setDms((prev) => prev.map((d) => (d.id === conv ? { ...d, unread: d.unread + 1 } : d)));
+        }
+      },
+      onMessageUpdated: (conv, m) => setMessages((prev) => replaceMessage(prev, conv, m)),
+      onMessageDeleted: (conv, m) => setMessages((prev) => replaceMessage(prev, conv, m)),
+      onReaction: (conv, r) => {
+        // Our own reaction is already applied optimistically; only fold in other users' deltas.
+        if (r.userId === liveRef.current.myId) return;
+        setMessages((prev) => applyReactionDelta(prev, conv, r));
+      },
+      onPresence: (userId, p) => {
+        setPresence((prev) => ({ ...prev, [userId]: p }));
+        setDms((prev) => prev.map((d) => (d.userId === userId ? { ...d, presence: p } : d)));
+      },
+      onNotification: (n) => {
+        const { channels: chs, dms: dmList } = liveRef.current;
+        const channel = chs.find((x) => x.id === n.conversationId);
+        const dm = dmList.find((x) => x.id === n.conversationId);
+        const label = channel ? `#${channel.name}` : dm ? dm.name : n.conversationId;
+        const notif: AppNotification = {
+          id: n.id,
+          kind: n.kind as NotifKind,
+          channelId: n.conversationId,
+          label,
+          isDm: !channel && !!dm,
+          actor: n.actor,
+          messageId: n.messageId,
+          preview: n.preview,
+          time: n.time,
+          read: n.read,
+        };
+        setNotifs((prev) => [notif, ...prev.filter((x) => x.id !== n.id)]);
+      },
+      onTyping: (conv, userId) =>
+        setTyping((prev) => ({ ...prev, [conv]: { ...prev[conv], [userId]: Date.now() } })),
+    });
+    rtRef.current = conn;
+    return () => {
+      conn.close();
+      rtRef.current = null;
+    };
+  }, [session]);
+
+  // Expire typing signals a few seconds after the last keystroke, so the indicator does not stick.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const cutoff = Date.now() - 5000;
+      setTyping((prev) => {
+        let changed = false;
+        const next: Record<string, Record<string, number>> = {};
+        for (const [conv, users] of Object.entries(prev)) {
+          const fresh: Record<string, number> = {};
+          for (const [uid, ts] of Object.entries(users)) {
+            if (ts >= cutoff) fresh[uid] = ts;
+            else changed = true;
+          }
+          if (Object.keys(fresh).length > 0) next[conv] = fresh;
+        }
+        return changed ? next : prev;
+      });
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Dev-only: land directly on a UI state from query params (see lib/dev/deeplink.ts).
   // A no-op in the production static export; used by tools/responsive-audit to reach every screen.
@@ -216,7 +465,51 @@ function AppShell() {
     ({ id: channelId, name: dm?.name ?? "général", fav: false, unread: 0, type: "public" } as Channel);
   const feed = messages[channelId] ?? [];
 
-  const people = useMemo(() => getChannelMembers(), []);
+  // The space's members with live presence overlaid, feeding the member list, the @-mention
+  // autocomplete and the people section of search. Falls back to the mock roster before load.
+  const memberRecords = useMemo(
+    () => members.map((m) => ({ name: m.name, presence: (presence[m.userId] ?? "offline") as Presence, bot: m.bot })),
+    [members, presence],
+  );
+  // Publish the real roster and per-name presence into the data seam, which the composer, message
+  // renderer and dialogs read synchronously (getChannelMembers / getMentionNames / getPresence).
+  useEffect(() => {
+    if (members.length === 0) return;
+    setChannelMembers(memberRecords);
+    for (const m of members) {
+      if (presence[m.userId]) setUserPresence(m.name, presence[m.userId]);
+    }
+  }, [memberRecords, members, presence]);
+  const people = members.length > 0 ? memberRecords : getChannelMembers();
+
+  // Reverse lookup (user id -> display name) for realtime signals that arrive as bare ids (typing,
+  // presence), built from the DM counterparts and the authors seen in the loaded feeds.
+  const userNames = useMemo(() => {
+    const names: Record<string, string> = {};
+    for (const d of dms) if (d.userId) names[d.userId] = d.name;
+    for (const list of Object.values(messages)) {
+      for (const msg of list) if (msg.authorId) names[msg.authorId] = msg.author;
+    }
+    return names;
+  }, [dms, messages]);
+
+  // Names currently typing in the open conversation, excluding the current user. Freshness is kept by
+  // the pruning interval below (which drops stale signals), so this stays a pure derivation.
+  const typingNames = useMemo(() => {
+    const users = typing[channelId] ?? {};
+    return Object.keys(users)
+      .map((uid) => userNames[uid] ?? "Quelqu'un")
+      .filter((name) => name !== currentUser);
+  }, [typing, channelId, userNames, currentUser]);
+
+  // The opened profile's user id, when resolvable (DM counterpart, or an author seen in a feed), so
+  // the profile panel can fetch the real profile from the API instead of the mock.
+  const profileUserId = useMemo(() => {
+    if (!profile) return undefined;
+    const dm = dms.find((d) => d.name === profile);
+    if (dm?.userId) return dm.userId;
+    return Object.entries(userNames).find(([, name]) => name === profile)?.[0];
+  }, [profile, dms, userNames]);
   const saved = collectSaved(messages, channels, dms);
   const mentions = collectMentions(messages, channels, dms, currentUser);
   const threads = collectThreads(messages, channels, dms);
@@ -228,9 +521,15 @@ function AppShell() {
   );
   const notifUnread = visibleNotifs.filter((n) => !n.read).length;
 
-  const setNotifRead = (id: string, read: boolean) =>
+  const setNotifRead = (id: string, read: boolean) => {
     setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read } : n)));
-  const markAllNotifsRead = () => setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    // The API only marks a notification read (there is no "unread" inverse), so sync only that way.
+    if (read) void markNotificationRead(id).catch(() => {});
+  };
+  const markAllNotifsRead = () => {
+    setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    void markAllNotificationsRead().catch(() => {});
+  };
   const saveChannelPref = (id: string, pref: ChannelNotifPref) =>
     setChannelPrefs((prev) => ({ ...prev, [id]: pref }));
 
@@ -239,6 +538,11 @@ function AppShell() {
     setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c)));
     setDms((prev) => prev.map((d) => (d.id === id ? { ...d, unread: 0 } : d)));
     setNotifs((prev) => prev.map((n) => (n.channelId === id ? { ...n, read: true } : n)));
+    // Advance the server-side read cursor to the latest acknowledged message. Best-effort: a failure
+    // only means the badge reappears on reload, so it is not surfaced.
+    const list = messages[id] ?? [];
+    const last = [...list].reverse().find((m) => !isPendingId(m.id));
+    if (last) void setReadCursor(id, last.id).catch(() => {});
   };
 
   /** Jump to the next (dir 1) or previous (dir -1) unread conversation, channels then DMs, cyclically. */
@@ -259,6 +563,45 @@ function AppShell() {
     setToastKey((k) => k + 1);
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToastVisible(false), 4000);
+  };
+
+  /** Sign in against the API, then load the workspace. MFA-gated accounts are reported, not handled. */
+  const handleLogin = async (email: string, password: string) => {
+    setLoginError(null);
+    setLoginPending(true);
+    try {
+      const result = await apiLogin(email, password);
+      if (result.kind === "mfa") {
+        setLoginError("Ce compte requiert un second facteur, pas encore pris en charge par cet écran.");
+        return;
+      }
+      setSession(result.user);
+      setBooting(true);
+      await loadInitialData();
+      setAuthStage("app");
+      setBooting(false);
+      showToast({ tone: "success", title: "Connecté", description: `Bienvenue, ${result.user.name.split(" ")[0]}.` });
+    } catch (err) {
+      setLoginError(isApiError(err, 401) ? "Adresse ou mot de passe incorrect." : "Connexion impossible. Réessayez.");
+    } finally {
+      setLoginPending(false);
+    }
+  };
+
+  /** End the session server-side, then drop the loaded state and return to the login screen. */
+  const handleLogout = async () => {
+    try {
+      await apiLogout();
+    } catch {
+      // Even if the request fails (already-expired session, offline), clear the client state.
+    }
+    setSession(null);
+    setWorkspaces([]);
+    setChannels([]);
+    setDms([]);
+    setMessages({});
+    setNotifs([]);
+    setAuthStage("login");
   };
 
   // First-run getting-started checklist, persisted in settings.welcome.
@@ -324,14 +667,18 @@ function AppShell() {
     setProfile(null);
   };
 
-  const updateMessage = (targetChannel: string, messageId: number, updater: (m: Message) => Message) => {
+  const updateMessage = (targetChannel: string, messageId: string, updater: (m: Message) => Message) => {
     setMessages((prev) => {
       const list = prev[targetChannel] ?? [];
       return { ...prev, [targetChannel]: list.map((m) => (m.id === messageId ? updater(m) : m)) };
     });
   };
 
-  /** Open (or create) a direct message with a person, then navigate to it. */
+  /** Restore a message to a captured snapshot, to undo an optimistic change that the API rejected. */
+  const rollbackMessage = (targetChannel: string, snapshot: Message) =>
+    updateMessage(targetChannel, snapshot.id, () => snapshot);
+
+  /** Open (or create, via the API) a direct message with a person, then navigate to it. */
   const openDmByName = (name: string) => {
     setModal(null);
     const existing = dms.find((d) => d.name === name);
@@ -339,27 +686,53 @@ function AppShell() {
       openChannel(existing.id);
       return;
     }
-    const id = uniqueId(name, [...dms.map((d) => d.id), ...channels.map((c) => c.id)]);
-    setDms((prev) => [...prev, { id, name, presence: getPresence(name), unread: 0 }]);
-    setMessages((prev) => ({ ...prev, [id]: [] }));
-    openChannel(id);
+    const target = members.find((m) => m.name === name);
+    if (!target) {
+      showToast({ tone: "info", title: "Impossible d'ouvrir la conversation", description: name });
+      return;
+    }
+    createDm(ws, [target.userId])
+      .then((id) => {
+        setDms((prev) =>
+          prev.some((d) => d.id === id)
+            ? prev
+            : [
+                ...prev,
+                {
+                  id,
+                  name,
+                  presence: presence[target.userId] ?? "offline",
+                  unread: 0,
+                  userId: target.userId,
+                  bot: target.bot || undefined,
+                },
+              ],
+        );
+        setMessages((prev) => (prev[id] ? prev : { ...prev, [id]: [] }));
+        openChannel(id);
+      })
+      .catch(() => showToast({ tone: "danger", title: "Ouverture du message direct impossible" }));
   };
 
-  const openMessage = (targetChannel: string, messageId: number) => {
+  const openMessage = (targetChannel: string, messageId: string) => {
     setModal(null);
     openChannel(targetChannel);
     setFocusMessageId(messageId);
   };
 
   /** Open a notification: mark it read, then jump to its source message. */
-  const openNotification = (targetChannel: string, messageId: number, id: string) => {
+  const openNotification = (targetChannel: string, messageId: string, id: string) => {
     setNotifRead(id, true);
     openMessage(targetChannel, messageId);
   };
 
   const messageActions = {
-    react: (messageId: number, emoji: string) =>
-      updateMessage(channelId, messageId, (m) => {
+    react: (messageId: string, emoji: string) => {
+      const conv = channelId;
+      const target = (messages[conv] ?? []).find((x) => x.id === messageId);
+      if (!target || isPendingId(messageId)) return;
+      const wasMine = !!target.reactions?.find((r) => r.emoji === emoji)?.mine;
+      updateMessage(conv, messageId, (m) => {
         const reactions = m.reactions ? m.reactions.map((r) => ({ ...r })) : [];
         const idx = reactions.findIndex((r) => r.emoji === emoji);
         if (idx === -1) {
@@ -372,8 +745,14 @@ function AppShell() {
           reactions[idx] = { ...reactions[idx], count: reactions[idx].count + 1, mine: true };
         }
         return { ...m, reactions };
-      }),
-    openThread: (messageId: number) => {
+      });
+      const request = wasMine ? removeReaction(messageId, emoji) : addReaction(messageId, emoji);
+      request.catch(() => {
+        rollbackMessage(conv, target);
+        showToast({ tone: "info", title: "Réaction non enregistrée" });
+      });
+    },
+    openThread: (messageId: string) => {
       setThread(messageId);
       setProfile(null);
     },
@@ -388,56 +767,116 @@ function AppShell() {
       setThread(null);
     },
     message: (name: string) => openDmByName(name),
-    toggleSave: (messageId: number) => {
-      const nowSaved = !(feed.find((x) => x.id === messageId)?.saved ?? false);
-      updateMessage(channelId, messageId, (m) => ({ ...m, saved: nowSaved }));
+    toggleSave: (messageId: string) => {
+      const conv = channelId;
+      const target = (messages[conv] ?? []).find((x) => x.id === messageId);
+      if (!target || isPendingId(messageId)) return;
+      const nowSaved = !(target.saved ?? false);
+      updateMessage(conv, messageId, (m) => ({ ...m, saved: nowSaved }));
       showToast({
         tone: nowSaved ? "success" : "info",
         title: nowSaved ? "Message enregistré" : "Retiré des enregistrés",
       });
+      setMessageSaved(messageId, nowSaved).catch(() => {
+        rollbackMessage(conv, target);
+        showToast({ tone: "info", title: "Enregistrement non synchronisé" });
+      });
     },
-    edit: (messageId: number) => {
+    edit: (messageId: string) => {
       const target = feed.find((x) => x.id === messageId);
       if (target) setEditing({ id: messageId, body: target.body });
     },
-    togglePin: (messageId: number) => {
-      const nowPinned = !(feed.find((x) => x.id === messageId)?.pinned ?? false);
-      updateMessage(channelId, messageId, (m) => ({ ...m, pinned: nowPinned }));
+    togglePin: (messageId: string) => {
+      const conv = channelId;
+      const target = (messages[conv] ?? []).find((x) => x.id === messageId);
+      if (!target || isPendingId(messageId)) return;
+      const nowPinned = !(target.pinned ?? false);
+      updateMessage(conv, messageId, (m) => ({ ...m, pinned: nowPinned }));
       showToast({ tone: "info", title: nowPinned ? "Message épinglé" : "Message désépinglé" });
+      // Pins are a channel concept (the endpoint is channel-scoped); DMs keep the toggle client-side.
+      if (channels.some((c) => c.id === conv)) {
+        setMessagePinned(conv, messageId, nowPinned).catch(() => {
+          rollbackMessage(conv, target);
+          showToast({ tone: "info", title: "Épinglage non synchronisé" });
+        });
+      }
     },
     copyLink: () => showToast({ tone: "success", title: "Lien copié" }),
-    copyMessage: (messageId: number) => {
+    copyMessage: (messageId: string) => {
       const target = feed.find((x) => x.id === messageId);
       navigator.clipboard?.writeText(target?.body ?? "");
       showToast({ tone: "success", title: "Message copié" });
     },
-    markUnread: (messageId: number) => {
+    markUnread: (messageId: string) => {
       setUnreadMarker(messageId);
       showToast({ tone: "info", title: "Marqué comme non lu" });
     },
-    remove: (messageId: number) => {
-      updateMessage(channelId, messageId, (m) => ({ ...m, deleted: true }));
+    remove: (messageId: string) => {
+      const conv = channelId;
+      const target = (messages[conv] ?? []).find((x) => x.id === messageId);
+      if (!target) return;
+      if (isPendingId(messageId)) {
+        // An optimistic message the API never saw: just drop it locally.
+        setMessages((prev) => ({ ...prev, [conv]: (prev[conv] ?? []).filter((x) => x.id !== messageId) }));
+        return;
+      }
+      updateMessage(conv, messageId, (m) => ({ ...m, deleted: true, body: "" }));
       showToast({ tone: "info", title: "Message supprimé" });
+      deleteMessage(messageId)
+        .then((m) => updateMessage(conv, messageId, () => m))
+        .catch(() => {
+          rollbackMessage(conv, target);
+          showToast({ tone: "info", title: "Suppression impossible" });
+        });
     },
   };
 
   const send = (text: string, attachment?: Message["attachment"]) => {
     if (!text.trim() && !attachment) return;
-    const message: Message = {
-      id: Date.now(),
+    const conv = channelId;
+    const tempId = `tmp-${Date.now()}`;
+    const optimistic: Message = {
+      id: tempId,
       author: currentUser,
       time: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
       body: text,
       attachment,
     };
-    setMessages((prev) => ({ ...prev, [channelId]: [...(prev[channelId] ?? []), message] }));
+    setMessages((prev) => ({ ...prev, [conv]: [...(prev[conv] ?? []), optimistic] }));
+    // An attachment needs an uploaded file id (the files surface is not wired yet), so a message that
+    // carries one stays client-side. A plain text message is persisted and its optimistic row is
+    // replaced by the server row (real id, timestamp) on success, or removed on failure.
+    if (!text.trim() || attachment) return;
+    sendMessage(conv, text)
+      .then((m) =>
+        // Drop the optimistic row and de-dupe the real id, so a realtime echo of our own message that
+        // may have already arrived does not leave a duplicate.
+        setMessages((prev) => {
+          const list = (prev[conv] ?? []).filter((x) => x.id !== tempId && x.id !== m.id);
+          return { ...prev, [conv]: [...list, m] };
+        }),
+      )
+      .catch(() => {
+        setMessages((prev) => ({ ...prev, [conv]: (prev[conv] ?? []).filter((x) => x.id !== tempId) }));
+        showToast({ tone: "info", title: "Message non envoyé" });
+      });
   };
 
   const saveEdit = () => {
     if (!editing) return;
-    updateMessage(channelId, editing.id, (m) => ({ ...m, body: editing.body, edited: true }));
+    const conv = channelId;
+    const { id, body } = editing;
+    const target = (messages[conv] ?? []).find((x) => x.id === id);
+    updateMessage(conv, id, (m) => ({ ...m, body, edited: true }));
     setEditing(null);
     showToast({ tone: "success", title: "Message modifié" });
+    if (isPendingId(id)) return;
+    editMessage(id, body)
+      .then((m) => updateMessage(conv, id, () => m))
+      .catch(() => {
+        if (target) rollbackMessage(conv, target);
+        showToast({ tone: "info", title: "Modification non enregistrée" });
+      });
   };
 
   // Domain mutations wired to the creation dialogs.
@@ -468,14 +907,6 @@ function AppShell() {
     showToast({ tone: "success", title: "Espace créé", description: name });
   };
 
-  const createFolder = (name: string) =>
-    setFiles((prev) => [
-      { name, kind: "folder", size: "0 élément", by: currentUser, when: "À l'instant", source: "Ruchoir", version: "" },
-      ...prev,
-    ]);
-
-  const uploadFile = (file: SpaceFile) => setFiles((prev) => [file, ...prev]);
-
   // Global keyboard shortcuts, using the user's (customizable) bindings. Suspended whenever a modal,
   // dialog, the preferences overlay or the login flow is up, so their own key handling wins.
   const shortcutsEnabled =
@@ -501,16 +932,66 @@ function AppShell() {
     shortcutsEnabled,
   );
 
+  if (booting) {
+    return (
+      <div
+        style={{
+          height: "var(--ui-vh)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--surface-canvas)",
+          color: "var(--text-muted)",
+          fontSize: 14,
+        }}
+        aria-busy
+      >
+        Chargement de votre espace…
+      </div>
+    );
+  }
+
+  if (bootError) {
+    return (
+      <div
+        style={{
+          height: "var(--ui-vh)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--surface-canvas)",
+          color: "var(--text-muted)",
+          fontSize: 14,
+          padding: 24,
+          textAlign: "center",
+        }}
+      >
+        <span>{bootError}</span>
+        <Button
+          onClick={() => {
+            setBootError(null);
+            setBooting(true);
+            window.location.reload();
+          }}
+        >
+          Réessayer
+        </Button>
+      </div>
+    );
+  }
+
   if (authStage !== "app") {
     return (
       <div style={{ height: "var(--ui-vh)", display: "flex", flexDirection: "column", overflow: "auto", background: "var(--surface-canvas)" }}>
         {authStage === "login" ? (
           <LoginScreen
-            onSubmit={() => {
-              setAuthStage("app");
-              showToast({ tone: "success", title: "Connecté", description: "Bienvenue sur Atelier Nantes." });
-            }}
+            onSubmit={handleLogin}
             onCreateAccount={() => setAuthStage("signup")}
+            onSso={() => showToast({ tone: "info", title: "Le SSO n'est pas encore disponible" })}
+            error={loginError}
+            pending={loginPending}
           />
         ) : null}
         {authStage === "signup" ? (
@@ -538,7 +1019,7 @@ function AppShell() {
     );
   }
 
-  const wsName = (getWorkspace(ws) ?? workspaces.find((w) => w.id === ws))?.name ?? "espace";
+  const wsName = workspaces.find((w) => w.id === ws)?.name ?? "espace";
   const contentTitles: Record<string, string> = {
     files: "Fichiers de l'espace",
     settings: "Réglages de l'espace",
@@ -566,7 +1047,7 @@ function AppShell() {
       }}
       onNew={() => setModal("newWorkspace")}
       onHelp={() => setModal("help")}
-      onLogout={() => setAuthStage("login")}
+      onLogout={handleLogout}
       presence={myPresence}
       onSetPresence={(p) => {
         setUserPresence(currentUser, p);
@@ -590,7 +1071,7 @@ function AppShell() {
 
   const desktopSidebar = (
     <Sidebar
-        workspace={getWorkspace(ws) ?? workspaces.find((w) => w.id === ws)}
+        workspace={workspaces.find((w) => w.id === ws)}
         channels={channels}
         directMessages={dms}
         view={view}
@@ -615,7 +1096,7 @@ function AppShell() {
         onToggleNotifRead={setNotifRead}
         onMarkAllNotifsRead={markAllNotifsRead}
         onOpenNotifPrefs={() => openPreferences("notifications")}
-        onLogout={() => setAuthStage("login")}
+        onLogout={handleLogout}
         openNotifications={deepLinkPop === "notifications"}
       />
   );
@@ -649,23 +1130,25 @@ function AppShell() {
           onLeaveChannel={() => leaveChannel(channelId)}
           notifPref={channelPrefs[channelId] ?? DEFAULT_CHANNEL_PREF}
           onSaveNotifPref={(pref) => saveChannelPref(channelId, pref)}
+          dmPresence={dm?.presence}
+          typingNames={typingNames}
+          profileUserId={profileUserId}
+          onTyping={() => rtRef.current?.sendTyping(channelId)}
           actions={messageActions}
         />
       ) : null}
       {view === "files" ? (
         <FilesScreen
-          files={files}
-          workspaceName={(getWorkspace(ws) ?? workspaces.find((w) => w.id === ws))?.name ?? "espace"}
+          spaceId={ws}
+          workspaceName={workspaces.find((w) => w.id === ws)?.name ?? "espace"}
           currentUser={currentUser}
           compact={compact}
-          onNewFolder={createFolder}
-          onUpload={uploadFile}
           onNotify={showToast}
         />
       ) : null}
       {view === "settings" ? (
         <WorkspaceSettings
-          workspaceName={(getWorkspace(ws) ?? workspaces.find((w) => w.id === ws))?.name ?? "espace"}
+          workspaceName={workspaces.find((w) => w.id === ws)?.name ?? "espace"}
           members={people.filter((p) => !p.bot).map((p) => ({ name: p.name, presence: p.presence }))}
           compact={compact}
           onInvite={() => setModal("invite")}
@@ -734,8 +1217,7 @@ function AppShell() {
       ) : null}
       {modal === "search" ? (
         <GlobalSearchDialog
-          messages={flattenMessages(messages, channels, dms)}
-          files={files}
+          spaceId={ws}
           people={people}
           onClose={() => setModal(null)}
           onOpenMessage={openMessage}
@@ -853,7 +1335,7 @@ function AppShell() {
                   {wsName}
                 </h1>
                 <Sidebar
-                  workspace={getWorkspace(ws) ?? workspaces.find((w) => w.id === ws)}
+                  workspace={workspaces.find((w) => w.id === ws)}
                 channels={channels}
                 directMessages={dms}
                 view={view}
@@ -886,7 +1368,7 @@ function AppShell() {
                 onToggleNotifRead={setNotifRead}
                 onMarkAllNotifsRead={markAllNotifsRead}
                 onOpenNotifPrefs={() => openPreferences("notifications")}
-                onLogout={() => setAuthStage("login")}
+                onLogout={handleLogout}
                 />
               </main>
             )}

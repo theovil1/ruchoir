@@ -1,8 +1,10 @@
 "use client";
 
-import { type CSSProperties, type ReactNode, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Icon, IconButton, Input, Textarea } from "@/components/ds";
 import { getCurrentUser, getProfile } from "@/lib/data";
+import type { Profile } from "@/lib/data";
+import { getUserProfile, updateMyProfile } from "@/lib/data/api";
 import { presenceLabel } from "../app/presence";
 import type { Toast } from "../app/types";
 
@@ -60,6 +62,8 @@ function Field({ icon, children }: { icon: string; children: ReactNode }) {
 
 export type ProfilePanelProps = {
   name: string;
+  /** User id of the member, when known: enables fetching the real profile from the API. */
+  userId?: string;
   startEditing?: boolean;
   onClose: () => void;
   onMessage: () => void;
@@ -67,8 +71,24 @@ export type ProfilePanelProps = {
 };
 
 /** Full user profile in the right sidebar. Editable when it is the current user's own profile. */
-export function ProfilePanel({ name, startEditing, onClose, onMessage, onNotify }: ProfilePanelProps) {
-  const p = getProfile(name);
+export function ProfilePanel({ name, userId, startEditing, onClose, onMessage, onNotify }: ProfilePanelProps) {
+  // Fetch the real profile when we have the member's id; fall back to the mock profile (by name)
+  // while it loads or when the id is unknown (e.g. a member with no endpoint-backed identity).
+  const [fetched, setFetched] = useState<Profile | null>(null);
+  useEffect(() => {
+    // Reset when the shown member changes, then load their real profile if we have the id.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFetched(null);
+    if (!userId) return;
+    let active = true;
+    getUserProfile(userId)
+      .then((profile) => active && setFetched(profile))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+  const p = fetched ?? getProfile(name);
   const isOwn = name === getCurrentUser().name;
   const [editing, setEditing] = useState(!!startEditing && isOwn);
   const [role, setRole] = useState(p.role);
@@ -86,7 +106,13 @@ export function ProfilePanel({ name, startEditing, onClose, onMessage, onNotify 
 
   const save = () => {
     setEditing(false);
-    onNotify({ tone: "success", title: "Profil mis à jour" });
+    // The role field maps to the profile "title"; the API updates the current session's own profile.
+    updateMyProfile({ title: role, pronouns, bio })
+      .then((profile) => {
+        setFetched(profile);
+        onNotify({ tone: "success", title: "Profil mis à jour" });
+      })
+      .catch(() => onNotify({ tone: "danger", title: "Mise à jour du profil impossible" }));
   };
 
   return (
@@ -100,8 +126,8 @@ export function ProfilePanel({ name, startEditing, onClose, onMessage, onNotify 
           <Avatar name={p.name} src={photo} size={88} kind={p.bot ? "bot" : "person"} />
           <div style={{ fontSize: 20, fontWeight: 600, color: "var(--text-strong)", marginTop: 4 }}>{p.name}</div>
           <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {role}
-            {pronouns ? ` · ${pronouns}` : ""}
+            {p.role}
+            {p.pronouns ? ` · ${p.pronouns}` : ""}
           </div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
             <span style={{ width: 9, height: 9, borderRadius: "var(--radius-full)", background: `var(--presence-${p.presence})` }} />
@@ -156,10 +182,10 @@ export function ProfilePanel({ name, startEditing, onClose, onMessage, onNotify 
           </div>
         ) : (
           <>
-            {bio ? (
+            {p.bio ? (
               <div style={styles.section}>
                 <div style={styles.label}>À propos</div>
-                <p style={{ fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-snug)" }}>{bio}</p>
+                <p style={{ fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-snug)" }}>{p.bio}</p>
               </div>
             ) : null}
 

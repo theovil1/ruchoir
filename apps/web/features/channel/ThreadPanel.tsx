@@ -1,9 +1,10 @@
 "use client";
 
-import { type CSSProperties, useCallback, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, IconButton, Popover } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
 import type { Message } from "@/lib/data";
+import { getReplies, sendMessage } from "@/lib/data/api";
 import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
 
@@ -66,12 +67,12 @@ const styles: Record<string, CSSProperties> = {
   },
 };
 
-type Reply = { id: number; author: string; time: string; body: string };
+type Reply = { id: string; author: string; time: string; body: string };
 
-const SEED_REPLIES: Reply[] = [
-  { id: 1, author: "Camille Roussel", time: "09:44", body: "Oui, je te confirme les deux lignes cet après-midi." },
-  { id: 2, author: "Yanis Berthier", time: "09:46", body: "Parfait, je bloque un créneau pour le rapprochement." },
-];
+/** Reduce a message to the fields the thread row renders. */
+function toReply(m: { id: string; author: string; time: string; body: string }): Reply {
+  return { id: m.id, author: m.author, time: m.time, body: m.body };
+}
 
 function ReplyRow({ r }: { r: Reply }) {
   return (
@@ -90,14 +91,27 @@ function ReplyRow({ r }: { r: Reply }) {
 
 export type ThreadPanelProps = {
   parent: Message;
+  /** The conversation the thread belongs to (for posting replies). */
+  conversationId: string;
   onClose: () => void;
 };
 
-/** Right-hand thread view for a message's replies. Replies are simulated in local state. */
-export function ThreadPanel({ parent, onClose }: ThreadPanelProps) {
+/** Right-hand thread view for a message's replies, loaded from and posted to the API. */
+export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProps) {
   const me = getCurrentUser().name;
-  const [replies, setReplies] = useState<Reply[]>(SEED_REPLIES);
+  const [replies, setReplies] = useState<Reply[]>([]);
   const [width, setWidth] = useState(420);
+
+  // Load the thread's replies whenever the parent changes.
+  useEffect(() => {
+    let active = true;
+    getReplies(parent.id)
+      .then((list) => active && setReplies(list.map(toReply)))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [parent.id]);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const editorRef = useRef<MessageEditorHandle>(null);
   const emojiRef = useRef<HTMLButtonElement>(null);
@@ -123,15 +137,20 @@ export function ThreadPanel({ parent, onClose }: ThreadPanelProps) {
   }, [width]);
 
   const addReply = (text: string) => {
+    if (!text.trim()) return;
+    const tempId = `tmp-${Date.now()}`;
     setReplies((prev) => [
       ...prev,
       {
-        id: Date.now(),
+        id: tempId,
         author: me,
         time: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
         body: text,
       },
     ]);
+    sendMessage(conversationId, text, { parentMessageId: parent.id })
+      .then((m) => setReplies((prev) => prev.map((r) => (r.id === tempId ? toReply(m) : r))))
+      .catch(() => setReplies((prev) => prev.filter((r) => r.id !== tempId)));
   };
 
   return (

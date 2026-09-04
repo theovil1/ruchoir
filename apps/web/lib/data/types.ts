@@ -33,6 +33,8 @@ export type DirectMessage = {
   presence: Presence;
   unread: number;
   bot?: boolean;
+  /** The counterpart's user id for a 1:1 DM (for presence overlay); absent for a group. */
+  userId?: string;
 };
 
 export type Profile = {
@@ -91,10 +93,13 @@ export type InlineImage = {
 export type MessageKind = "message" | "system";
 
 export type Message = {
-  id: number;
+  /** Stable message id. A UUID string from the API (was a numeric id under the mock seam). */
+  id: string;
   /** "system" for join/leave and similar notices; defaults to a normal message. */
   kind?: MessageKind;
   author: string;
+  /** Author's user id, when known (absent for system messages and optimistic local rows). */
+  authorId?: string;
   time: string;
   body: string;
   /** Icon for a system message. */
@@ -122,6 +127,8 @@ export type Message = {
 export type SpaceFileKind = "file" | "file-text" | "file-spreadsheet" | "folder";
 
 export type SpaceFile = {
+  /** File/folder id, when backed by the API (absent for mock/optimistic entries). */
+  id?: string;
   name: string;
   kind: SpaceFileKind;
   size: string;
@@ -129,4 +136,6 @@ export type SpaceFile = {
   when: string;
   source: ImportSource;
   version: string;
+  /** Whether the file was migrated from another tool (the API exposes the flag, not the connector). */
+  imported?: boolean;
 };

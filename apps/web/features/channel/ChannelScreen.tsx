@@ -2,8 +2,9 @@
 
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, Icon, IconButton, Tooltip } from "@/components/ds";
-import { getChannelMembers, getDirectMessages, getPresence, getProfile, getSpaceFiles, getTypingUsers } from "@/lib/data";
+import { getChannelMembers, getProfile, getSpaceFiles } from "@/lib/data";
 import type { Channel, DirectMessage, Message, MessageAttachment } from "@/lib/data";
+import type { Presence } from "@/components/ds";
 import { useMountAnimation } from "../app/useMountAnimation";
 import type { ChannelNotifPref } from "../app/notifications";
 import { ProfilePanel } from "./ProfilePanel";
@@ -146,23 +147,17 @@ const styles: Record<string, CSSProperties> = {
   },
 };
 
-/** Extra members shown alongside the DM participants, matching the kit's member list. */
-const EXTRA_MEMBERS: ChannelMember[] = [
-  { id: "x", name: "Marc Lévêque", presence: "offline" },
-  { id: "y", name: "Sofia Nadir", presence: "online" },
-];
-
 /** Message-action handlers, each taking the target message id. Built in AppRoot. */
 export type MessageActionHandlers = {
-  react: (messageId: number, emoji: string) => void;
-  openThread: (messageId: number) => void;
-  toggleSave: (messageId: number) => void;
-  edit: (messageId: number) => void;
-  togglePin: (messageId: number) => void;
-  copyLink: (messageId: number) => void;
-  copyMessage: (messageId: number) => void;
-  markUnread: (messageId: number) => void;
-  remove: (messageId: number) => void;
+  react: (messageId: string, emoji: string) => void;
+  openThread: (messageId: string) => void;
+  toggleSave: (messageId: string) => void;
+  edit: (messageId: string) => void;
+  togglePin: (messageId: string) => void;
+  copyLink: (messageId: string) => void;
+  copyMessage: (messageId: string) => void;
+  markUnread: (messageId: string) => void;
+  remove: (messageId: string) => void;
   openProfile: (name: string) => void;
   editProfile: (name: string) => void;
   message: (name: string) => void;
@@ -176,10 +171,10 @@ export type ChannelScreenProps = {
   dm?: DirectMessage | null;
   messages: Message[];
   panel: ChannelPanel;
-  threadId: number | null;
+  threadId: string | null;
   profileName: string | null;
   profileEditing: boolean;
-  unreadMarker: number | null;
+  unreadMarker: string | null;
   onSend: (text: string, attachment?: MessageAttachment) => void;
   onPanel: (panel: ChannelPanel) => void;
   onCloseThread: () => void;
@@ -191,7 +186,15 @@ export type ChannelScreenProps = {
   notifPref: ChannelNotifPref;
   onSaveNotifPref: (pref: ChannelNotifPref) => void;
   /** When set, the feed scrolls to and flashes this message after it renders. */
-  focusMessageId?: number | null;
+  focusMessageId?: string | null;
+  /** Presence of the DM counterpart (from the live presence map); ignored for channels. */
+  dmPresence?: Presence;
+  /** Display names currently typing in this conversation. */
+  typingNames?: string[];
+  /** User id of the profile shown in the right panel, when known (enables the real profile fetch). */
+  profileUserId?: string;
+  /** Called as the user composes, to emit a typing signal over the realtime channel. */
+  onTyping?: () => void;
   /** Compact (mobile) mode: the right panel becomes a full-width overlay instead of a column. */
   compact?: boolean;
   actions: MessageActionHandlers;
@@ -217,11 +220,15 @@ export function ChannelScreen({
   notifPref,
   onSaveNotifPref,
   focusMessageId,
+  dmPresence,
+  typingNames,
+  profileUserId,
+  onTyping,
   compact = false,
   actions,
 }: ChannelScreenProps) {
   const isDm = !!dm;
-  const members: ChannelMember[] = [...getDirectMessages(), ...EXTRA_MEMBERS];
+  const members: ChannelMember[] = getChannelMembers().map((m) => ({ id: m.name, name: m.name, presence: m.presence, bot: m.bot }));
   const threadParent = threadId != null ? messages.find((m) => m.id === threadId) : undefined;
   const pinned = messages.filter((m) => m.pinned && !m.deleted);
   const togglePanel = (p: Exclude<ChannelPanel, null>) => onPanel(panel === p ? null : p);
@@ -241,7 +248,7 @@ export function ChannelScreen({
     setHighlightFile(fileName);
   };
 
-  const jumpToMessage = (id: number) => {
+  const jumpToMessage = (id: string) => {
     const el = feedRef.current?.querySelector<HTMLElement>(`[data-mid="${id}"]`);
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -269,13 +276,14 @@ export function ChannelScreen({
   const rightNode: ReactNode = profileName ? (
     <ProfilePanel
       name={profileName}
+      userId={profileUserId}
       startEditing={profileEditing}
       onClose={onCloseProfile}
       onMessage={() => actions.message(profileName)}
       onNotify={onNotify}
     />
   ) : threadParent ? (
-    <ThreadPanel parent={threadParent} onClose={onCloseThread} />
+    <ThreadPanel parent={threadParent} conversationId={channel.id} onClose={onCloseThread} />
   ) : panel === "search" ? (
     <SearchPanel
       messages={messages}
@@ -299,7 +307,7 @@ export function ChannelScreen({
   ) : null;
 
   const dmProfile = isDm ? getProfile(dm.name) : null;
-  const typing = getTypingUsers(channel.id);
+  const typing = typingNames ?? [];
 
   return (
     <div style={{ flex: 1, display: "flex", minWidth: 0, minHeight: 0, position: "relative" }}>
@@ -308,10 +316,10 @@ export function ChannelScreen({
           {isDm ? (
             <>
               <h1 style={styles.title}>
-                <Avatar name={dm.name} size={22} presence={getPresence(dm.name)} kind={dm.bot ? "bot" : "person"} />
+                <Avatar name={dm.name} size={22} presence={(dmPresence ?? "offline")} kind={dm.bot ? "bot" : "person"} />
                 {dm.name}
               </h1>
-              <div style={styles.meta}>{dmProfile?.role ?? PRESENCE_LABEL[getPresence(dm.name)]}</div>
+              <div style={styles.meta}>{dmProfile?.role ?? PRESENCE_LABEL[(dmPresence ?? "offline")]}</div>
             </>
           ) : (
             <>
@@ -393,7 +401,7 @@ export function ChannelScreen({
               {isDm ? (
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <Avatar name={dm.name} size={44} presence={getPresence(dm.name)} kind={dm.bot ? "bot" : "person"} />
+                    <Avatar name={dm.name} size={44} presence={(dmPresence ?? "offline")} kind={dm.bot ? "bot" : "person"} />
                     <div>
                       <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
                         {dm.name}
@@ -478,7 +486,7 @@ export function ChannelScreen({
             </>
           ) : null}
         </div>
-        <Composer channelName={isDm ? dm.name : channel.name} onSend={onSend} onNotify={onNotify} />
+        <Composer channelName={isDm ? dm.name : channel.name} onSend={onSend} onNotify={onNotify} onTyping={onTyping} />
       </div>
       <RightDock open={rightNode != null} contentKey={contentKey} compact={compact}>
         {rightNode}

@@ -37,7 +37,7 @@ export const DMS: DirectMessage[] = [
 export const MESSAGES: Record<string, Message[]> = {
   compta: [
     {
-      id: 1,
+      id: "1",
       author: "Camille Roussel",
       time: "09:41",
       body: "Le bilan est prêt. Je le dépose dans les fichiers du canal, relecture avant vendredi si possible.",
@@ -49,28 +49,28 @@ export const MESSAGES: Record<string, Message[]> = {
       saved: true,
     },
     {
-      id: 2,
+      id: "2",
       author: "Yanis Berthier",
       time: "09:43",
       body: "Reçu. Deux écritures de mars à rapprocher, je te fais un retour dans la journée.",
       replies: 2,
     },
     {
-      id: 3,
+      id: "3",
       author: "Adèle Fournier",
       time: "10:02",
       body: "Rappel : la reprise des historiques Slack s'arrête au 12 janvier. Les messages antérieurs restent consultables dans l'archive exportée.",
       imported: true,
     },
     {
-      id: 4,
+      id: "4",
       author: "Camille Roussel",
       time: "10:15",
       body: "Parfait. J'épingle le fichier pour qu'il reste accessible depuis l'en-tête du canal.",
       pinned: true,
     },
     {
-      id: 5,
+      id: "5",
       kind: "system",
       systemIcon: "user-plus",
       author: "",
@@ -78,7 +78,7 @@ export const MESSAGES: Record<string, Message[]> = {
       body: "Adèle Fournier a rejoint le canal.",
     },
     {
-      id: 6,
+      id: "6",
       author: "Yanis Berthier",
       time: "10:20",
       body: "J'ai retrouvé la doc officielle sur la clôture, ça répond à ta question sur les écritures de mars :",
@@ -93,14 +93,14 @@ export const MESSAGES: Record<string, Message[]> = {
       saved: true,
     },
     {
-      id: 7,
+      id: "7",
       author: "Camille Roussel",
       time: "10:24",
       body: "Et voici le graphe des écritures de mars, pour visualiser les rapprochements restants :",
       image: { alt: "Graphique des écritures de mars", width: 520, height: 300 },
     },
     {
-      id: 8,
+      id: "8",
       author: "Camille Roussel",
       time: "10:26",
       body: "Je décale finalement la relecture à jeudi, ça nous laisse le temps de tout rapprocher.",
@@ -108,7 +108,7 @@ export const MESSAGES: Record<string, Message[]> = {
       readBy: ["Yanis Berthier", "Adèle Fournier"],
     },
     {
-      id: 9,
+      id: "9",
       author: "Yanis Berthier",
       time: "10:27",
       body: "",
@@ -117,20 +117,20 @@ export const MESSAGES: Record<string, Message[]> = {
   ],
   general: [
     {
-      id: 101,
+      id: "101",
       author: "Adèle Fournier",
       time: "08:55",
       body: "Bonjour à toutes et tous. Réunion d'atelier à 14 h en salle bois, ordre du jour partagé dans les fichiers.",
     },
     {
-      id: 102,
+      id: "102",
       author: "Sofia Nadir",
       time: "09:10",
       body: "@Camille Roussel peux-tu confirmer le budget fournitures pour le chantier de Rezé ? On aimerait commander cette semaine.",
       replies: 1,
     },
     {
-      id: 103,
+      id: "103",
       author: "Marc Lévêque",
       time: "09:32",
       body: "Les nouvelles lames sont arrivées, je les range à l'atelier.",
@@ -139,7 +139,7 @@ export const MESSAGES: Record<string, Message[]> = {
   ],
   "chantier-reze": [
     {
-      id: 201,
+      id: "201",
       author: "Adèle Fournier",
       time: "Hier, 16:40",
       body: "Livraison décalée à jeudi matin. @Camille Roussel il faudra prévenir le client pour l'accès au parking.",
@@ -147,7 +147,7 @@ export const MESSAGES: Record<string, Message[]> = {
       replies: 2,
     },
     {
-      id: 202,
+      id: "202",
       author: "Yanis Berthier",
       time: "Hier, 17:05",
       body: "Le devis de menuiserie est validé côté compta, je l'ai déposé dans les fichiers de l'espace.",
@@ -156,13 +156,13 @@ export const MESSAGES: Record<string, Message[]> = {
   ],
   yanis: [
     {
-      id: 301,
+      id: "301",
       author: "Yanis Berthier",
       time: "09:20",
       body: "Je te confirme les deux écritures de mars avant midi.",
     },
     {
-      id: 302,
+      id: "302",
       author: "Camille Roussel",
       time: "09:22",
       body: "Parfait, merci. On boucle la relecture jeudi.",
@@ -171,13 +171,13 @@ export const MESSAGES: Record<string, Message[]> = {
   ],
   bot: [
     {
-      id: 401,
+      id: "401",
       author: "Assistant d'import",
       time: "Hier, 18:02",
       body: "Import Slack terminé : 6 canaux, 8 912 messages et 143 fichiers repris. Les messages portent le label « Importé de Slack » pendant 7 jours.",
     },
     {
-      id: 402,
+      id: "402",
       author: "Assistant d'import",
       time: "Hier, 18:03",
       body: "Import Nextcloud en cours : 42 % des fichiers transférés. Je te préviens ici dès que c'est terminé.",

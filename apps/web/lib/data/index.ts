@@ -96,8 +96,23 @@ const EXTRA_MEMBERS = [
   { name: "Sofia Nadir", presence: "online" as Presence },
 ];
 
+type MemberRecord = { name: string; presence: Presence; bot?: boolean };
+
+/**
+ * Live member roster, populated by the app once the real space members are loaded. Kept here (not
+ * threaded through props) because the member list, the `@`-mention autocomplete and the people search
+ * all read it synchronously through this seam. Null until loaded, when the mock roster is used.
+ */
+let liveMembers: MemberRecord[] | null = null;
+
+/** Replace the member roster with the real space members (call with an empty list to clear). */
+export function setChannelMembers(members: MemberRecord[]): void {
+  liveMembers = members;
+}
+
 /** Channel members (for the member list and mention autocomplete). */
-export function getChannelMembers(): { name: string; presence: Presence; bot?: boolean }[] {
+export function getChannelMembers(): MemberRecord[] {
+  if (liveMembers) return liveMembers;
   return [...DMS.map((d) => ({ name: d.name, presence: d.presence, bot: d.bot })), ...EXTRA_MEMBERS];
 }
 

@@ -68,7 +68,7 @@ export type NotificationCenterProps = {
   onClose: () => void;
   /** Notifications already filtered by the channel and global preferences. */
   notifications: AppNotification[];
-  onOpen: (channelId: string, messageId: number, id: string) => void;
+  onOpen: (channelId: string, messageId: string, id: string) => void;
   onToggleRead: (id: string, read: boolean) => void;
   onMarkAllRead: () => void;
   onOpenPrefs: () => void;
@@ -170,7 +170,7 @@ function NotifRow({
   onToggleRead,
 }: {
   notif: AppNotification;
-  onOpen: (channelId: string, messageId: number, id: string) => void;
+  onOpen: (channelId: string, messageId: string, id: string) => void;
   onToggleRead: (id: string, read: boolean) => void;
 }) {
   const [hover, setHover] = useState(false);
