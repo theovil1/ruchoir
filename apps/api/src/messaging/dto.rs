@@ -126,6 +126,53 @@ pub struct PresenceDto {
     pub presence: String,
 }
 
+// --- Search & notifications ---
+
+/// One in-app notification in the caller's inbox.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct NotificationDto {
+    pub id: Uuid,
+    /// `mention`, `reply` or `dm`.
+    pub kind: String,
+    pub conversation_id: Uuid,
+    pub message_id: Uuid,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_name: Option<String>,
+    /// A short plain-text excerpt of the source message.
+    pub preview: String,
+    pub created_at: String,
+    /// Whether the caller has read the notification.
+    pub read: bool,
+}
+
+/// A page of notifications, newest first, with the caller's total unread count.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct NotificationPage {
+    pub notifications: Vec<NotificationDto>,
+    /// Cursor for the next (older) page, or `None` at the end.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_before: Option<Uuid>,
+    pub unread_count: i64,
+}
+
+/// A file matched by a search, enough to render a result row and open it.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct FileHitDto {
+    pub id: Uuid,
+    pub name: String,
+    /// `file`, `folder`, `image`, ...
+    pub kind: String,
+}
+
+/// Combined search results: matching messages and file names the caller can see.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct SearchResults {
+    pub messages: Vec<MessageDto>,
+    pub files: Vec<FileHitDto>,
+}
+
 // --- Request bodies ---
 
 /// Post a new message (optionally as a threaded reply).

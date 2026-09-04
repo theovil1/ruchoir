@@ -6,11 +6,12 @@
 //! [`resolve_mentions`] maps the resulting tokens onto real accounts against the database.
 //!
 //! Grammar (MVP): `@here` and `@channel` are the two broadcast tokens; anything else of the form
-//! `@handle` (letters, digits, `.`, `_`, `-`) is a candidate user mention, matched case-insensitively
-//! against member display names. An `@` that is not at a word boundary (e.g. inside `user@host`) is
-//! ignored, so email addresses never register as mentions. Ambiguous or unmatched handles are left
-//! as plain text and simply not stored. Richer, unambiguous mention tokens (id-backed) can layer on
-//! later without changing the storage shape.
+//! `@handle` (letters, digits, `.`, `_`, `-`) is a candidate user mention. A handle resolves when it
+//! matches, accent- and case-insensitively, any whitespace token of a member's display name (so
+//! `@yanis` reaches "Yanis Berthier") or the whole name with spaces removed. An `@` that is not at a
+//! word boundary (e.g. inside `user@host`) is ignored, so email addresses never register as mentions.
+//! Ambiguous or unmatched handles are left as plain text and simply not stored. Richer, unambiguous
+//! mention tokens (id-backed) can layer on later without changing the storage shape.
 
 use std::collections::BTreeSet;
 
@@ -126,11 +127,14 @@ pub async fn resolve_mentions(
         }
     }
 
-    // User handles: unambiguous, case-insensitive display-name matches within the audience.
+    // User handles: unambiguous, accent- and case-insensitive matches within the audience. A handle
+    // matches a member if it equals any whitespace token of their display name (so `@yanis` reaches
+    // "Yanis Berthier") or the whole name with spaces removed (`@yanisberthier`). Ambiguous handles
+    // (more than one member) are dropped, so `@yanis` with two Yanises resolves to nobody.
     for handle in &tokens.users {
         let matches: Vec<&users::Model> = members
             .iter()
-            .filter(|m| m.display_name.to_ascii_lowercase() == *handle)
+            .filter(|m| display_name_matches(&m.display_name, handle))
             .collect();
         if let [only] = matches.as_slice() {
             if seen.insert(only.id) {
@@ -151,6 +155,39 @@ pub async fn resolve_mentions(
 /// Whether a byte may appear inside a mention handle (ASCII word characters plus `.`, `_`, `-`).
 fn is_handle_char(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b == b'.' || b == b'_' || b == b'-'
+}
+
+/// Whether an (already ascii-lowercased) handle addresses a member: it equals one of the display
+/// name's whitespace tokens, or the whole name with spaces removed. Comparison folds Latin accents
+/// to ASCII, since handles are ASCII by grammar but names are not (`@leveque` reaches "Lévêque").
+fn display_name_matches(display_name: &str, handle: &str) -> bool {
+    display_name
+        .split_whitespace()
+        .any(|token| fold_ascii(token) == handle)
+        || fold_ascii(&display_name.split_whitespace().collect::<String>()) == handle
+}
+
+/// Lowercase and strip common Latin diacritics so an ASCII handle can match an accented name.
+fn fold_ascii(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        for lc in ch.to_lowercase() {
+            match lc {
+                'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' => out.push('a'),
+                'æ' => out.push_str("ae"),
+                'ç' => out.push('c'),
+                'è' | 'é' | 'ê' | 'ë' => out.push('e'),
+                'ì' | 'í' | 'î' | 'ï' => out.push('i'),
+                'ñ' => out.push('n'),
+                'ò' | 'ó' | 'ô' | 'õ' | 'ö' => out.push('o'),
+                'œ' => out.push_str("oe"),
+                'ù' | 'ú' | 'û' | 'ü' => out.push('u'),
+                'ý' | 'ÿ' => out.push('y'),
+                other => out.push(other),
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -195,5 +232,27 @@ mod tests {
     fn bare_at_is_ignored() {
         let t = extract_mention_tokens("email me @ 5pm @");
         assert!(t.is_empty());
+    }
+
+    #[test]
+    fn handle_matches_first_name_token() {
+        // The common case: `@yanis` addresses "Yanis Berthier".
+        assert!(display_name_matches("Yanis Berthier", "yanis"));
+        assert!(display_name_matches("Yanis Berthier", "berthier"));
+        assert!(display_name_matches("Yanis Berthier", "yanisberthier"));
+        assert!(!display_name_matches("Yanis Berthier", "yan"));
+    }
+
+    #[test]
+    fn handle_matching_folds_accents() {
+        assert!(display_name_matches("Marc Lévêque", "leveque"));
+        assert!(display_name_matches("Sofía Nadir", "sofia"));
+        assert!(display_name_matches("Chloé", "chloe"));
+    }
+
+    #[test]
+    fn fold_ascii_expands_ligatures() {
+        assert_eq!(fold_ascii("Cœur"), "coeur");
+        assert_eq!(fold_ascii("ÉÈÊ"), "eee");
     }
 }
