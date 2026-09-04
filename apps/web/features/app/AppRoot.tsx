@@ -317,6 +317,14 @@ function AppShell() {
   // other failure is a fatal boot error (the API being unreachable).
   useEffect(() => {
     let active = true;
+    // Dev/audit only: a deep-link renders a specific screen offline, without the API (the responsive
+    // and accessibility audits rely on this). Skip the real boot so the shell renders with empty data
+    // instead of the boot-error screen. `readDeepLink()` is null in the production static export.
+    if (readDeepLink()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBooting(false);
+      return;
+    }
     void (async () => {
       try {
         const user = await getSession();
