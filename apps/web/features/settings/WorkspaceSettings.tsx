@@ -3,7 +3,6 @@
 import { type CSSProperties, type ReactNode, useRef, useState } from "react";
 import { Avatar, Button, Card, Checkbox, Dialog, Field, Icon, IconButton, Input, Select, Switch, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
-import { getProfile } from "@/lib/data";
 import type { Toast } from "../app/types";
 
 type NavKey = "general" | "members" | "notifs" | "imports" | "storage" | "security";
@@ -217,7 +216,7 @@ export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify, 
                 {members.map((m, i) => {
                   const role = ROLE_BY_NAME[m.name] ?? "Membre";
                   const guest = role.startsWith("Invité");
-                  const email = getProfile(m.name).email || `${m.name.split(" ")[0].toLowerCase()}@atelier-nantes.fr`;
+                  const email = `${m.name.split(" ")[0].toLowerCase()}@atelier-nantes.fr`;
                   return (
                     <div
                       key={m.name}

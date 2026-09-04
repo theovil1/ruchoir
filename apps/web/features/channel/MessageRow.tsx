@@ -1,9 +1,10 @@
 "use client";
 
 import { type CSSProperties, useRef, useState } from "react";
-import { Avatar, Card, Icon, IconButton, Popover, Tag } from "@/components/ds";
+import { Avatar, Card, Dialog, Icon, IconButton, Popover, Tag } from "@/components/ds";
 import { getCurrentUser, getMentionNames, getPresence } from "@/lib/data";
 import type { Message } from "@/lib/data";
+import type { Presence } from "@/components/ds";
 import { ReactionPill } from "./ReactionPill";
 import { UserProfileCard } from "../app/UserProfileCard";
 import { renderRichText } from "./richText";
@@ -27,6 +28,8 @@ export type MessageActions = {
   onOpenProfile: () => void;
   onEditProfile: () => void;
   onMessage: () => void;
+  /** Open the profile of a user @-mentioned in the body. */
+  onOpenMention: (name: string) => void;
 };
 
 const styles: Record<string, CSSProperties> = {
@@ -91,7 +94,7 @@ function reactionPill(mine?: boolean): CSSProperties {
   };
 }
 
-export type MessageRowProps = { m: Message; actions: MessageActions };
+export type MessageRowProps = { m: Message; authorPresence?: Presence; actions: MessageActions };
 
 const avatarBtn: CSSProperties = {
   border: 0,
@@ -113,14 +116,25 @@ const nameBtn: CSSProperties = {
   color: "var(--text-strong)",
 };
 
-export function MessageRow({ m, actions }: MessageRowProps) {
+export function MessageRow({ m, authorPresence, actions }: MessageRowProps) {
   const [hover, setHover] = useState(false);
   const [reactOpen, setReactOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [reactionsOpen, setReactionsOpen] = useState(false);
   const avatarRef = useRef<HTMLButtonElement>(null);
   const deleted = m.deleted;
-  const isOwn = m.author === getCurrentUser().name;
+  const me = getCurrentUser().name;
+  const isOwn = m.author === me;
+  // Highlight messages that @-mention the current user (by full or first name), Slack-style. Not our
+  // own messages, and never a deleted tombstone.
+  const firstName = me.split(" ")[0];
+  const mentionsMe =
+    !isOwn &&
+    !deleted &&
+    m.kind !== "system" &&
+    !!me &&
+    (m.body.includes(`@${me}`) || (firstName.length > 1 && m.body.includes(`@${firstName}`)));
   const showActions = (hover || reactOpen || menuOpen) && !deleted;
 
   const openProfileFromCard = () => {
@@ -139,15 +153,26 @@ export function MessageRow({ m, actions }: MessageRowProps) {
   return (
     <div
       data-mid={m.id}
-      style={{ ...styles.msg, background: hover && !deleted ? "var(--surface-hover)" : "transparent" }}
+      style={{
+        ...styles.msg,
+        background: deleted
+          ? "transparent"
+          : hover
+            ? "var(--surface-hover)"
+            : mentionsMe
+              ? "var(--surface-mention, rgba(198, 93, 69, 0.07))"
+              : "transparent",
+        // A terracotta rail on the left marks a message that mentions the current user.
+        ...(mentionsMe ? { boxShadow: "inset 3px 0 0 0 var(--terracotta-500)" } : {}),
+      }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
       <button ref={avatarRef} style={avatarBtn} onClick={() => setProfileOpen((o) => !o)} aria-label={`Profil de ${m.author}`}>
-        <Avatar name={m.author} size={34} presence={m.kind === "system" ? undefined : getPresence(m.author)} />
+        <Avatar name={m.author} size={34} presence={m.kind === "system" ? undefined : (authorPresence ?? getPresence(m.author))} />
       </button>
       <Popover anchorRef={avatarRef} open={profileOpen} onClose={() => setProfileOpen(false)} placement="bottom" align="start">
-        <UserProfileCard name={m.author} onViewFull={openProfileFromCard} onEditProfile={editProfileFromCard} onMessage={messageFromCard} />
+        <UserProfileCard name={m.author} userId={m.authorId} presence={authorPresence} onViewFull={openProfileFromCard} onEditProfile={editProfileFromCard} onMessage={messageFromCard} />
       </Popover>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={styles.author}>
@@ -155,13 +180,13 @@ export function MessageRow({ m, actions }: MessageRowProps) {
             {m.author}
           </button>
           <span style={styles.time}>{m.time}</span>
-          {m.imported ? <Tag icon="import">Importé de Slack</Tag> : null}
-          {m.pinned ? (
+          {!deleted && m.imported ? <Tag icon="import">Importé</Tag> : null}
+          {!deleted && m.pinned ? (
             <Tag icon="pin" tone="accent">
               Épinglé
             </Tag>
           ) : null}
-          {m.saved ? (
+          {!deleted && m.saved ? (
             <Tag icon="bookmark" tone="accent">
               Enregistré
             </Tag>
@@ -187,7 +212,7 @@ export function MessageRow({ m, actions }: MessageRowProps) {
           <>
             {m.body ? (
               <div style={styles.body}>
-                {renderRichText(m.body, getMentionNames(), isOwn)}
+                {renderRichText(m.body, getMentionNames(), isOwn, actions.onOpenMention, me)}
                 {m.edited ? <span style={styles.edited}>(modifié)</span> : null}
               </div>
             ) : null}
@@ -223,6 +248,7 @@ export function MessageRow({ m, actions }: MessageRowProps) {
                     emoji={r.emoji}
                     count={r.count}
                     mine={r.mine}
+                    users={r.users}
                     style={reactionPill(r.mine)}
                     onClick={() => actions.onReact(r.emoji)}
                   />
@@ -280,6 +306,8 @@ export function MessageRow({ m, actions }: MessageRowProps) {
             pinned={m.pinned}
             own={isOwn}
             sentAt={`aujourd'hui à ${m.time}`}
+            hasReactions={!!m.reactions?.length}
+            onShowReactions={() => setReactionsOpen(true)}
             onEdit={actions.onEdit}
             onCopyMessage={actions.onCopyMessage}
             onCopyLink={actions.onCopyLink}
@@ -289,6 +317,29 @@ export function MessageRow({ m, actions }: MessageRowProps) {
             onOpenChange={setMenuOpen}
           />
         </div>
+      ) : null}
+
+      {reactionsOpen ? (
+        <Dialog title="Réactions" size="sm" onClose={() => setReactionsOpen(false)}>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {m.reactions?.map((r) => (
+              <div
+                key={r.emoji}
+                style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 2px", borderBottom: "1px solid var(--border-subtle)" }}
+              >
+                <span style={{ fontSize: 22, lineHeight: 1 }}>{r.emoji}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
+                    {r.count} {r.count > 1 ? "personnes" : "personne"}
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                    {r.users && r.users.length > 0 ? r.users.join(", ") : "—"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Dialog>
       ) : null}
     </div>
   );

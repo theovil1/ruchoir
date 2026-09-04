@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getChannelMembers, getPresence, setChannelMembers, setUserPresence } from "@/lib/data";
+import { getChannelMembers, getPresence, setChannelMembers, setCurrentUser, setUserPresence } from "@/lib/data";
 import {
   addReaction,
   type ApiNotification,
@@ -12,6 +12,7 @@ import {
   getChannels,
   getChannelMessages,
   getDirectMessages,
+  getFolder,
   getNotifications,
   getSession,
   getSpaceMembers,
@@ -28,11 +29,12 @@ import {
   sendMessage,
   setMessagePinned,
   setMessageSaved,
+  setMyPresence as apiSetMyPresence,
   setReadCursor,
   type SessionUser,
 } from "@/lib/data/api";
 import { isApiError } from "@/lib/data/http";
-import type { Channel, DirectMessage, Message, Workspace } from "@/lib/data";
+import type { Channel, DirectMessage, Message, SpaceFile, Workspace } from "@/lib/data";
 import { Button, Dialog, Drawer, Textarea } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
@@ -181,6 +183,9 @@ function AppShell() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [dms, setDms] = useState<DirectMessage[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  // The space's files (root folder), for the in-channel file panel and search. The full Files screen
+  // manages its own folder navigation separately.
+  const [spaceFiles, setSpaceFiles] = useState<SpaceFile[]>([]);
   const [messages, setMessages] = useState<MessageMap>({});
   // Notification inbox, loaded from the API feed and mutated in place (read state); realtime
   // `notification.created` events prepend to it.
@@ -256,16 +261,18 @@ function AppShell() {
       setNotifs([]);
       return;
     }
-    const [chans, dmList, memberList, presenceMap, feed] = await Promise.all([
+    const [chans, dmList, memberList, presenceMap, feed, folder] = await Promise.all([
       getChannels(activeWs),
       getDirectMessages(activeWs),
       getSpaceMembers(activeWs).catch(() => [] as Member[]),
       getSpacePresence(activeWs).catch(() => ({}) as Record<string, Presence>),
       getNotifications().catch(() => ({ notifications: [], unreadCount: 0, nextBefore: undefined })),
+      getFolder(activeWs).catch(() => ({ folderId: undefined, breadcrumb: [], entries: [] as SpaceFile[] })),
     ]);
     setChannels(chans);
     setMembers(memberList);
     setPresence(presenceMap);
+    setSpaceFiles(folder.entries);
     // Overlay each 1:1 DM's counterpart presence onto its sidebar row.
     setDms(dmList.map((d) => (d.userId && presenceMap[d.userId] ? { ...d, presence: presenceMap[d.userId] } : d)));
     const convIds = [...chans.map((c) => c.id), ...dmList.map((d) => d.id)];
@@ -331,12 +338,18 @@ function AppShell() {
     };
   }, [loadInitialData]);
 
+  // Publish the signed-in user's name into the data seam, so components that read it synchronously
+  // (message ownership, thread reply author, "my profile") reflect the real session, not the mock.
+  useEffect(() => {
+    if (session) setCurrentUser(session.name);
+  }, [session]);
+
   // The realtime handlers read the latest lists/ids through a ref so the socket does not reconnect on
   // every state change. Updated after each render (not during, to respect the ref rules).
   const rtRef = useRef<RealtimeConnection | null>(null);
-  const liveRef = useRef({ channels, dms, channelId, myId: session?.id });
+  const liveRef = useRef({ channels, dms, channelId, view, myId: session?.id });
   useEffect(() => {
-    liveRef.current = { channels, dms, channelId, myId: session?.id };
+    liveRef.current = { channels, dms, channelId, view, myId: session?.id };
   });
 
   // Live realtime channel: connect once per session and dispatch server pushes into state. Mutations
@@ -345,10 +358,24 @@ function AppShell() {
     if (!session) return;
     const conn = connectRealtime({
       onMessageCreated: (conv, m) => {
-        setMessages((prev) => upsertMessage(prev, conv, m));
         const { channelId: active, myId } = liveRef.current;
+        // Our own message is already shown optimistically and reconciled by the POST response; skip
+        // the echo so it does not briefly duplicate at the bottom of the feed.
+        if (m.authorId && m.authorId === myId) return;
+        setMessages((prev) => upsertMessage(prev, conv, m));
+        // The author stopped typing the moment they sent: clear their now-stale typing signal.
+        const author = m.authorId;
+        if (author) {
+          setTyping((prev) => {
+            const users = prev[conv];
+            if (!users || !(author in users)) return prev;
+            const next = { ...users };
+            delete next[author];
+            return { ...prev, [conv]: next };
+          });
+        }
         // Someone else posted in a conversation we are not looking at: bump its unread badge.
-        if (conv !== active && m.authorId && m.authorId !== myId) {
+        if (conv !== active) {
           setChannels((prev) => prev.map((c) => (c.id === conv ? { ...c, unread: c.unread + 1 } : c)));
           setDms((prev) => prev.map((d) => (d.id === conv ? { ...d, unread: d.unread + 1 } : d)));
         }
@@ -360,15 +387,25 @@ function AppShell() {
         if (r.userId === liveRef.current.myId) return;
         setMessages((prev) => applyReactionDelta(prev, conv, r));
       },
+      onPinned: (conv, messageId, pinned) => {
+        setMessages((prev) => {
+          const list = prev[conv];
+          if (!list || !list.some((m) => m.id === messageId)) return prev;
+          return { ...prev, [conv]: list.map((m) => (m.id === messageId ? { ...m, pinned } : m)) };
+        });
+      },
       onPresence: (userId, p) => {
         setPresence((prev) => ({ ...prev, [userId]: p }));
         setDms((prev) => prev.map((d) => (d.userId === userId ? { ...d, presence: p } : d)));
       },
       onNotification: (n) => {
-        const { channels: chs, dms: dmList } = liveRef.current;
+        const { channels: chs, dms: dmList, channelId: activeConv, view: activeView } = liveRef.current;
         const channel = chs.find((x) => x.id === n.conversationId);
         const dm = dmList.find((x) => x.id === n.conversationId);
         const label = channel ? `#${channel.name}` : dm ? dm.name : n.conversationId;
+        // If the recipient is already looking at that conversation, the notification is redundant:
+        // file it as already read (both locally and on the server) and do not bump the unread badge.
+        const viewing = n.conversationId === activeConv && activeView === "channel";
         const notif: AppNotification = {
           id: n.id,
           kind: n.kind as NotifKind,
@@ -379,9 +416,17 @@ function AppShell() {
           messageId: n.messageId,
           preview: n.preview,
           time: n.time,
-          read: n.read,
+          read: n.read || viewing,
         };
         setNotifs((prev) => [notif, ...prev.filter((x) => x.id !== n.id)]);
+        if (viewing) {
+          void markNotificationRead(n.id).catch(() => {});
+          return;
+        }
+        // Ensure the source conversation shows as unread. `Math.max` so this never double-counts with
+        // the message.created bump when both fire (a mention the viewer also received as a message).
+        setChannels((prev) => prev.map((c) => (c.id === n.conversationId ? { ...c, unread: Math.max(c.unread, 1) } : c)));
+        setDms((prev) => prev.map((d) => (d.id === n.conversationId ? { ...d, unread: Math.max(d.unread, 1) } : d)));
       },
       onTyping: (conv, userId) =>
         setTyping((prev) => ({ ...prev, [conv]: { ...prev[conv], [userId]: Date.now() } })),
@@ -486,12 +531,13 @@ function AppShell() {
   // presence), built from the DM counterparts and the authors seen in the loaded feeds.
   const userNames = useMemo(() => {
     const names: Record<string, string> = {};
+    for (const m of members) names[m.userId] = m.name;
     for (const d of dms) if (d.userId) names[d.userId] = d.name;
     for (const list of Object.values(messages)) {
       for (const msg of list) if (msg.authorId) names[msg.authorId] = msg.author;
     }
     return names;
-  }, [dms, messages]);
+  }, [members, dms, messages]);
 
   // Names currently typing in the open conversation, excluding the current user. Freshness is kept by
   // the pruning interval below (which drops stale signals), so this stays a pure derivation.
@@ -537,7 +583,11 @@ function AppShell() {
   const markConversationRead = (id: string) => {
     setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c)));
     setDms((prev) => prev.map((d) => (d.id === id ? { ...d, unread: 0 } : d)));
+    // Clear this conversation's notifications from the inbox too, locally and on the server, so
+    // reading the channel directly (not via the notification center) empties its unread there.
+    const toMark = notifs.filter((n) => n.channelId === id && !n.read);
     setNotifs((prev) => prev.map((n) => (n.channelId === id ? { ...n, read: true } : n)));
+    for (const n of toMark) void markNotificationRead(n.id).catch(() => {});
     // Advance the server-side read cursor to the latest acknowledged message. Best-effort: a failure
     // only means the badge reappears on reload, so it is not surfaced.
     const list = messages[id] ?? [];
@@ -656,6 +706,9 @@ function AppShell() {
     setProfileEdit(false);
     setUnreadMarker(null);
     setFocusMessageId(null);
+    // Opening a conversation marks it read: clears its unread badge, its notifications and advances
+    // the read cursor.
+    markConversationRead(id);
   };
 
   /** Switch the right panel, closing the thread and profile views so it is visible. */
@@ -941,12 +994,24 @@ function AppShell() {
           alignItems: "center",
           justifyContent: "center",
           background: "var(--surface-canvas)",
-          color: "var(--text-muted)",
-          fontSize: 14,
         }}
         aria-busy
+        aria-label="Chargement"
       >
-        Chargement de votre espace…
+        <div className="wc-boot">
+          <div className="wc-boot__ring">
+            <span className="wc-boot__mark">
+              {/* eslint-disable-next-line @next/next/no-img-element -- small same-origin brand mark */}
+              <img src="/brand/ruchoir-mark.png" alt="" width={30} height={30} />
+            </span>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
+              Ruchoir
+            </div>
+            <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>Préparation de votre espace…</div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1052,6 +1117,8 @@ function AppShell() {
       onSetPresence={(p) => {
         setUserPresence(currentUser, p);
         setMyPresence(p);
+        // Persist and broadcast the manual override so other members see the change live.
+        void apiSetMyPresence(p).catch(() => {});
       }}
       onOpenSettings={() => openPreferences()}
       onOpenOwnProfile={() => {
@@ -1130,9 +1197,12 @@ function AppShell() {
           onLeaveChannel={() => leaveChannel(channelId)}
           notifPref={channelPrefs[channelId] ?? DEFAULT_CHANNEL_PREF}
           onSaveNotifPref={(pref) => saveChannelPref(channelId, pref)}
+          members={memberRecords}
+          files={spaceFiles}
           dmPresence={dm?.presence}
           typingNames={typingNames}
           profileUserId={profileUserId}
+          profilePresence={profileUserId ? presence[profileUserId] : undefined}
           onTyping={() => rtRef.current?.sendTyping(channelId)}
           actions={messageActions}
         />

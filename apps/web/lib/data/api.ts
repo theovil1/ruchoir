@@ -59,7 +59,7 @@ type DirectMessageDto = {
 
 type PresenceDto = { user_id: string; presence: string };
 
-type ReactionDto = { emoji: string; count: number; mine: boolean };
+type ReactionDto = { emoji: string; count: number; mine: boolean; users: string[] };
 
 type AttachmentDto = {
   file_id: string;
@@ -197,6 +197,13 @@ export async function getSpacePresence(spaceId: string, signal?: AbortSignal): P
   const out: Record<string, Presence> = {};
   for (const row of rows) out[row.user_id] = toPresence(row.presence);
   return out;
+}
+
+/** `PUT /me/presence`: set the caller's manual presence override, then the server broadcasts it. */
+export async function setMyPresence(presence: Presence): Promise<void> {
+  const manual =
+    presence === "online" ? "active" : presence === "busy" ? "dnd" : presence === "away" ? "away" : "invisible";
+  await apiPut<void>("/me/presence", { manual_presence: manual });
 }
 
 /**
@@ -374,7 +381,7 @@ function toMessage(dto: MessageDto): ApiMessage {
 }
 
 function toReaction(dto: ReactionDto): Reaction {
-  return { emoji: dto.emoji, count: dto.count, mine: dto.mine || undefined };
+  return { emoji: dto.emoji, count: dto.count, mine: dto.mine || undefined, users: dto.users };
 }
 
 /**
@@ -717,6 +724,7 @@ export type RealtimeHandlers = {
   onMessageUpdated?: (conversationId: string, message: ApiMessage) => void;
   onMessageDeleted?: (conversationId: string, message: ApiMessage) => void;
   onReaction?: (conversationId: string, reaction: RealtimeReaction) => void;
+  onPinned?: (conversationId: string, messageId: string, pinned: boolean) => void;
   onPresence?: (userId: string, presence: Presence) => void;
   onNotification?: (notification: ApiNotification) => void;
   onTyping?: (conversationId: string, userId: string) => void;
@@ -765,6 +773,10 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
           added: env.type === "reaction.added",
         });
         break;
+      case "message.pinned":
+      case "message.unpinned":
+        handlers.onPinned?.(conv, String(payload.message_id), env.type === "message.pinned");
+        break;
       case "presence":
         handlers.onPresence?.(String(payload.user_id), toPresence(String(payload.presence)));
         break;
@@ -775,7 +787,7 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
         handlers.onTyping?.(conv, String(payload.user_id));
         break;
       default:
-        // Unhandled event types (pins, saved, read cursor) are ignored for now.
+        // Unhandled event types (saved, read cursor) are ignored for now.
         break;
     }
   };

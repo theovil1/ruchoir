@@ -65,10 +65,13 @@ Screens read domain data only through the seam in `lib/data`. Two layers back it
   (`connect-src 'self'`) forbids any cross-origin call, so every path is API-relative.
 - `lib/data/api.ts` maps the Rust DTOs (snake_case, UUIDs, RFC 3339, raw byte sizes) to the front
   shapes in `lib/data/types.ts`. It backs auth/session, the space bootstrap
-  (`/me/spaces` -> channels/DMs/presence/profiles), the message operations, files, search, the
-  notification feed and the realtime channel (`connectRealtime`). `lib/data/index.ts` (the mock seam)
-  still serves the surfaces with no API endpoint: the channel member list and the mock-by-name profile
-  fallback.
+  (`/me/spaces` -> channels/DMs/members/presence/profiles/files), the message operations, files,
+  search, the notification feed and the realtime channel (`connectRealtime`).
+- `lib/data/index.ts` holds **no fixtures**: it is a thin bridge of registries the app fills from the
+  real API for the few values many components read without prop threading (`setCurrentUser`,
+  `setChannelMembers`, `setUserPresence`, read back through `getCurrentUser`/`getChannelMembers`/
+  `getMentionNames`/`getPresence`). Member profiles are fetched by id via the `useProfile` hook
+  (`features/app/useProfile.ts`), with a minimal name-only placeholder while loading.
 
 `AppRoot` boots against the API: it checks the session (`GET /auth/session`), and on success loads
 the first space's channels, DMs, presence, per-conversation feeds and the notification feed before
@@ -86,7 +89,10 @@ socket only receives, plus sends typing/ping. The composer emits a throttled typ
 
 The member roster is loaded from `GET /spaces/{id}/members` and published into the mock seam via
 `setChannelMembers`, so the member list, the `@`-mention autocomplete and the people search read the
-real members synchronously through `getChannelMembers`/`getMentionNames`. Opening a new DM by name
+real members synchronously through `getChannelMembers`/`getMentionNames`. The signed-in user's name is
+likewise pushed with `setCurrentUser` so `getCurrentUser()` (message ownership, "my profile", thread
+author) reflects the real session, not the mock. Reactions carry their reactor names
+(`ReactionDto.users`) for the hover tooltip and the "see reactions" list. Opening a new DM by name
 uses the get-or-create `POST /spaces/{id}/dm`; editing one's own profile persists via
 `PATCH /users/me`; a file's import badge shows the real connector (`FileDto.imported_source`).
 

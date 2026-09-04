@@ -56,6 +56,8 @@ export type Reaction = {
   count: number;
   /** Whether the current user is among the reactors (drives the toggle + highlight). */
   mine?: boolean;
+  /** Display names of the reactors, for the "who reacted" tooltip and list. */
+  users?: string[];
 };
 
 export type MessageAttachment = {

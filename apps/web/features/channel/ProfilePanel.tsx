@@ -2,9 +2,11 @@
 
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Icon, IconButton, Input, Textarea } from "@/components/ds";
-import { getCurrentUser, getProfile } from "@/lib/data";
+import { getCurrentUser } from "@/lib/data";
 import type { Profile } from "@/lib/data";
+import type { Presence } from "@/components/ds";
 import { getUserProfile, updateMyProfile } from "@/lib/data/api";
+import { minimalProfile } from "../app/useProfile";
 import { presenceLabel } from "../app/presence";
 import type { Toast } from "../app/types";
 
@@ -64,6 +66,8 @@ export type ProfilePanelProps = {
   name: string;
   /** User id of the member, when known: enables fetching the real profile from the API. */
   userId?: string;
+  /** Live presence for the member, overlaid on the fetched profile (which carries none). */
+  presence?: Presence;
   startEditing?: boolean;
   onClose: () => void;
   onMessage: () => void;
@@ -71,7 +75,7 @@ export type ProfilePanelProps = {
 };
 
 /** Full user profile in the right sidebar. Editable when it is the current user's own profile. */
-export function ProfilePanel({ name, userId, startEditing, onClose, onMessage, onNotify }: ProfilePanelProps) {
+export function ProfilePanel({ name, userId, presence, startEditing, onClose, onMessage, onNotify }: ProfilePanelProps) {
   // Fetch the real profile when we have the member's id; fall back to the mock profile (by name)
   // while it loads or when the id is unknown (e.g. a member with no endpoint-backed identity).
   const [fetched, setFetched] = useState<Profile | null>(null);
@@ -88,7 +92,8 @@ export function ProfilePanel({ name, userId, startEditing, onClose, onMessage, o
       active = false;
     };
   }, [userId]);
-  const p = fetched ?? getProfile(name);
+  const p = fetched ?? minimalProfile(name);
+  const shownPresence = presence ?? p.presence;
   const isOwn = name === getCurrentUser().name;
   const [editing, setEditing] = useState(!!startEditing && isOwn);
   const [role, setRole] = useState(p.role);
@@ -130,8 +135,8 @@ export function ProfilePanel({ name, userId, startEditing, onClose, onMessage, o
             {p.pronouns ? ` · ${p.pronouns}` : ""}
           </div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
-            <span style={{ width: 9, height: 9, borderRadius: "var(--radius-full)", background: `var(--presence-${p.presence})` }} />
-            {presenceLabel(p.presence)}
+            <span style={{ width: 9, height: 9, borderRadius: "var(--radius-full)", background: `var(--presence-${shownPresence})` }} />
+            {presenceLabel(shownPresence)}
           </div>
           <div style={{ marginTop: 10, width: "100%" }}>
             {isOwn ? (

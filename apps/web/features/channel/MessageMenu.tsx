@@ -34,6 +34,10 @@ export type MessageMenuProps = {
   pinned?: boolean;
   own?: boolean;
   sentAt: string;
+  /** Whether the message carries reactions (shows the "see reactions" entry). */
+  hasReactions?: boolean;
+  /** Open the reactions list (who reacted with what). */
+  onShowReactions?: () => void;
   onEdit: () => void;
   onCopyMessage: () => void;
   onCopyLink: () => void;
@@ -49,6 +53,8 @@ export function MessageMenu({
   pinned,
   own,
   sentAt,
+  hasReactions,
+  onShowReactions,
   onEdit,
   onCopyMessage,
   onCopyLink,
@@ -71,6 +77,9 @@ export function MessageMenu({
   };
 
   const items: Item[] = [
+    ...(hasReactions && onShowReactions
+      ? [{ icon: "smile", label: "Voir les réactions", onClick: onShowReactions }]
+      : []),
     ...(own ? [{ icon: "square-pen", label: "Modifier le message", onClick: onEdit }] : []),
     { icon: "copy", label: "Copier le message", onClick: onCopyMessage },
     { icon: "paperclip", label: "Copier le lien", onClick: onCopyLink },

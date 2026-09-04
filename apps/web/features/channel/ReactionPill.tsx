@@ -1,6 +1,7 @@
 "use client";
 
 import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { Tooltip } from "@/components/ds";
 import { Emoji } from "../app/Emoji";
 
 const PLAY_MS = 3000;
@@ -19,12 +20,15 @@ export function ReactionPill({
   emoji,
   count,
   mine,
+  users,
   style,
   onClick,
 }: {
   emoji: string;
   count: number;
   mine?: boolean;
+  /** Display names of the reactors, shown in the hover tooltip. */
+  users?: string[];
   style: CSSProperties;
   onClick: () => void;
 }) {
@@ -75,20 +79,24 @@ export function ReactionPill({
   };
   const onLeave = () => setHovered(false);
 
+  const reactors = users && users.length > 0 ? users.join(", ") : `${count} réaction${count > 1 ? "s" : ""}`;
+
   return (
-    <button
-      ref={buttonRef}
-      type="button"
-      className="wc-react"
-      style={style}
-      onClick={onClick}
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
-      aria-pressed={mine}
-      aria-label={`Réaction ${emoji}, ${count}`}
-    >
-      <Emoji emoji={emoji} size={16} animated={hovered || playing} />
-      {count}
-    </button>
+    <Tooltip label={reactors} side="top">
+      <button
+        ref={buttonRef}
+        type="button"
+        className="wc-react"
+        style={style}
+        onClick={onClick}
+        onMouseEnter={onEnter}
+        onMouseLeave={onLeave}
+        aria-pressed={mine}
+        aria-label={`Réaction ${emoji}, ${count}`}
+      >
+        <Emoji emoji={emoji} size={16} animated={hovered || playing} />
+        {count}
+      </button>
+    </Tooltip>
   );
 }

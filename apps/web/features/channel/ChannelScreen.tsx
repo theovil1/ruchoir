@@ -2,9 +2,10 @@
 
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, Icon, IconButton, Tooltip } from "@/components/ds";
-import { getChannelMembers, getProfile, getSpaceFiles } from "@/lib/data";
-import type { Channel, DirectMessage, Message, MessageAttachment } from "@/lib/data";
+import { getChannelMembers } from "@/lib/data";
+import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
+import { useProfile } from "../app/useProfile";
 import { useMountAnimation } from "../app/useMountAnimation";
 import type { ChannelNotifPref } from "../app/notifications";
 import { ProfilePanel } from "./ProfilePanel";
@@ -191,8 +192,14 @@ export type ChannelScreenProps = {
   dmPresence?: Presence;
   /** Display names currently typing in this conversation. */
   typingNames?: string[];
+  /** The space's members with live presence (member list + message-avatar presence). */
+  members: { name: string; presence: Presence; bot?: boolean }[];
+  /** The space's files, for the in-channel file panel and search. */
+  files: SpaceFile[];
   /** User id of the profile shown in the right panel, when known (enables the real profile fetch). */
   profileUserId?: string;
+  /** Live presence of the profile shown in the right panel. */
+  profilePresence?: Presence;
   /** Called as the user composes, to emit a typing signal over the realtime channel. */
   onTyping?: () => void;
   /** Compact (mobile) mode: the right panel becomes a full-width overlay instead of a column. */
@@ -220,15 +227,19 @@ export function ChannelScreen({
   notifPref,
   onSaveNotifPref,
   focusMessageId,
+  members,
+  files,
   dmPresence,
   typingNames,
   profileUserId,
+  profilePresence,
   onTyping,
   compact = false,
   actions,
 }: ChannelScreenProps) {
   const isDm = !!dm;
-  const members: ChannelMember[] = getChannelMembers().map((m) => ({ id: m.name, name: m.name, presence: m.presence, bot: m.bot }));
+  const memberList: ChannelMember[] = members.map((m) => ({ id: m.name, name: m.name, presence: m.presence, bot: m.bot }));
+  const presenceByName = new Map(members.map((m) => [m.name, m.presence] as const));
   const threadParent = threadId != null ? messages.find((m) => m.id === threadId) : undefined;
   const pinned = messages.filter((m) => m.pinned && !m.deleted);
   const togglePanel = (p: Exclude<ChannelPanel, null>) => onPanel(panel === p ? null : p);
@@ -265,7 +276,6 @@ export function ChannelScreen({
     return () => cancelAnimationFrame(raf);
   }, [focusMessageId, channel.id]);
 
-  const files = getSpaceFiles();
   const contentKey = profileName
     ? `profile:${profileName}`
     : threadParent
@@ -277,6 +287,7 @@ export function ChannelScreen({
     <ProfilePanel
       name={profileName}
       userId={profileUserId}
+      presence={profilePresence}
       startEditing={profileEditing}
       onClose={onCloseProfile}
       onMessage={() => actions.message(profileName)}
@@ -296,7 +307,7 @@ export function ChannelScreen({
     <SidePanel
       kind={panel}
       files={files}
-      members={members}
+      members={memberList}
       pinned={pinned}
       highlightFile={highlightFile}
       onClose={() => onPanel(null)}
@@ -306,7 +317,7 @@ export function ChannelScreen({
     />
   ) : null;
 
-  const dmProfile = isDm ? getProfile(dm.name) : null;
+  const dmProfile = useProfile(dm?.userId, dm?.name ?? "");
   const typing = typingNames ?? [];
 
   return (
@@ -334,7 +345,7 @@ export function ChannelScreen({
               </h1>
               <div style={styles.meta}>
                 <Icon name="users" size={13} />
-                {members.length}
+                {memberList.length}
                 {channel.topic ? (
                   <>
                     <span aria-hidden style={{ color: "var(--border-strong)" }}>·</span>
@@ -446,6 +457,7 @@ export function ChannelScreen({
                 ) : (
                   <MessageRow
                     m={m}
+                    authorPresence={presenceByName.get(m.author)}
                     actions={{
                       onReact: (emoji) => actions.react(m.id, emoji),
                       onOpenThread: () => actions.openThread(m.id),
@@ -459,6 +471,7 @@ export function ChannelScreen({
                       onOpenProfile: () => actions.openProfile(m.author),
                       onEditProfile: () => actions.editProfile(m.author),
                       onMessage: () => actions.message(m.author),
+                      onOpenMention: (name) => actions.openProfile(name),
                     }}
                   />
                 )}
